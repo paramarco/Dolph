@@ -1,0 +1,9 @@
+.spyder*
+*.pyc
+*.sublime*
+Logs/
+.idea/
+pair/
+build/
+docs/build/
+txmlconnector*.dll
