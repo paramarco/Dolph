@@ -1,8 +1,4 @@
 # Dolph
-
-
-A large collection of ASCII art drawings of dolphins and other related animal ASCII art pictures.
-
       _       _       _               
    __| | ___ | |_ __ | |__  
   / _` |/ _ \| | '_ \| '_ \
