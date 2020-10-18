@@ -22,9 +22,9 @@ class Dolph:
     def __init__(self, securities):
     
         # MODE := 'TRAIN_OFFLINE' | TEST_OFFLINE' | 'TEST_ONLINE' | 'OPERATIONAL'
-        self.MODE = 'TEST_ONLINE' 
+        self.MODE = 'TRAIN_OFFLINE' 
         self.numTestSample = 300
-        self.since = datetime.date(year=2018,month=8,day=6)
+        self.since = datetime.date(year=2014,month=8,day=6)
         self.between_time = ('09:00', '23:00')
 
         # self.periods = ['1Min','2Min','3Min']

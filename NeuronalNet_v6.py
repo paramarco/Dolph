@@ -301,7 +301,8 @@ class MLModel:
     def __init__(self, df, params, period):
         self.model = None
         self.period = period
-        self.fileName =  __name__ + "_" + self.period 
+        month = datetime.now().strftime('%h') 
+        self.fileName =  __name__ + "_" + self.period + "_" + month
         
         if ( os.path.isdir( self.fileName ) ):
             print ('pre-trainned model found! loading it ...')
@@ -337,9 +338,9 @@ class MLModel:
         df['CalcDateTime'] = df.index
         df['Date'] = df['CalcDateTime'].dt.strftime("%Y-%m-%d")
         
-        df_train = df[df.Date.isin(list(train_days))]
-        df_valid = df[df.Date.isin(list(valid_days))]
-        df_test = df[df.Date.isin(list(test_days))]
+        currentMonth = datetime.now().month
+        df_train = df[ df.index.month != currentMonth ]
+        df_valid = df[ df.index.month == currentMonth ]
         
         combined_training_set = []
         combined_valid_set = []
@@ -358,13 +359,8 @@ class MLModel:
             single_stock = single_stock[single_stock.HasTrade == 1.0] 
             single_stock = Featurizer().transform(single_stock)
             single_stock = NARemover(mnemonic).transform(single_stock)
-            combined_valid_set.append(single_stock)
+            combined_valid_set.append(single_stock)            
             
-            single_stock = df_test[df_test.Mnemonic == mnemonic].copy()
-            single_stock = single_stock[single_stock.HasTrade == 1.0] 
-            single_stock = Featurizer().transform(single_stock)
-            single_stock = NARemover(mnemonic).transform(single_stock)
-            combined_test_set.append(single_stock)
             
         combined_training_set_df = pd.concat(combined_training_set, axis=0)
         training_set = TrainingSetBuilder().transform(combined_training_set_df)
@@ -372,8 +368,6 @@ class MLModel:
         combined_valid_set_df = pd.concat(combined_valid_set, axis=0)
         valid_set = TrainingSetBuilder().transform(combined_valid_set_df) 
         
-        combined_test_set_df = pd.concat(combined_test_set, axis=0)
-        test_set = TrainingSetBuilder().transform(combined_test_set_df) 
         
         print('Trainning Machine....' )
         
@@ -391,9 +385,9 @@ class MLModel:
 
         model = Sequential()
 
-        model.add(Dense(100, activation='relu', input_shape =(train_X.shape[1],),
+        model.add(Dense(100, activation='tanh', input_shape =(train_X.shape[1],),
                         kernel_regularizer=regularizers.l2(0.001))) 
-        model.add(Dense(50, activation='relu', kernel_regularizer=regularizers.l2(0.001)))        
+        model.add(Dense(50, activation='tanh', kernel_regularizer=regularizers.l2(0.001)))        
 
         model.add(Dense(1))
         
@@ -402,7 +396,7 @@ class MLModel:
 
         # fit network
         # change the epochs back to 50?
-        history = model.fit(train_X, train_y, epochs=20, batch_size=2500, validation_data=(valid_X, valid_y), verbose=2, shuffle=True)
+        history = model.fit(train_X, train_y, epochs=50, batch_size=500, validation_data=(valid_X, valid_y), verbose=2, shuffle=True)
        
         # save network 
         model.save(self.fileName)
