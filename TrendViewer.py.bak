@@ -34,11 +34,7 @@ class TrendViewer:
         self.data_train = None
         self.listPredictions = []
         self.periods = periods
-        self.previousPrice =0
-        self.numTotalPrices = 0
-        self.numPositivePrices=0
-        self.numNegativePrices=0
-        self.previousPrediction=[]
+        
     def setDataTest(self, inputData):
         self.data_test = inputData
         

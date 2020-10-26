@@ -39,6 +39,8 @@ class Position:
         # stoploss := price you want to exit if your prediction was wrong        
         self.stoploss = stoploss
         self.stopOrderRequested = False
+        # to be assigned when position is being proccessed by Tradingplatform
+        self.buysell = None
 
     def __str__(self):
         msg = ' takePosition='+ self.takePosition 
@@ -195,19 +197,23 @@ class TradingPlatform:
 
             self.monitoredPositions = [ p for p in self.monitoredPositions if p.id != order.id ]            
             
-        elif s == 'watching':
+        elif s in ['watching','active','forwarding']:
             
             if not any( mo.id == order.id for mo in self.monitoredOrders):
-                self.monitoredOrders.append(order)                
+                self.monitoredOrders.append(order)
+                msg = 'order s% with status: %s added to monitoredOrders'
+                logging.info( msg, order.id, s )                
            
-        elif s == 'rejected':
+        elif s in ['rejected','expired','denied'] :
             
             self.monitoredOrders = [ o for o in self.monitoredOrders if o.id != order.id ]
+            msg = 'order s% with status: %s deleted from monitoredOrders'
+            logging.info( msg , order.id, s )
                     
         else :            
             others = """
-                "none","active","forwarding","inactive","wait","cancelled"
-                "denied","disabled","expired","failed","refused","removed"
+                "none","inactive","wait","cancelled","disabled","failed",
+                "refused","removed"
             """
             logging.debug( 'status: %s skipped, belongs to: %s', s, others )  
 
@@ -215,14 +221,19 @@ class TradingPlatform:
         
         s = stopOrder.status
         
-        if s == 'tp_guardtime':
+        if s in ['tp_guardtime','tp_forwarding'] :
             if not any(o.id == stopOrder.id for o in self.monitoredStopOrders):
                 self.monitoredStopOrders.append(stopOrder)
+                msg='stopOrder s% with status: %s added to monitoredStopOrders'
+                logging.info( msg, stopOrder.id, s )                
+
 
         elif s == 'tp_executed':
             self.monitoredStopOrders = [ 
-                o for o in self.monitoredStopOrders if  o.id != stopOrder.id
-            ] 
+                o for o in self.monitoredStopOrders if o.id != stopOrder.id
+            ]
+            msg='takeProfit s% with status: %s deleted from monitoredStopOrders'
+            logging.info( msg, stopOrder.id, s )
            
         else:            
             others = """
@@ -246,6 +257,8 @@ class TradingPlatform:
         else:
             logging.error( "takePosition must be either long or short")
             raise Exception( position.takePosition )
+        position.buysell = buysell
+        
         fmt = "%d.%m.%Y %H:%M:%S"
         moscowTimeZone = pytz.timezone('Europe/Moscow')                    
         moscowTime = datetime.datetime.now(moscowTimeZone)
@@ -256,6 +269,8 @@ class TradingPlatform:
         quantity = position.quantity
         bymarket = False
         price = round(position.entryPrice , position.decimals)
+        price = "{0:0.{prec}f}".format(price,prec=position.decimals)
+        #TODO price = 
         usecredit = False
         
         res = self.tc.new_order(

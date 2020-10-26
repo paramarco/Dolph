@@ -16,19 +16,20 @@ import NeuronalNet_v2 as nn_v2
 import NeuronalNet_v3 as nn_v3
 import NeuronalNet_v5 as nn_v5
 import NeuronalNet_v6 as nn_v6
-
+import NeuronalNet_v9 as nn_v9
 
 class Dolph:
     def __init__(self, securities):
     
         # MODE := 'TRAIN_OFFLINE' | TEST_OFFLINE' | 'TEST_ONLINE' | 'OPERATIONAL'
-        self.MODE = 'TRAIN_OFFLINE' 
-        self.numTestSample = 300
-        self.since = datetime.date(year=2014,month=8,day=6)
-        self.between_time = ('09:00', '23:00')
+        self.MODE = 'OPERATIONAL' 
+        self.tested = False
+        self.numTestSample = 600
+        self.since = datetime.date(year=2008,month=3,day=6)
+        self.between_time = ('09:00', '19:00')
 
         # self.periods = ['1Min','2Min','3Min']
-        self.periods = ['1Min']
+        self.periods = ['5Min']
 
         self.data = {}
         self.inputDataTest = {}
@@ -87,6 +88,10 @@ class Dolph:
             self.getData = self.ds.searchData
             self.getTrainingModel = nn_v6.MLModel
             self.showPrediction = self.plotter.displayPrediction_v6
+        elif (alg == 'NeuronalNet_v9' ):
+            self.getData = self.ds.searchData
+            self.getTrainingModel = nn_v9.MLModel
+            self.showPrediction = self.plotter.displayPrediction_v9
         else:
             raise RuntimeError('algorithm not found')
 
@@ -165,7 +170,7 @@ class Dolph:
                 _.inputDataTest[p] = _.inputDataTest[p].iloc[1:]
                 _.data[p] = _.data[p].append(row, ignore_index=False)              
             
-        elif ( _.MODE == 'TEST_ONLINE'):    
+        elif ( _.MODE == 'TEST_ONLINE' or _.MODE == 'OPERATIONAL'):    
             
             while True:
                 logging.info( 'requesting data to the Trading  Platform ...')
@@ -176,10 +181,8 @@ class Dolph:
                     break
                 
             for p in periods:
-                _.data[p] =  dfs[p]
-            
-        elif ( _.MODE == 'OPERATIONAL'):
-             pass
+                _.data[p] =  dfs[p]            
+        
         else:
             _.log.error('wrong running mode, check self.MODE')
 
@@ -224,7 +227,8 @@ class Dolph:
         security = self.target
         board = security['board']
         seccode = security['seccode']
-        decimals, marketId =    self.ds.getSecurityInfo (security)        
+        decimals, marketId =    self.ds.getSecurityInfo (security)
+        decimals = int(decimals)
         
         byMarket =              self.params['entryByMarket']
         longPositionMargin =    self.params['longPositionMargin']
@@ -239,13 +243,16 @@ class Dolph:
         lastPrediction = preds[-1].predictions[-1][-1]
                 
         #TODO the rules to choose the takePosition must be studied carefuly
-        takePosition = 'no-go'
-        if lastPrediction > 0.1:
-            takePosition = 'long'
-        elif  lastPrediction < 0.1:
-            takePosition = 'short'                
+        # takePosition = 'no-go'
+        # if lastPrediction > 0.1:
+        #     takePosition = 'long'
+        # elif  lastPrediction < 0.1:
+        #     takePosition = 'short'                
+        takePosition = 'long'
+        #TODO the rules to choose the takePosition must be studied carefuly
         
-        entryPrice = 0.0
+        # entryPrice = 0.0
+        entryPrice = lastPrice
         if not byMarket:
             entryPrice = lastPrice
        
@@ -278,18 +285,26 @@ class Dolph:
             logging.info( action + ' position, nothing to do')
             return
         
-        if self.MODE == 'OPERATIONAL':
+        if self.MODE == 'OPERATIONAL' and self.tested == False:
             logging.info('sending a "' + action +'" to Trading platform ...')
             self.tp.processPosition(position)
+            self.tested = True
+        
            
     
 if __name__== "__main__":
 
     securities = [] 
 
-    securities.append( {'board':'FUT', 'seccode':'GZZ0'} )     
-    securities.append( {'board':'FUT', 'seccode':'RIZ0'} )
-    securities.append( {'board':'FUT', 'seccode':'SRZ0'} ) 
+    securities.append( {'board':'FUT', 'seccode':'GZZ0'} )
+
+    # securities.append( {'board':'FUT', 'seccode':'SRZ0'} )
+    # # securities.append( {'board':'FUT', 'seccode':'GDZ0'} ) 
+    # securities.append( {'board':'FUT', 'seccode':'SiZ0'} )
+    # # securities.append( {'board':'FUT', 'seccode':'VBZ0'} )
+
+    # securities.append( {'board':'FUT', 'seccode':'EuZ0'} )
+    # securities.append( {'board':'FUT', 'seccode':'BRX0'} )
 
     dolph = Dolph( securities )
 
