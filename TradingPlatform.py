@@ -54,9 +54,12 @@ class Position:
         msg += ' quantity=' + str(self.quantity)
         msg += ' entryPrice=' + str(self.entryPrice)
         msg += ' exitPrice=' + str(self.exitPrice)
-        msg += ' decimals=' + str(self.decimals)
         msg += ' stoploss=' + str(self.stoploss)
+        msg += ' decimals=' + str(self.decimals)
         msg += ' bymarket=' + str(self.bymarket)
+        msg += ' entry_id=' + str(self.entry_id)
+        msg += ' exit_id=' + str(self.exit_id)
+        
 
         
         return msg
@@ -175,8 +178,7 @@ class TradingPlatform:
                 m ='already processed, deleting: {}'.format( repr(order))
                 logging.debug( m )
                 if order in self.monitoredOrders:
-                    self.monitoredOrders.remove(order)
-                # self.monitoredOrders = [ o for o in self.monitoredOrders if o.id != order.id ]
+                    self.monitoredOrders.remove(order)                
                                     
             elif monitoredPosition.stopOrderRequested == False :
                 
@@ -203,35 +205,26 @@ class TradingPlatform:
                 log.info(repr(res))
                 if res.success :
                     monitoredPosition.stopOrderRequested = True;
-
-                    # self.monitoredPositions =   [ p for p in self.monitoredPositions 
-                    #                                  if p.id != order.id ]
-                    monitoredPosition.exit_id = res.id
-                    
+                    monitoredPosition.exit_id = res.id                
                     if order in self.monitoredOrders:
                         self.monitoredOrders.remove(order)
-                    # self.monitoredOrders =      [ o for o in self.monitoredOrders 
-                    #                                  if o.id != order.id ]
-                    m = """stopOrder of order {} succesfully requested, 
-                    deleted from monitored Orders""".format( order.id)
+                    
+                    m="stopOrder of order {} succesfully requested".format(order.id)
+                    m+=", deleted from monitored Orders"""
                     logging.info( m )                
                 else:
                     monitoredPosition.stopOrderRequested = False
-                    logging.error( "takeprofit has not been processed by transaq")
+                    logging.error("takeprofit hasn't been processed by transaq")
             else:
-                # self.monitoredPositions =   [ p for p in self.monitoredPositions 
-                #                                  if p.id != order.id ]            
-                # self.monitoredOrders =      [ o for o in self.monitoredOrders 
-                #                                  if o.id != order.id ] 
+                
                 if order in self.monitoredOrders:
                     self.monitoredOrders.remove(order)
-                m = """stopOrder of order {} already requested before, 
-                    deleted from monitored Orders""".format( order.id)
+                m="stopOrder of order {} already requested before, ".format(order.id)
+                m+="deleted from monitored Orders"
                 logging.info( m )                
             
         elif s in ['watching','active','forwarding']:
             
-            # if not any( mo.id == order.id for mo in self.monitoredOrders):
             if order not in self.monitoredOrders:
                 self.monitoredOrders.append(order)
                 m = 'order {} with status: {} added to monitoredOrders'.format( order.id, s)
@@ -239,17 +232,14 @@ class TradingPlatform:
            
         elif s in ['rejected','expired','denied','cancelled'] :
             
-            # self.monitoredOrders = [ o for o in self.monitoredOrders if o.id != order.id ]
             if order in self.monitoredOrders:
                 self.monitoredOrders.remove(order)
             m = 'order {} with status: {} deleted from monitoredOrders'.format( order.id, s)
             logging.info( m )
                     
         else :            
-            others = """
-                "none","inactive","wait","disabled","failed",
-                "refused","removed"
-            """
+            others = '"none","inactive","wait","disabled","failed","refused"'
+            others += ',"removed" '
             m = 'status: {} , belongs to: {}'.format( s, others)
             logging.debug( m )
             
@@ -263,11 +253,11 @@ class TradingPlatform:
         
         if s in ['tp_guardtime','tp_forwarding','watching',
                  "sl_forwarding","sl_guardtime"] :
-            # if not any(o.id == stopOrder.id for o in self.monitoredStopOrders):
+            
             if stopOrder not in self.monitoredStopOrders:
                 self.monitoredStopOrders.append(stopOrder)
-                m = 'stopOrder {} with status: {} added to monitoredStopOrders'.format(
-                    stopOrder.id, s)
+                m = 'stopOrder {} with status: {} added to monitoredStopOrders'
+                m = m.format( stopOrder.id, s)
                 logging.info( m )                
 
 
@@ -275,20 +265,17 @@ class TradingPlatform:
                    'expired','failed','rejected']:
             if stopOrder in self.monitoredStopOrders:
                 self.monitoredStopOrders.remove(stopOrder)
-            # self.monitoredStopOrders = [ 
-            #     o for o in self.monitoredStopOrders if o.id != stopOrder.id
-            # ]
-                m = 'takeProfit {} with status: {} deleted from monitoredStopOrders'.format(
-                    stopOrder.id, s )
+            
+                m='takeProfit {} with status: {} deleted from monitoredStopOrders'
+                m = m.format( stopOrder.id, s )
                 logging.info( m )
                 self.monitoredPositions = [ p for p in self.monitoredPositions 
                                              if p.exit_id != stopOrder.id ] 
            
         else:            
-            others = """
-                "linkwait",,"tp_correction","tp_correction_guardtime"
-            """
-            logging.debug( 'status: %s skipped, belongs to: %s', s, others )
+            others = '"linkwait","tp_correction","tp_correction_guardtime"'
+            m = 'status: {} skipped, belongs to: {}'.format( s, others)
+            logging.debug( m )
         
         self.reportCurrentOpenPositions()
             
