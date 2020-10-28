@@ -15,7 +15,6 @@ import ctypes
 import platform, os, sys
 import lxml.etree as et
 import lib.transaq_connector.structures as ts
-import copy
 
 log = logging.getLogger("TransaqConnector")
 
@@ -227,6 +226,49 @@ class TransaqConnector:
             root.append(et.Element("usecredit"))
             
         return self.__send_command(et.tostring(root, encoding="utf-8"))
+    
+    def new_stoporder(self, board, ticker, client, buysell, quantity, 
+                      trigger_price_sl, trigger_price_tp, correction=0, 
+                      bymarket=True, usecredit=True, linked_order=None, 
+                      valid_for=None):
+        
+        root = et.Element("command", {"id": "newstoporder"})
+        sec = et.Element("security")
+        sec.append(self.__elem("board", board))
+        sec.append(self.__elem("seccode", ticker))
+        root.append(sec)
+        root.append(self.__elem("client", client))
+        root.append(self.__elem("buysell", buysell.upper()))
+        if linked_order:
+            root.append(self.__elem("linkedorderno", str(linked_order)))
+        if valid_for:
+            root.append(self.__elem("validfor", valid_for.strftime(timeformat)))
+    
+        sl = et.Element("stoploss")
+        sl.append(self.__elem("quantity", str(quantity)))
+        sl.append(self.__elem("activationprice", str(trigger_price_sl)))
+        if not bymarket:
+            sl.append(self.__elem("orderprice", str(trigger_price_sl)))
+        else:
+            sl.append(et.Element("bymarket"))
+        if usecredit:
+            sl.append(et.Element("usecredit")) 
+        sl.append(self.__elem("brokerref","Dolph_sl"))   
+        root.append(sl)
+        
+        tp = et.Element("takeprofit")
+        tp.append(self.__elem("quantity", str(quantity)))
+        tp.append(self.__elem("activationprice", str(trigger_price_tp)))
+        # tp.append(et.Element("bymarket"))
+        if usecredit:
+            tp.append(et.Element("usecredit"))
+        tp.append(self.__elem("brokerref","Dolph_tp"))
+        if correction:
+            tp.append(self.__elem("correction", str(correction)))
+        root.append(tp)
+        
+        return self.__send_command(et.tostring(root, encoding="utf-8"))
+
     
     
     def new_stoploss(self, board, ticker, client, buysell, quantity, trigger_price, price=0,

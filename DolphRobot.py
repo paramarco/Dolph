@@ -25,7 +25,7 @@ class Dolph:
         self.MODE = 'OPERATIONAL' 
         self.numTestSample = 600
         self.since = datetime.date(year=2008,month=3,day=6)
-        self.between_time = ('09:00', '23:00')
+        self.between_time = ('07:30', '23:00')
 
         # self.periods = ['1Min','2Min','3Min']
         self.periods = ['5Min']
@@ -243,9 +243,9 @@ class Dolph:
                 
         #TODO the rules to choose the takePosition must be studied carefuly
         takePosition = 'no-go'
-        if lastPrediction > 0.0:
+        if lastPrediction > 0.00:
             takePosition = 'long'
-        elif  lastPrediction < 0.0:
+        elif  lastPrediction < 0.00:
             takePosition = 'short'                
         # takePosition = 'long'
         #TODO the rules to choose the takePosition must be studied carefuly
@@ -311,6 +311,7 @@ if __name__== "__main__":
 
         dolph.dataAcquisition()
         dolph.predict()
-        dolph.displayPredictions()        
-        dolph.takePosition( dolph.evaluatePosition() )  
- 
+        dolph.displayPredictions()
+        dolph.takePosition( dolph.evaluatePosition() )          
+
+        

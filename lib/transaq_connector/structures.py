@@ -566,7 +566,7 @@ class BaseOrder(Entity):
     
     def __repr__(self):
         text = ' id={}, order_no={}, seccode={}, price={}, status={}, buysell={} '
-        text += 'quantity={}, time={}, valid_before={}'
+        text += 'quantity={}, time={}'
         text = text.format(self.id,
                            self.order_no,
                            self.seccode,
@@ -574,8 +574,7 @@ class BaseOrder(Entity):
                            self.status,
                            self.buysell,
                            self.quantity,
-                           self.time,
-                           self.valid_before)
+                           self.time)
         return text
     
     def __eq__(self, other):
@@ -639,6 +638,11 @@ class StopLoss(StopOrder):
     quantity = IntegerField('stoploss/quantity')
     # Цена исполнения (отменяет bymarket)
     price = FloatField('stoploss/orderprice')
+    
+    def __repr__(self):
+        text = ', activation_price={}'
+        text = super().__repr__() + text.format(self.activation_price) 
+        return text
 
 
 class TakeProfit(StopOrder):
