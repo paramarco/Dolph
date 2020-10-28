@@ -274,7 +274,7 @@ class TransaqConnector:
         tp = et.Element("takeprofit")
         tp.append(self.__elem("quantity", str(quantity)))
         tp.append(self.__elem("activationprice", str(trigger_price)))
-        tp.append(et.Element("bymarket"))
+        # tp.append(et.Element("bymarket"))
         if use_credit:
             tp.append(et.Element("usecredit"))
         if correction:

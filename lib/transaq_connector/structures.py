@@ -563,7 +563,23 @@ class BaseOrder(Entity):
     withdraw_time.mapper = NullableDateTimeMapper(timeformat)
     # Сообщение биржи в случае отказа выставить заявку
     result = StringField('result')
-
+    
+    def __repr__(self):
+        text = ' id={}, order_no={}, seccode={}, price={}, status={}, buysell={} '
+        text += 'quantity={}, time={}, valid_before={}'
+        text = text.format(self.id,
+                           self.order_no,
+                           self.seccode,
+                           self.price,
+                           self.status,
+                           self.buysell,
+                           self.quantity,
+                           self.time,
+                           self.valid_before)
+        return text
+    
+    def __eq__(self, other):
+        return self.id == other.id
 
 class Order(BaseOrder):
     ROOT_NAME = 'order'
@@ -646,6 +662,11 @@ class TakeProfit(StopOrder):
     broker_ref = StringField('takeprofit/brokerref')
     # Количество лотов
     quantity = IntegerField('takeprofit/quantity')
+    
+    def __repr__(self):
+        text = ', activation_price={}'
+        text = super().__repr__() + text.format(self.activation_price) 
+        return text
 
 
 class ClientOrderPacket(Packet):
