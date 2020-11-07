@@ -7,6 +7,9 @@ Created on Wed Jul 22 10:59:41 2020
 
 import logging
 import matplotlib.pyplot as plt
+import matplotlib as mpl
+mpl.rcParams['figure.figsize'] = (15, 10) # use bigger graphs
+
 import matplotlib.patches as mpatches
 import matplotlib.dates as mdates
 from mplfinance.original_flavor import candlestick_ohlc
@@ -16,6 +19,7 @@ import gc; gc.collect()
 import math
 import time 
 import numbers
+import datetime
 # import NeuronalNet_v6 as nn_v6
 
 
@@ -546,47 +550,59 @@ class TrendViewer:
         
     def displayPrediction_v10 (self, predictions, period):
         
-        single_feature = 'x((MaxP-EndP)-(EndP-MinP))(t - 1)'
-        # df_in = pd.DataFrame(columns=['predictions',
-        #                               'time',
-        #                               'Mnemonic',
-        #                               'EndPrice',
-        #                               'single_feature_pred',
-        #                               'period' ])
+        df_in = pd.DataFrame(columns=['predictions',
+                                      'time',
+                                      'Mnemonic',
+                                      'EndPrice' ])
         
-        # for p in predictions:
-        #     row = pd.DataFrame({
-        #         'predictions':          p.predictions[:,0],
-        #         'time':                 p.training_set.original_df['CalcDateTime'],
-        #         'Mnemonic':             p.training_set.original_df['Mnemonic'],
-        #         'StartPrice':           p.training_set.original_df['StartPrice'],
-        #         'EndPrice':             p.training_set.original_df['EndPrice'],
-        #         'MinPrice':             p.training_set.original_df['MinPrice'],
-        #         'MaxPrice':             p.training_set.original_df['MaxPrice'],                
-        #         'single_feature_pred':  p.training_set.original_df[single_feature].values,
-        #         'period':               period
-        #         }
-        #     )
-        #     df_in = df_in.append(row)
-        # df_in['timeDate'] = df_in['time']  
-        # df_in = df_in.set_index('time')
+        for p in predictions:
+            row = pd.DataFrame({
+                'time':                 p.training_set.original_df['CalcDateTime'],
+                'Mnemonic':             p.training_set.original_df['Mnemonic'],
+                'StartPrice':           p.training_set.original_df['StartPrice'],
+                'EndPrice':             p.training_set.original_df['EndPrice'],
+                'MinPrice':             p.training_set.original_df['MinPrice'],
+                'MaxPrice':             p.training_set.original_df['MaxPrice'] ,
+                'open_t+1':             p.predictions[0][0],
+                'high_t+1':             p.predictions[0][1],
+                'low_t+1':              p.predictions[0][2],
+                'close_t+1':            p.predictions[0][3],
+                'open_t+2':             p.predictions[0][4],
+                'high_t+2':             p.predictions[0][5],
+                'low_t+2':              p.predictions[0][6],
+                'close_t+2':            p.predictions[0][7],
+                'open_t+3':             p.predictions[0][8],
+                'high_t+3':             p.predictions[0][9],
+                'low_t+3':              p.predictions[0][10],
+                'close_t+3':            p.predictions[0][11],
+                'open_t+4':             p.predictions[0][12],
+                'high_t+4':             p.predictions[0][13],
+                'low_t+4':              p.predictions[0][14],
+                'close_t+4':            p.predictions[0][15]
+                }
+            )
+            df_in = df_in.append(row)
+        df_in['timeDate'] = df_in['time']  
+        df_in = df_in.set_index('time')
         
-        # time.sleep(0.3)
-        # numWindowSize = 10    
+        time.sleep(0.3)
+        numWindowSize = 13    
             
-        # # numWindowSize = int(numWindowSize / int(period[0]) )
+        # numWindowSize = int(numWindowSize / int(period[0]) )
                             
-        # df = df_in[df_in.period == period]
+        df = df_in
         
-        # times = sorted(list(df.index.unique()))
-        # times = times[-numWindowSize:]
-        # prices = [] 
-        # for t in times:
-        #     high =  df.loc[t].MaxPrice
-        #     if isinstance(high,  float):
-        #         prices.append(high)
-        #     else:
-        #         prices.append(high[0])
+        times = sorted(list(df.index.unique()))
+        times = times[-numWindowSize:]
+        prices = [] 
+        lastTime = None
+        for t in times:
+            high =  df.loc[t].MaxPrice
+            if isinstance(high,  float):
+                prices.append(high)
+            else:
+                prices.append(high[0])
+            lastTime = t
         
   
         # def setLabel(sign):
@@ -619,9 +635,9 @@ class TrendViewer:
         #         print('numTotal:' + str(self.numTotalPrices))
         #         print('numPositiv:' + str(self.numPositivePrices))
         # else:
-        #      self.numTotalPrices=1
-        #      self.previousPrice = currentPrice
-        #      self.previousPrediction = prediction_sign #sign of prediction -1 or +1
+        #       self.numTotalPrices=1
+        #       self.previousPrice = currentPrice
+        #       self.previousPrediction = prediction_sign #sign of prediction -1 or +1
 
 
         # for t,price in zip(times,prices):            
@@ -642,19 +658,47 @@ class TrendViewer:
         #         size=20
         #     )
         
-        # etiquete= 'close price, prediction for:' + period
-        # plt.title(label = etiquete )
+        etiquete= 'close price, prediction for:' + period
+        plt.title(label = etiquete )
         
-        # ohlc = df[['timeDate','StartPrice','MaxPrice','MinPrice','EndPrice'] ]
-        # ohlc = ohlc[-numWindowSize:]
-        # ohlc.columns = ['Date', 'Open', 'High', 'Low', 'Close'] 
-        # ohlc['Date'] = pd.to_datetime(ohlc['Date'])
-        # ohlc['Date'] = ohlc['Date'].apply(mdates.date2num)
-        # ohlc = ohlc.astype(float)        
-        # candlestick_ohlc(plt.gca(), ohlc.values, width=0.6/(10*60), colorup='green', colordown='red', alpha=0.9)
+        ohlc = df[['timeDate','StartPrice','MaxPrice','MinPrice','EndPrice'] ]
+        ohlc = ohlc[-numWindowSize:]
+        ohlc.columns = ['Date', 'Open', 'High', 'Low', 'Close'] 
+        ohlc['Date'] = pd.to_datetime(ohlc['Date'])
+        ohlc['Date'] = ohlc['Date'].apply(mdates.date2num)
+        ohlc = ohlc.astype(float)        
+        candlestick_ohlc(plt.gca(), ohlc.values, width=0.6/(24*60), colorup='green', colordown='red', alpha=0.9)
         
-        # plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%M'))
-        # xlocator = mdates.MinuteLocator(byminute=range(60))
-        # plt.gca().xaxis.set_major_locator(xlocator)  
-        # plt.show() 
+        t1 = lastTime + datetime.timedelta(minutes = 1)
+        t2 = lastTime + datetime.timedelta(minutes = 2)
+        t3 = lastTime + datetime.timedelta(minutes = 3)
+        t4 = lastTime + datetime.timedelta(minutes = 4)
+
+        p = df.loc[lastTime]
+        data = [
+            {'Date': t1, 'Open': p['open_t+1'], 'High':p['high_t+1'], 'Low':p['low_t+1'], 'Close': p['close_t+1']},
+            {'Date': t2, 'Open': p['open_t+2'], 'High':p['high_t+2'], 'Low':p['low_t+2'], 'Close': p['close_t+2']},
+            {'Date': t3, 'Open': p['open_t+3'], 'High':p['high_t+3'], 'Low':p['low_t+3'], 'Close': p['close_t+3']},
+            {'Date': t4, 'Open': p['open_t+4'], 'High':p['high_t+4'], 'Low':p['low_t+4'], 'Close': p['close_t+4']}
+        ]   
+        
+        # data = [
+        #     {'Date': t1, 'Open': 15700, 'High':15730, 'Low':15700, 'Close': 15730},
+        #     {'Date': t2, 'Open': 15700, 'High':15730, 'Low':15700, 'Close': 15730},
+        #     {'Date': t3, 'Open': 15700, 'High':15730, 'Low':15700, 'Close': 15730},
+        #     {'Date': t4, 'Open': 15700, 'High':15730, 'Low':15700, 'Close': 15730}
+        # ]  
+        
+        
+        ohlc2 = pd.DataFrame(data)  
+        ohlc2['Date'] = pd.to_datetime(ohlc2['Date'])
+        ohlc2['Date'] = ohlc2['Date'].apply(mdates.date2num)
+        ohlc2 = ohlc2.astype(float)
+        candlestick_ohlc(plt.gca(), ohlc2.values, width=0.6/(24*60), colorup='green', colordown='red', alpha=0.2)
+
+                
+        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%M'))
+        xlocator = mdates.MinuteLocator(byminute=range(60))
+        plt.gca().xaxis.set_major_locator(xlocator)  
+        plt.show() 
 
