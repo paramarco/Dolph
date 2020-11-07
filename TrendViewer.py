@@ -40,6 +40,8 @@ class TrendViewer:
         self.numPositivePrices=0
         self.numNegativePrices=0
         self.previousPrediction=[]
+        self.totalcounter= 0
+        self.df_four=[]
     def setDataTest(self, inputData):
         self.data_test = inputData
         
@@ -536,12 +538,33 @@ class TrendViewer:
         ohlc['Date'] = pd.to_datetime(ohlc['Date'])
         ohlc['Date'] = ohlc['Date'].apply(mdates.date2num)
         ohlc = ohlc.astype(float)        
-        candlestick_ohlc(plt.gca(), ohlc.values, width=0.6/(10*60), colorup='green', colordown='red', alpha=0.9)
+        candlestick_ohlc(plt.gca(), ohlc.values, width=0.0001, colorup='green', colordown='red', alpha=0.9)
         
         plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%M'))
         xlocator = mdates.MinuteLocator(byminute=range(60))
         plt.gca().xaxis.set_major_locator(xlocator)  
         plt.show() 
+        def evaluatePositionTest (self):
+            dataFrameFourCandles=self.df_four[4]
+            numOfInputCandles=4
+            movAvOpen=sum(dataFrameFourCandles.loc[1:4, 'StartPrice'])/numOfInputCandles
+            movAvHigh=sum(dataFrameFourCandles.loc[1:4,'MaxPrice'])/numOfInputCandles
+            movAvLow=sum(dataFrameFourCandles.loc[1:4,'MinPrice'])/numOfInputCandles
+            movAvClose=sum(dataFrameFourCandles.loc[1:4,'EndPrice'])/numOfInputCandles
+            print('openav:' + str(movAvOpen))
+            print('closeav:' + str(movAvClose))
+            print('higheav:' + str(movAvHigh))
+            print('loweav:' + str(movAvLow))
+        self.totalcounter+=1
+        if (self.totalcounter<6):
+            row=df[['timeDate','StartPrice','MaxPrice','MinPrice','EndPrice'] ]
+            self.df_four.append(row)
+            self.totalcounter
+            if (self.totalcounter==5):
+                evaluatePositionTest(self)
+                
+
+        
         
         
     def displayPrediction_v10 (self, predictions, period):
