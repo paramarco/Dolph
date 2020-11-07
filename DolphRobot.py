@@ -22,11 +22,13 @@ class Dolph:
     def __init__(self, securities):
     
         # MODE := 'TRAIN_OFFLINE' | TEST_OFFLINE' | 'TEST_ONLINE' | 'OPERATIONAL'
+
         self.MODE = 'TEST_OFFLINE' 
         self.tested = False
         self.numTestSample = 600
         self.since = datetime.date(year=2015,month=3,day=6)
         self.between_time = ('09:00', '18:45')
+
 
         # self.periods = ['1Min','2Min','3Min']
         self.periods = ['5Min']
@@ -243,12 +245,12 @@ class Dolph:
         lastPrediction = preds[-1].predictions[-1][-1]
                 
         #TODO the rules to choose the takePosition must be studied carefuly
-        # takePosition = 'no-go'
-        # if lastPrediction > 0.1:
-        #     takePosition = 'long'
-        # elif  lastPrediction < 0.1:
-        #     takePosition = 'short'                
-        takePosition = 'long'
+        takePosition = 'no-go'
+        if lastPrediction > 0.00:
+            takePosition = 'long'
+        elif  lastPrediction < 0.00:
+            takePosition = 'short'                
+        # takePosition = 'long'
         #TODO the rules to choose the takePosition must be studied carefuly
         
         # entryPrice = 0.0
@@ -285,10 +287,10 @@ class Dolph:
             logging.info( action + ' position, nothing to do')
             return
         
-        if self.MODE == 'OPERATIONAL' and self.tested == False:
+        if self.MODE == 'OPERATIONAL' :
             logging.info('sending a "' + action +'" to Trading platform ...')
             self.tp.processPosition(position)
-            self.tested = True
+            
         
            
     
@@ -312,6 +314,7 @@ if __name__== "__main__":
 
         dolph.dataAcquisition()
         dolph.predict()
-        dolph.displayPredictions()        
-        dolph.takePosition( dolph.evaluatePosition() )  
- 
+        dolph.displayPredictions()
+        dolph.takePosition( dolph.evaluatePosition() )          
+
+        

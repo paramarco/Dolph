@@ -21,7 +21,9 @@ class Position:
         
         # id:= transactionid of the first order, "your entry" of the Position
         # will be assigned once upon successful entry of the Position
-        self.id = None
+        self.entry_id = None
+        # will be assigned once upon successful entry of the Position
+        self.exit_id = None
         # takePosition:= long | short | no-go
         self.takePosition = takePosition
         self.board = board
@@ -41,6 +43,7 @@ class Position:
         self.stopOrderRequested = False
         # to be assigned when position is being proccessed by Tradingplatform
         self.buysell = None
+        self.bymarket = bymarket
 
     def __str__(self):
         msg = ' takePosition='+ self.takePosition 
@@ -51,8 +54,12 @@ class Position:
         msg += ' quantity=' + str(self.quantity)
         msg += ' entryPrice=' + str(self.entryPrice)
         msg += ' exitPrice=' + str(self.exitPrice)
-        msg += ' decimals=' + str(self.decimals)
         msg += ' stoploss=' + str(self.stoploss)
+        msg += ' decimals=' + str(self.decimals)
+        msg += ' bymarket=' + str(self.bymarket)
+        msg += ' entry_id=' + str(self.entry_id)
+        msg += ' exit_id=' + str(self.exit_id)
+        
 
         
         return msg
@@ -69,6 +76,7 @@ class TradingPlatform:
         self.monitoredPositions = []
         self.monitoredOrders = []
         self.monitoredStopOrders = []
+        self.numMaxOpenPositions = 1
         
         self.tc = tc.TransaqConnector()
         self.tc.connected = False        
@@ -123,6 +131,8 @@ class TradingPlatform:
         self.tc.connected = True
         log.info('requesting last 300 entries of the securities ...')
         self.HistoryCandleReq( self.securities, 1, 300)
+        self.cancellAllOrders()
+        self.cancellAllStopOrders()
         
     def get_history(self, board, seccode, period, count, reset=True):
         if self.tc.connected == True:
@@ -154,105 +164,180 @@ class TradingPlatform:
         
     def processOrderStatus(self, order):
         
+        logging.debug( repr(order) )
+        
         s = order.status
         monitoredPosition = None
 
         if s == 'matched':
             
             for m in self.monitoredPositions:
-                if m.id == order.id: monitoredPosition = m; break;
+                if m.entry_id == order.id: monitoredPosition = m; break;
                      
             if monitoredPosition is None :
-                logging.debug( 'already processed: %s', str(monitoredPosition))
-                return
+                m ='already processed, deleting: {}'.format( repr(order))
+                logging.debug( m )
+                if order in self.monitoredOrders:
+                    self.monitoredOrders.remove(order)                
+                                    
+            elif monitoredPosition.stopOrderRequested == False :
+                
+                board = order.board;    seccode = order.seccode;
+                client = order.client;  buysell = ""
+                if      monitoredPosition.buysell == "B":   buysell = "S";
+                elif    monitoredPosition.buysell == "S":   buysell = "B";
+                else:   raise Exception("what? " + monitoredPosition.buysell);
+                quantity = monitoredPosition.quantity                
+                trigger_price_tp = "{0:0.{prec}f}".format(
+                    round(monitoredPosition.exitPrice, monitoredPosition.decimals),
+                    prec = monitoredPosition.decimals
+                )
+                trigger_price_sl = "{0:0.{prec}f}".format(
+                    round(monitoredPosition.stoploss, monitoredPosition.decimals),
+                    prec = monitoredPosition.decimals
+                ) 
+                correction = 0;    bymarket = monitoredPosition.bymarket; 
+                usecredit = False;    
+                res = self.tc.new_stoporder(
+                    board, seccode, client, buysell, quantity, trigger_price_sl,
+                    trigger_price_tp, correction, bymarket, usecredit 
+                )    
+                log.info(repr(res))
+                if res.success :
+                    monitoredPosition.stopOrderRequested = True;
+                    monitoredPosition.exit_id = res.id                
+                    if order in self.monitoredOrders:
+                        self.monitoredOrders.remove(order)
                     
-            if monitoredPosition.stopOrderRequested == False :
-                
-                monitoredPosition.stopOrderRequested = True 
-                board = order.board
-                seccode = order.seccode
-                client = order.client
-                buysell = ""
-                if  monitoredPosition.buysell == "B":
-                    buysell = "S"
-                elif monitoredPosition.buysell == "S":
-                    buysell = "B"
+                    m="stopOrder of order {} succesfully requested".format(order.id)
+                    m+=", deleted from monitored Orders"""
+                    logging.info( m )                
                 else:
-                    raise Exception("what? " + monitoredPosition.buysell)
-                quantity = monitoredPosition.quantity
-                trigger_price = monitoredPosition.exitPrice
-                correction = 0
-                use_credit = False
+                    monitoredPosition.stopOrderRequested = False
+                    logging.error("takeprofit hasn't been processed by transaq")
+            else:
                 
-                self.tc.new_takeprofit(
-                    board, 
-                    seccode, 
-                    client, 
-                    buysell, 
-                    quantity, 
-                    trigger_price,
-                    correction,
-                    use_credit
-                )   
-
-            self.monitoredPositions = [ p for p in self.monitoredPositions if p.id != order.id ]            
+                if order in self.monitoredOrders:
+                    self.monitoredOrders.remove(order)
+                m="stopOrder of order {} already requested before, ".format(order.id)
+                m+="deleted from monitored Orders"
+                logging.info( m )                
             
         elif s in ['watching','active','forwarding']:
             
-            if not any( mo.id == order.id for mo in self.monitoredOrders):
+            if order not in self.monitoredOrders:
                 self.monitoredOrders.append(order)
-                msg = 'order s% with status: %s added to monitoredOrders'
-                logging.info( msg, order.id, s )                
+                m = 'order {} with status: {} added to monitoredOrders'.format( order.id, s)
+                logging.info( m )                
            
-        elif s in ['rejected','expired','denied'] :
+        elif s in ['rejected','expired','denied','cancelled'] :
             
-            self.monitoredOrders = [ o for o in self.monitoredOrders if o.id != order.id ]
-            msg = 'order s% with status: %s deleted from monitoredOrders'
-            logging.info( msg , order.id, s )
+            if order in self.monitoredOrders:
+                self.monitoredOrders.remove(order)
+            m = 'order {} with status: {} deleted from monitoredOrders'.format( order.id, s)
+            logging.info( m )
                     
         else :            
-            others = """
-                "none","inactive","wait","cancelled","disabled","failed",
-                "refused","removed"
-            """
-            logging.debug( 'status: %s skipped, belongs to: %s', s, others )  
+            others = '"none","inactive","wait","disabled","failed","refused"'
+            others += ',"removed" '
+            m = 'status: {} , belongs to: {}'.format( s, others)
+            logging.debug( m )
+            
+        self.reportCurrentOpenPositions()
 
     def processStopOrderStatus(self, stopOrder):
         
+        logging.debug( repr(stopOrder) )
+        
         s = stopOrder.status
         
-        if s in ['tp_guardtime','tp_forwarding'] :
-            if not any(o.id == stopOrder.id for o in self.monitoredStopOrders):
+        if s in ['tp_guardtime','tp_forwarding','watching',
+                 "sl_forwarding","sl_guardtime"] :
+            
+            if stopOrder not in self.monitoredStopOrders:
                 self.monitoredStopOrders.append(stopOrder)
-                msg='stopOrder s% with status: %s added to monitoredStopOrders'
-                logging.info( msg, stopOrder.id, s )                
+                m = 'stopOrder {} with status: {} added to monitoredStopOrders'
+                m = m.format( stopOrder.id, s)
+                logging.info( m )                
 
 
-        elif s == 'tp_executed':
-            self.monitoredStopOrders = [ 
-                o for o in self.monitoredStopOrders if o.id != stopOrder.id
-            ]
-            msg='takeProfit s% with status: %s deleted from monitoredStopOrders'
-            logging.info( msg, stopOrder.id, s )
+        elif s in ['tp_executed','sl_executed','cancelled','denied','disabled',
+                   'expired','failed','rejected']:
+            if stopOrder in self.monitoredStopOrders:
+                self.monitoredStopOrders.remove(stopOrder)
+            
+                m='takeProfit {} with status: {} deleted from monitoredStopOrders'
+                m = m.format( stopOrder.id, s )
+                logging.info( m )
+                self.monitoredPositions = [ p for p in self.monitoredPositions 
+                                             if p.exit_id != stopOrder.id ] 
            
         else:            
-            others = """
-                "linkwait","sl_forwarding","sl_guardtime","tp_correction",
-                "tp_correction_guardtime","watching","tp_forwarding","cancelled"
-                "denied","disabled","expired","failed","rejected","sl_executed"
-            """
-            logging.debug( 'status: %s skipped, belongs to: %s', s, others )  
+            others = '"linkwait","tp_correction","tp_correction_guardtime"'
+            m = 'status: {} skipped, belongs to: {}'.format( s, others)
+            logging.debug( m )
+        
+        self.reportCurrentOpenPositions()
+            
+    def reportCurrentOpenPositions(self):
+        
+        numMonPosition = len(self.monitoredPositions)
+        numMonOrder = len(self.monitoredOrders)
+        numMonStopOrder = len(self.monitoredStopOrders)
+        
+        msg = "\n"
+        msg += 'monitored Positions: '+str(numMonPosition)+'\n'
+        for mp in self.monitoredPositions:
+            msg += str(mp) + '\n'
+            
+        msg += 'monitored Orders   (entries): '+str(numMonOrder)+'\n'
+        for mo in self.monitoredOrders:
+            msg += repr(mo) + '\n'
+            
+        msg += 'monitored StopOrders (exits): '+str(numMonStopOrder)+'\n'
+        for mso in self.monitoredStopOrders:
+            msg +=  repr(mso) + '\n'
+        
+        logging.info( msg )
+        
+        # total = numMonPosition + numMonOrder + numMonStopOrder     
+        # total = numMonPosition 
+
+        total = numMonOrder + numMonStopOrder        
+
+        return total
 
     def processPosition ( self, position):
         
+        if self.tc.connected == False:
+            log.warning('wait!, not connected to TRANSAQ yet...')
+            return
+        
+        numCurrentOpenPosition = self.reportCurrentOpenPositions()
+        
+        if numCurrentOpenPosition >= self.numMaxOpenPositions:
+            msg='limit of open positions exceed: {} of {}'.format(
+                numCurrentOpenPosition, self.numMaxOpenPositions 
+            )            
+            logging.info( msg )
+            return
+        
+
         board = position.board
         seccode = position.seccode
         client = self.getClientIdByMarket(position.marketId)
         union =  self.getUnionIdByMarket(position.marketId)        
         buysell = ""
+        
         if (position.takePosition == "long"):
+            if any( mso.buysell != 'S' for mso in self.monitoredStopOrders):
+                logging.error( "there is a Position still open for short")
+                return            
             buysell = "B"
         elif (position.takePosition  == "short"):
+            if any( mso.buysell != 'B' for mso in self.monitoredStopOrders):
+                logging.error( "there is a Position still open for long")
+                return  
             buysell = "S"
         else:
             logging.error( "takePosition must be either long or short")
@@ -267,10 +352,10 @@ class TradingPlatform:
         expdate = moscowTime_plusNsec.strftime(fmt) 
         brokerref = union
         quantity = position.quantity
-        bymarket = False
+        bymarket = position.bymarket 
         price = round(position.entryPrice , position.decimals)
         price = "{0:0.{prec}f}".format(price,prec=position.decimals)
-        #TODO price = 
+        
         usecredit = False
         
         res = self.tc.new_order(
@@ -279,9 +364,30 @@ class TradingPlatform:
         )
         log.debug(repr(res))
         if res.success == True:
-            position.id = res.id
+            position.entry_id = res.id
             self.monitoredPositions.append(position)
         else:
             logging.error( "position has not been processed by transaq")
+        
+        self.reportCurrentOpenPositions()
+        
+    def cancellAllStopOrders(self):
+        if self.tc.connected == True:
+            for mso in self.monitoredStopOrders:
+                res = self.tc.cancel_takeprofit(mso.id)
+                log.debug(repr(res))
+            log.debug('finished!')
+        else:
+            log.warning('wait!, not connected to TRANSAQ yet...')  
+
+    def cancellAllOrders(self):
+        if self.tc.connected == True:
+            for mo in self.monitoredOrders:
+                res = self.tc.cancel_order(mo.id)
+                log.debug(repr(res))
+            log.debug('finished!')
+        else:
+            log.warning('wait!, not connected to TRANSAQ yet...')  
+        
                     
             
