@@ -17,18 +17,20 @@ import NeuronalNet_v3 as nn_v3
 import NeuronalNet_v5 as nn_v5
 import NeuronalNet_v6 as nn_v6
 import NeuronalNet_v9 as nn_v9
+import NeuronalNet_v10 as nn_v10
+
 
 class Dolph:
     def __init__(self, securities):
     
         # MODE := 'TRAIN_OFFLINE' | TEST_OFFLINE' | 'TEST_ONLINE' | 'OPERATIONAL'
-        self.MODE = 'OPERATIONAL' 
-        self.numTestSample = 600
-        self.since = datetime.date(year=2008,month=3,day=6)
+        self.MODE = 'TRAIN_OFFLINE' 
+        self.numTestSample = 300
+        self.since = datetime.date(year=2019,month=9,day=6)
         self.between_time = ('07:30', '23:00')
 
         # self.periods = ['1Min','2Min','3Min']
-        self.periods = ['5Min']
+        self.periods = ['1Min']
 
         self.data = {}
         self.inputDataTest = {}
@@ -91,6 +93,10 @@ class Dolph:
             self.getData = self.ds.searchData
             self.getTrainingModel = nn_v9.MLModel
             self.showPrediction = self.plotter.displayPrediction_v9
+        elif (alg == 'NeuronalNet_v10' ):
+            self.getData = self.ds.searchData
+            self.getTrainingModel = nn_v10.MLModel
+            self.showPrediction = self.plotter.displayPrediction_v10
         else:
             raise RuntimeError('algorithm not found')
 
@@ -297,9 +303,9 @@ if __name__== "__main__":
 
     securities.append( {'board':'FUT', 'seccode':'GZZ0'} )
 
-    # securities.append( {'board':'FUT', 'seccode':'SRZ0'} )
-    # # securities.append( {'board':'FUT', 'seccode':'GDZ0'} ) 
-    # securities.append( {'board':'FUT', 'seccode':'SiZ0'} )
+    # securities.append( {'board':'FUT', 'seccode':'RIZ0'} )
+    # # securities.append( {'board':'FUT', 'seccode':'EuZ0'} ) 
+    # securities.append( {'board':'FUT', 'seccode':'GMZ0'} )
     # # securities.append( {'board':'FUT', 'seccode':'VBZ0'} )
 
     # securities.append( {'board':'FUT', 'seccode':'EuZ0'} )
@@ -312,6 +318,6 @@ if __name__== "__main__":
         dolph.dataAcquisition()
         dolph.predict()
         dolph.displayPredictions()
-        dolph.takePosition( dolph.evaluatePosition() )          
+        # dolph.takePosition( dolph.evaluatePosition() )          
 
         
