@@ -22,11 +22,11 @@ class Dolph:
     def __init__(self, securities):
     
         # MODE := 'TRAIN_OFFLINE' | TEST_OFFLINE' | 'TEST_ONLINE' | 'OPERATIONAL'
-        self.MODE = 'OPERATIONAL' 
+        self.MODE = 'TEST_OFFLINE' 
         self.tested = False
         self.numTestSample = 600
-        self.since = datetime.date(year=2008,month=3,day=6)
-        self.between_time = ('09:00', '19:00')
+        self.since = datetime.date(year=2015,month=3,day=6)
+        self.between_time = ('09:00', '18:45')
 
         # self.periods = ['1Min','2Min','3Min']
         self.periods = ['5Min']
@@ -296,12 +296,12 @@ if __name__== "__main__":
 
     securities = [] 
 
-    securities.append( {'board':'FUT', 'seccode':'GZZ0'} )
+    #securities.append( {'board':'FUT', 'seccode':'GZZ0'} )
 
-    # securities.append( {'board':'FUT', 'seccode':'SRZ0'} )
-    # # securities.append( {'board':'FUT', 'seccode':'GDZ0'} ) 
+    securities.append( {'board':'FUT', 'seccode':'SRZ0'} )
+    # securities.append( {'board':'FUT', 'seccode':'GDZ0'} ) 
     # securities.append( {'board':'FUT', 'seccode':'SiZ0'} )
-    # # securities.append( {'board':'FUT', 'seccode':'VBZ0'} )
+    securities.append( {'board':'FUT', 'seccode':'VBZ0'} )
 
     # securities.append( {'board':'FUT', 'seccode':'EuZ0'} )
     # securities.append( {'board':'FUT', 'seccode':'BRX0'} )

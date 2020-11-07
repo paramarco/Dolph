@@ -319,9 +319,9 @@ class MLModel:
             return str(dt).split(' ')[0]
         unique_days = sorted(list(set(map(date_part , list(df.index.unique())))))
 
-        percent_train = 60.0
+        percent_train = 95.0
         percent_valid = 5.0
-        percent_test = 100.0 - percent_train - percent_valid
+        # percent_test = 100.0 - percent_train - percent_valid
         
         offset_train = int(len(unique_days)*percent_train/100.0)
         offset_test = offset_train + int(len(unique_days)*percent_valid/100.0)
@@ -397,7 +397,7 @@ class MLModel:
 
         # fit network
         # change the epochs back to 50?
-        history = model.fit(train_X, train_y, epochs=50, batch_size=2500, validation_data=(valid_X, valid_y), verbose=2, shuffle=True)
+        history = model.fit(train_X, train_y, epochs=50, batch_size=500, validation_data=(valid_X, valid_y), verbose=2, shuffle=True)
         # save network
         # ct = datetime.date()
         # date = str(ct.year) + str(ct.month).zfill(2) + str(ct.day).zfill(2)        

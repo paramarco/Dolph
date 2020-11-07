@@ -483,7 +483,7 @@ class TrendViewer:
         prediction_sign = df.loc[t].predictions.tolist()
         currentPrice=close
         if (self.numTotalPrices > 0):
-                self.numTotalPrices+=1         
+                self.numTotalPrices+=1 
                 print('current:' + str(currentPrice))
                 print('previous:' + str(self.previousPrice))
                 signPriceDiff=np.sign(currentPrice-self.previousPrice)
@@ -494,10 +494,10 @@ class TrendViewer:
                     self.numPositivePrices+=1
                 else:
                     self.numNegativePrices+=1
-                probaility=self.numPositivePrices/self.numTotalPrices
+                probaility=self.numPositivePrices/(self.numTotalPrices-1)
                 self.previousPrice=currentPrice
                 print('probability:' + str(probaility))
-                print('numTotal:' + str(self.numTotalPrices))
+                print('numTotal:' + str(self.numTotalPrices-1))
                 print('numPositiv:' + str(self.numPositivePrices))
         else:
              self.numTotalPrices=1
