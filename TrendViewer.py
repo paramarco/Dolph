@@ -9,6 +9,7 @@ import logging
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import matplotlib.dates as mdates
+from mplfinance.original_flavor import candlestick_ohlc
 import numpy as np
 import pandas as pd
 import gc; gc.collect()
@@ -443,19 +444,22 @@ class TrendViewer:
                 'predictions':          p.predictions[:,0],
                 'time':                 p.training_set.original_df['CalcDateTime'],
                 'Mnemonic':             p.training_set.original_df['Mnemonic'],
+                'StartPrice':           p.training_set.original_df['StartPrice'],
                 'EndPrice':             p.training_set.original_df['EndPrice'],
+                'MinPrice':             p.training_set.original_df['MinPrice'],
+                'MaxPrice':             p.training_set.original_df['MaxPrice'],                
                 'single_feature_pred':  p.training_set.original_df[single_feature].values,
                 'period':               period
                 }
             )
             df_in = df_in.append(row)
+        df_in['timeDate'] = df_in['time']  
         df_in = df_in.set_index('time')
         
         time.sleep(0.3)
-        numWindowSize = 20
-       
+        numWindowSize = 10    
             
-        numWindowSize = int(numWindowSize / int(period[0]) )
+        # numWindowSize = int(numWindowSize / int(period[0]) )
                             
         df = df_in[df_in.period == period]
         
@@ -463,11 +467,11 @@ class TrendViewer:
         times = times[-numWindowSize:]
         prices = [] 
         for t in times:
-            close =  df.loc[t].EndPrice
-            if isinstance(close,  float):
-                prices.append(close)
+            high =  df.loc[t].MaxPrice
+            if isinstance(high,  float):
+                prices.append(high)
             else:
-                prices.append(close[0])
+                prices.append(high[0])
         
   
         def setLabel(sign):
@@ -481,7 +485,7 @@ class TrendViewer:
             return label
             
         prediction_sign = df.loc[t].predictions.tolist()
-        currentPrice=close
+        currentPrice=df.iloc[-1].EndPrice
         if (self.numTotalPrices > 0):
                 self.numTotalPrices+=1 
                 print('current:' + str(currentPrice))
@@ -501,7 +505,7 @@ class TrendViewer:
                 print('numPositiv:' + str(self.numPositivePrices))
         else:
              self.numTotalPrices=1
-             self.previousPrice = close
+             self.previousPrice = currentPrice
              self.previousPrediction = prediction_sign #sign of prediction -1 or +1
 
 
@@ -525,8 +529,132 @@ class TrendViewer:
         
         etiquete= 'close price, prediction for:' + period
         plt.title(label = etiquete )
-        plt.plot(times, prices)
-        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+        
+        ohlc = df[['timeDate','StartPrice','MaxPrice','MinPrice','EndPrice'] ]
+        ohlc = ohlc[-numWindowSize:]
+        ohlc.columns = ['Date', 'Open', 'High', 'Low', 'Close'] 
+        ohlc['Date'] = pd.to_datetime(ohlc['Date'])
+        ohlc['Date'] = ohlc['Date'].apply(mdates.date2num)
+        ohlc = ohlc.astype(float)        
+        candlestick_ohlc(plt.gca(), ohlc.values, width=0.6/(10*60), colorup='green', colordown='red', alpha=0.9)
+        
+        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%M'))
         xlocator = mdates.MinuteLocator(byminute=range(60))
         plt.gca().xaxis.set_major_locator(xlocator)  
         plt.show() 
+        
+        
+    def displayPrediction_v10 (self, predictions, period):
+        
+        single_feature = 'x((MaxP-EndP)-(EndP-MinP))(t - 1)'
+        # df_in = pd.DataFrame(columns=['predictions',
+        #                               'time',
+        #                               'Mnemonic',
+        #                               'EndPrice',
+        #                               'single_feature_pred',
+        #                               'period' ])
+        
+        # for p in predictions:
+        #     row = pd.DataFrame({
+        #         'predictions':          p.predictions[:,0],
+        #         'time':                 p.training_set.original_df['CalcDateTime'],
+        #         'Mnemonic':             p.training_set.original_df['Mnemonic'],
+        #         'StartPrice':           p.training_set.original_df['StartPrice'],
+        #         'EndPrice':             p.training_set.original_df['EndPrice'],
+        #         'MinPrice':             p.training_set.original_df['MinPrice'],
+        #         'MaxPrice':             p.training_set.original_df['MaxPrice'],                
+        #         'single_feature_pred':  p.training_set.original_df[single_feature].values,
+        #         'period':               period
+        #         }
+        #     )
+        #     df_in = df_in.append(row)
+        # df_in['timeDate'] = df_in['time']  
+        # df_in = df_in.set_index('time')
+        
+        # time.sleep(0.3)
+        # numWindowSize = 10    
+            
+        # # numWindowSize = int(numWindowSize / int(period[0]) )
+                            
+        # df = df_in[df_in.period == period]
+        
+        # times = sorted(list(df.index.unique()))
+        # times = times[-numWindowSize:]
+        # prices = [] 
+        # for t in times:
+        #     high =  df.loc[t].MaxPrice
+        #     if isinstance(high,  float):
+        #         prices.append(high)
+        #     else:
+        #         prices.append(high[0])
+        
+  
+        # def setLabel(sign):
+        #     label = ""
+        #     if ( sign > 0.0 ):
+        #         label = "\u2197"
+        #     elif ( sign < 0.0 ):
+        #         label = "\u2198" 
+        #     else:
+        #         label = "\u003D"
+        #     return label
+            
+        # prediction_sign = df.loc[t].predictions.tolist()
+        # currentPrice=df.iloc[-1].EndPrice
+        # if (self.numTotalPrices > 0):
+        #         self.numTotalPrices+=1         
+        #         print('current:' + str(currentPrice))
+        #         print('previous:' + str(self.previousPrice))
+        #         signPriceDiff=np.sign(currentPrice-self.previousPrice)
+        #         signPrediction=np.sign( self.previousPrediction)
+        #         self.previousPrediction = prediction_sign #sign of prediction -1 or +1
+
+        #         if(signPriceDiff==signPrediction):
+        #             self.numPositivePrices+=1
+        #         else:
+        #             self.numNegativePrices+=1
+        #         probaility=self.numPositivePrices/self.numTotalPrices
+        #         self.previousPrice=currentPrice
+        #         print('probability:' + str(probaility))
+        #         print('numTotal:' + str(self.numTotalPrices))
+        #         print('numPositiv:' + str(self.numPositivePrices))
+        # else:
+        #      self.numTotalPrices=1
+        #      self.previousPrice = currentPrice
+        #      self.previousPrediction = prediction_sign #sign of prediction -1 or +1
+
+
+        # for t,price in zip(times,prices):            
+        #     label = u""
+        #     signs = df.loc[t].predictions.tolist()
+        #     if isinstance(signs,  float):
+        #         label += setLabel(signs)
+        #     else:  
+        #         for s in signs:
+        #             label += setLabel(s)
+            
+        #     plt.annotate(
+        #         label, # this is the text
+        #         (t,price), # this is the point to label
+        #         textcoords="offset points", # how to position the text
+        #         xytext=(0,10), # distance from text to points (x,y)
+        #         ha='center',  # horizontal alignment 
+        #         size=20
+        #     )
+        
+        # etiquete= 'close price, prediction for:' + period
+        # plt.title(label = etiquete )
+        
+        # ohlc = df[['timeDate','StartPrice','MaxPrice','MinPrice','EndPrice'] ]
+        # ohlc = ohlc[-numWindowSize:]
+        # ohlc.columns = ['Date', 'Open', 'High', 'Low', 'Close'] 
+        # ohlc['Date'] = pd.to_datetime(ohlc['Date'])
+        # ohlc['Date'] = ohlc['Date'].apply(mdates.date2num)
+        # ohlc = ohlc.astype(float)        
+        # candlestick_ohlc(plt.gca(), ohlc.values, width=0.6/(10*60), colorup='green', colordown='red', alpha=0.9)
+        
+        # plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%M'))
+        # xlocator = mdates.MinuteLocator(byminute=range(60))
+        # plt.gca().xaxis.set_major_locator(xlocator)  
+        # plt.show() 
+

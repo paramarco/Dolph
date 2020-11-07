@@ -17,6 +17,8 @@ import NeuronalNet_v3 as nn_v3
 import NeuronalNet_v5 as nn_v5
 import NeuronalNet_v6 as nn_v6
 import NeuronalNet_v9 as nn_v9
+import NeuronalNet_v10 as nn_v10
+
 
 class Dolph:
     def __init__(self, securities):
@@ -31,7 +33,7 @@ class Dolph:
 
 
         # self.periods = ['1Min','2Min','3Min']
-        self.periods = ['5Min']
+        self.periods = ['1Min']
 
         self.data = {}
         self.inputDataTest = {}
@@ -94,6 +96,10 @@ class Dolph:
             self.getData = self.ds.searchData
             self.getTrainingModel = nn_v9.MLModel
             self.showPrediction = self.plotter.displayPrediction_v9
+        elif (alg == 'NeuronalNet_v10' ):
+            self.getData = self.ds.searchData
+            self.getTrainingModel = nn_v10.MLModel
+            self.showPrediction = self.plotter.displayPrediction_v10
         else:
             raise RuntimeError('algorithm not found')
 
@@ -300,10 +306,17 @@ if __name__== "__main__":
 
     #securities.append( {'board':'FUT', 'seccode':'GZZ0'} )
 
+<<<<<<< HEAD
     securities.append( {'board':'FUT', 'seccode':'SRZ0'} )
     # securities.append( {'board':'FUT', 'seccode':'GDZ0'} ) 
     # securities.append( {'board':'FUT', 'seccode':'SiZ0'} )
     securities.append( {'board':'FUT', 'seccode':'VBZ0'} )
+=======
+    # securities.append( {'board':'FUT', 'seccode':'RIZ0'} )
+    # # securities.append( {'board':'FUT', 'seccode':'EuZ0'} ) 
+    # securities.append( {'board':'FUT', 'seccode':'GMZ0'} )
+    # # securities.append( {'board':'FUT', 'seccode':'VBZ0'} )
+>>>>>>> 811c04b3e1d7337bfdcf1a49b0f88aa397c05908
 
     # securities.append( {'board':'FUT', 'seccode':'EuZ0'} )
     # securities.append( {'board':'FUT', 'seccode':'BRX0'} )
@@ -315,6 +328,6 @@ if __name__== "__main__":
         dolph.dataAcquisition()
         dolph.predict()
         dolph.displayPredictions()
-        dolph.takePosition( dolph.evaluatePosition() )          
+        # dolph.takePosition( dolph.evaluatePosition() )          
 
         
