@@ -25,11 +25,13 @@ class Dolph:
     
         # MODE := 'TRAIN_OFFLINE' | TEST_OFFLINE' | 'TEST_ONLINE' | 'OPERATIONAL'
 
-        self.MODE = 'TEST_OFFLINE' 
+
+        self.MODE = 'TRAIN_OFFLINE' 
         self.tested = False
         self.numTestSample = 600
-        self.since = datetime.date(year=2015,month=3,day=6)
+        self.since = datetime.date(year=2009,month=1,day=1)
         self.between_time = ('09:00', '18:45')
+
 
 
         # self.periods = ['1Min','2Min','3Min']
