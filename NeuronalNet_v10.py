@@ -10,74 +10,15 @@ import logging
 import pandas as pd
 from pandas import DataFrame
 import numpy as np
-from datetime import datetime
 from matplotlib import pyplot
 import tensorflow as tf
 
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
-from tensorflow.keras import regularizers, activations
+from tensorflow.keras import regularizers
 from tensorflow.keras.models import load_model
 
 log = logging.getLogger("TradingPlatform")
-
-def pred_baseline(d):
-    single_feature = 'x((MaxP-EndP)-(EndP-MinP))(t - 1)'
-    preds = d.training_set.original_df[single_feature].values
-    preds = preds.reshape((preds.shape[0], 1))
-    return Predictions(preds, d.training_set).evaluate()
-
-def readable_summary(which_set, p):
-    achieved = p.evaluate()['strategies']['achieved']
-    achieved_baseline = pred_baseline(p)['strategies']['achieved']
-    per_change = np.mean(np.absolute(p.training_set.original_df['pseudo_y(pctChange)']))
-    n = p.training_set.original_df.shape[0]
-    print ("""
-           So if you play {} times on the {} with 1 EUR and you always guess 
-           the movement,ignoring all transactions cost, you will make {}. 
-           Instead you make {} or {} percent of the ideally achievable. 
-           If you use the baseline you will make {} or {} percent of ideal
-           """.format( 
-               n, which_set, n * per_change, 
-               achieved, 100.0*achieved/(n*per_change), achieved_baseline,
-               100.0*achieved_baseline/(n*per_change)
-            )
-    )
-
-def plot_accuracy_by(grouping_feature, predictions):
-    df = predictions.training_set.original_df
-    s = df[['Date', 'Mnemonic', 'pseudo_y(SignReturn)']].copy()
-    s['Predictions'] = predictions.predictions
-    s['Baseline'] = df['x((MaxP-EndP)-(EndP-MinP))(t - 1)']
-
-    def agg(group):
-        pred = group['Predictions']
-        baseline = group['Baseline']
-        rets = group['pseudo_y(SignReturn)']
-        c = pred.corr(rets)
-        c = np.where(np.sign(pred)*np.sign(rets) == 1.0, 1.0, 0.0).sum()
-        e = np.where(np.sign(pred)*np.sign(rets) == -1.0, 1.0, 0.0).sum()
-        acc = c/(c + e)
-
-        c_baseline = np.where(np.sign(baseline)*np.sign(rets) == 1.0, 1.0, 0.0).sum()
-        e_baseline = np.where(np.sign(baseline)*np.sign(rets) == -1.0, 1.0, 0.0).sum()
-        acc_baseline = c_baseline/(c_baseline + e_baseline)
-
-        l = group.shape[0]
-        return {"corr": c, 'size': l, 'accuracy': acc, 'acc_baseline': acc_baseline}
-    f = s.groupby(grouping_feature).apply(agg).to_frame("agg")
-
-    f['AccuracyPred'] = f['agg'].map(lambda i: i['accuracy'])
-    f['AccuracyBaseline'] = f['agg'].map(lambda i: i['acc_baseline'])
-    f['AccPred - AccBaseline'] = f['AccuracyPred'] - f['AccuracyBaseline']
-    f = f.drop(columns=['agg'])
-
-    f = f[f.index != '2017-10-14'] # remove this date which has one data point
-    f[['AccuracyPred', 'AccuracyBaseline']].plot()
-    return f
-
-def clipped(ind, limit):
-    return np.where(ind < -limit, -limit, np.where(ind > limit, limit, ind ))
 
 class NARemover:
     def __init__(self, name):
@@ -109,24 +50,28 @@ class Featurizer:
         single_stock['x(Hour)'] = single_stock['CalcDateTime'].dt.hour
         single_stock['x(DOY)'] = single_stock['CalcDateTime'].dt.dayofyear
         
-        for offset in range(0, max_offset ):
+        # single_stock['x(open(t)'] = single_stock['StartPrice']
+        # single_stock['x(high(t)'] = single_stock['MaxPrice']
+        # single_stock['x(close(t)'] = single_stock['EndPrice'] 
+        # single_stock['x(low(t)'] = single_stock['MinPrice']
+        # single_stock['x(vol(t)'] = single_stock['addedVolume']
+        
+        for offset in range(1, max_offset ):
             
-            single_stock['x(open(t-{})'.format(str(offset))] = single_stock['StartPrice'].shift(offset)   
-            single_stock['x(high(t-{})'.format(str(offset))] = single_stock['MaxPrice'].shift(offset)   
-            single_stock['x(close(t-{})'.format(str(offset))] = single_stock['EndPrice'].shift(offset)   
-            single_stock['x(low(t-{})'.format(str(offset))] = single_stock['MinPrice'].shift(offset)   
-            single_stock['x(vol(t-{})'.format(str(offset))] = single_stock['addedVolume'].shift(offset)   
+            single_stock['x(open(t-{})'.format(str(offset))] = single_stock['StartPrice'] - single_stock['StartPrice'].shift(offset) 
+            single_stock['x(high(t-{})'.format(str(offset))] = single_stock['MaxPrice'] - single_stock['MaxPrice'].shift(offset)   
+            single_stock['x(close(t-{})'.format(str(offset))] = single_stock['EndPrice'] - single_stock['EndPrice'].shift(offset)   
+            single_stock['x(low(t-{})'.format(str(offset))] = single_stock['MinPrice'] - single_stock['MinPrice'].shift(offset)   
+            single_stock['x(vol(t-{})'.format(str(offset))] = single_stock['addedVolume'] - single_stock['addedVolume'].shift(offset)   
 
              
         for offset in range(1, predictionWindow ):
-            single_stock['y(open(t+{})'.format(str(offset))] = single_stock['StartPrice'].shift(-offset)   
-            single_stock['y(high(t+{})'.format(str(offset))] = single_stock['MaxPrice'].shift(-offset)   
-            single_stock['y(close(t+{})'.format(str(offset))] = single_stock['EndPrice'].shift(-offset)   
-            single_stock['y(low(t+{})'.format(str(offset))] = single_stock['MinPrice'].shift(-offset)   
+            single_stock['y(open(t+{})'.format(str(offset))] =  single_stock['StartPrice'] - single_stock['StartPrice'].shift(-offset)   
+            single_stock['y(high(t+{})'.format(str(offset))] = single_stock['MaxPrice'] - single_stock['MaxPrice'].shift(-offset)   
+            single_stock['y(close(t+{})'.format(str(offset))] = single_stock['EndPrice'] - single_stock['EndPrice'].shift(-offset)   
+            single_stock['y(low(t+{})'.format(str(offset))] = single_stock['MinPrice'] - single_stock['MinPrice'].shift(-offset)   
             
-
         return single_stock
-
 
 class TrainingSet:
     def __init__(self, X, y, orig_df):
@@ -147,90 +92,8 @@ class TrainingSetBuilder:
     
 class Predictions:
     def __init__(self, predictions, training_set):
-
         self.predictions = predictions
-        self.training_set = training_set
-        
-    def evaluate(self):
-        single_feature = 'x((MaxP-EndP)-(EndP-MinP))(t - 1)'
-        stats_df = pd.DataFrame({
-                      'predictions': self.predictions[:,0],
-                      'single_feature_pred': self.training_set.original_df[single_feature].values,
-                      'pseudo_y(SignReturn)': self.training_set.y[:,0],
-                      'pseudo_y(pctChange)': self.training_set.original_df['pseudo_y(pctChange)'].values,
-                       'pseudo_y(ClippedReturn)': self.training_set.original_df['pseudo_y(ClippedReturn)'].values,
-                      'y(Return)': self.training_set.original_df['y(Return)'].values})
-        
-        corr = stats_df. \
-            corr()[['predictions', 'single_feature_pred']]. \
-            iloc[1:]
-            
-        pred_signs = np.sign(stats_df['predictions'])
-        y_signs = np.sign(stats_df['y(Return)'])
-        has_answer = np.absolute(pred_signs * y_signs).sum()
-        correct = np.where(pred_signs * y_signs == 1.0, 1.0, 0.0).sum()
-        
-        thresholds = []
-        accuracy = []
-        correct_lst = []
-        errors = []
-        percent_has_answer = []
-        abs_has_answer = []
-        achieved_returns = []
-
-        preds = stats_df['predictions']
-        
-        for d in range(5, 46, 5):
-            low = np.percentile(preds, d) 
-            high = np.percentile(preds, 100 - d)
-            thresholded = np.where(preds > high, 1.0, np.where(preds < low, -1.0, 0.0))
-            c = np.where(np.sign(thresholded)*np.sign(y_signs) == 1.0, 1.0, 0.0).sum()
-            e = np.where(np.sign(thresholded)*np.sign(y_signs) == -1.0, 1.0, 0.0).sum()
-            achieved_ret = (stats_df['pseudo_y(pctChange)']*thresholded).sum()
-            correct_lst.append(c)
-            errors.append(e)
-            accuracy.append(c/(c + e))
-            percent_has_answer.append(100.0*(c + e)/pred_signs.shape[0])
-            abs_has_answer.append((c + e))
-            achieved_returns.append(achieved_ret)
-            thresholds.append(d)
-            
-        at_cutoff = DataFrame({
-                    'thresholds': thresholds,
-                    'accuracy': accuracy,
-                    'percent_with_answer': percent_has_answer,
-                    'absolute_has_answer': abs_has_answer,
-                    'achieved_returns': achieved_returns,
-                    'correct': correct_lst,
-                    'errors': errors
-        })
-        at_cutoff['achieved_norm_returns'] = at_cutoff['achieved_returns']/at_cutoff['absolute_has_answer']
-        
-        ret = stats_df['pseudo_y(pctChange)']
-        rand_feature = np.where(np.random.rand(ret.shape[0]) > 0.5, 1.0, -1.0)    
-        random_returns = (ret * rand_feature).sum()
-        always_up_returns = (ret*1.0).sum()
-        always_down_returns = (ret*-1.0).sum()
-        omnicient_returns = (np.absolute(ret)).sum()
-        achieved = (ret * pred_signs).sum()
-        return {
-            'corr': corr,
-            'accuracy_at_cutoff': at_cutoff,
-            'matches': {
-                'percent_correct': 100*correct/has_answer,
-                'percent_has_answer': has_answer/pred_signs.shape[0],
-                'absolute_with_answer': has_answer,
-                'size': pred_signs.shape[0]
-            },
-            'strategies': {
-                'omniscient': omnicient_returns,
-                'random': random_returns,
-                'always_up': always_up_returns,
-                'always_down': always_down_returns,
-                'achieved': achieved,
-                'num_trials': np.absolute(pred_signs).sum()
-            }
-        }
+        self.training_set = training_set       
     
 class MLModel:
     def __init__(self, df, params, period):
@@ -299,12 +162,9 @@ class MLModel:
             
         combined_valid_set_df = pd.concat(combined_valid_set, axis=0)
         valid_set = TrainingSetBuilder().transform(combined_valid_set_df) 
-        
-        
-        log.info('Trainning Machine....' )
-        
-        self.fit(training_set, valid_set)
-        
+                
+        log.info('Trainning Machine....' )        
+        self.fit(training_set, valid_set)        
 
         
     def fit(self, training_set, valid_set = None):
@@ -317,10 +177,34 @@ class MLModel:
 
         model = Sequential()
 
-        model.add(Dense(100, activation='tanh', input_shape =(train_X.shape[1],),
-                        kernel_regularizer=regularizers.l2(0.001))) 
-        model.add(Dense(50, activation='tanh', kernel_regularizer=regularizers.l2(0.001)))        
-
+        model.add(  
+            Dense(1024, 
+                  activation='tanh', 
+                  input_shape =(train_X.shape[1],) , 
+                  kernel_regularizer=regularizers.l2(0.001)
+                  )
+        ) 
+        model.add(
+            Dense(512, 
+                  activation='tanh',
+                  input_shape =(train_X.shape[1],) ,
+                  kernel_regularizer=regularizers.l2(0.001)
+                  )
+        )
+        model.add(
+            Dense(256, 
+                  activation='tanh',
+                  input_shape =(train_X.shape[1],) ,
+                  kernel_regularizer=regularizers.l2(0.001)
+                  )
+        ) 
+        model.add(
+            Dense(128, 
+                  activation='tanh',
+                  input_shape =(train_X.shape[1],) ,
+                  kernel_regularizer=regularizers.l2(0.001)
+                  )
+        )
         model.add(Dense(train_y.shape[1]))
         
         loss_fn = tf.keras.losses.MeanSquaredError(reduction='sum')
@@ -373,25 +257,3 @@ class MLModel:
         predictions = self.model.predict(data_set.X)
         myNewPred = Predictions(predictions, data_set)
         return myNewPred
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
