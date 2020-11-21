@@ -674,21 +674,25 @@ class TrendViewer:
         t3 = lastTime + datetime.timedelta(minutes = 3)
         t4 = lastTime + datetime.timedelta(minutes = 4)
 
+        currentOpen = df.iloc[-1].StartPrice
+        currentHigh = df.iloc[-1].MaxPrice
+        currentLow = df.iloc[-1].MinPrice
+        currentClose = df.iloc[-1].EndPrice
+
         p = df.loc[lastTime]
         data = [
-            {'Date': t1, 'Open': p['open_t+1'], 'High':p['high_t+1'], 'Low':p['low_t+1'], 'Close': p['close_t+1']},
-            {'Date': t2, 'Open': p['open_t+2'], 'High':p['high_t+2'], 'Low':p['low_t+2'], 'Close': p['close_t+2']},
-            {'Date': t3, 'Open': p['open_t+3'], 'High':p['high_t+3'], 'Low':p['low_t+3'], 'Close': p['close_t+3']},
-            {'Date': t4, 'Open': p['open_t+4'], 'High':p['high_t+4'], 'Low':p['low_t+4'], 'Close': p['close_t+4']}
-        ]   
-        
-        # data = [
-        #     {'Date': t1, 'Open': 15700, 'High':15730, 'Low':15700, 'Close': 15730},
-        #     {'Date': t2, 'Open': 15700, 'High':15730, 'Low':15700, 'Close': 15730},
-        #     {'Date': t3, 'Open': 15700, 'High':15730, 'Low':15700, 'Close': 15730},
-        #     {'Date': t4, 'Open': 15700, 'High':15730, 'Low':15700, 'Close': 15730}
-        # ]  
-        
+            {
+                'Date': t1, 
+                 'Open':    currentOpen     + p['open_t+1'], 
+                 'High':    currentHigh     + p['high_t+1'], 
+                 'Low':     currentLow      + p['low_t+1'], 
+                 'Close':   currentClose    + p['close_t+1']
+             },
+            {'Date': t2, 'Open': currentOpen + p['open_t+2'], 'High': currentHigh + p['high_t+2'], 'Low': currentLow + p['low_t+2'], 'Close': currentClose + p['close_t+2']},
+            {'Date': t3, 'Open': currentOpen + p['open_t+3'], 'High': currentHigh + p['high_t+3'], 'Low': currentLow + p['low_t+3'], 'Close': currentClose + p['close_t+3']},
+            {'Date': t4, 'Open': currentOpen +p['open_t+4'], 'High': currentHigh + p['high_t+4'], 'Low': currentLow +p['low_t+4'], 'Close':  currentClose +p['close_t+4']}
+        ]          
+      
         
         ohlc2 = pd.DataFrame(data)  
         ohlc2['Date'] = pd.to_datetime(ohlc2['Date'])
