@@ -66,10 +66,10 @@ class Featurizer:
 
              
         for offset in range(1, predictionWindow ):
-            single_stock['y(open(t+{})'.format(str(offset))] =  single_stock['StartPrice'] - single_stock['StartPrice'].shift(-offset)   
-            single_stock['y(high(t+{})'.format(str(offset))] = single_stock['MaxPrice'] - single_stock['MaxPrice'].shift(-offset)   
-            single_stock['y(close(t+{})'.format(str(offset))] = single_stock['EndPrice'] - single_stock['EndPrice'].shift(-offset)   
-            single_stock['y(low(t+{})'.format(str(offset))] = single_stock['MinPrice'] - single_stock['MinPrice'].shift(-offset)   
+            single_stock['y(open(t+{})'.format(str(offset))] =  single_stock['StartPrice'].shift(-offset) - single_stock['StartPrice']
+            single_stock['y(high(t+{})'.format(str(offset))] = single_stock['MaxPrice'].shift(-offset)    - single_stock['MaxPrice'] 
+            single_stock['y(close(t+{})'.format(str(offset))] = single_stock['EndPrice'].shift(-offset)   - single_stock['EndPrice'] 
+            single_stock['y(low(t+{})'.format(str(offset))] =   single_stock['MinPrice'].shift(-offset)   - single_stock['MinPrice']
             
         return single_stock
 
@@ -214,7 +214,7 @@ class MLModel:
         self.model = model            
 
         # fit network
-        history = model.fit(train_X, train_y, epochs=50, batch_size=15, validation_data=(valid_X, valid_y), verbose=2, shuffle=True)
+        history = model.fit(train_X, train_y, epochs=50, batch_size=50, validation_data=(valid_X, valid_y), verbose=2, shuffle=True)
        
         # save network 
         model.save(self.fileName)

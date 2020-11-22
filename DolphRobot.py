@@ -17,7 +17,7 @@ import NeuronalNet_v3 as nn_v3
 import NeuronalNet_v5 as nn_v5
 import NeuronalNet_v6 as nn_v6
 import NeuronalNet_v9 as nn_v9
-# import NeuronalNet_v10 as nn_v10
+import NeuronalNet_v10 as nn_v10
 
 
 class Dolph:
@@ -26,8 +26,8 @@ class Dolph:
         # MODE := 'TRAIN_OFFLINE' | TEST_OFFLINE' | 'TEST_ONLINE' | 'OPERATIONAL'
 
         self.MODE = 'TEST_OFFLINE' 
-        self.numTestSample = 300
-        self.since = datetime.date(year=2020,month=10,day=5)
+        self.numTestSample = 3000
+        self.since = datetime.date(year=2020,month=3,day=1)
         self.between_time = ('07:30', '23:00')
 
         # self.periods = ['1Min','2Min','3Min']
@@ -94,10 +94,10 @@ class Dolph:
             self.getData = self.ds.searchData
             self.getTrainingModel = nn_v9.MLModel
             self.showPrediction = self.plotter.displayPrediction_v9
-        # elif (alg == 'NeuronalNet_v10' ):
-        #     self.getData = self.ds.searchData
-        #     self.getTrainingModel = nn_v10.MLModel
-        #     self.showPrediction = self.plotter.displayPrediction_v10
+        elif (alg == 'NeuronalNet_v10' ):
+            self.getData = self.ds.searchData
+            self.getTrainingModel = nn_v10.MLModel
+            self.showPrediction = self.plotter.displayPrediction_v10
         else:
             raise RuntimeError('algorithm not found')
 

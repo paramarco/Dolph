@@ -721,10 +721,11 @@ class TrendViewer:
         ohlc2['Date'] = pd.to_datetime(ohlc2['Date'])
         ohlc2['Date'] = ohlc2['Date'].apply(mdates.date2num)
         ohlc2 = ohlc2.astype(float)
-        candlestick_ohlc(plt.gca(), ohlc2.values, width=0.6/(24*60), colorup='green', colordown='red', alpha=0.2)
-
-                
-        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%M'))
+        candlestick_ohlc(plt.gca(), ohlc2.values, width=0.6/(24*60), colorup='blue', colordown='black', alpha=0.2)
+        
+        # plt.yticks(np.arange(min(ohlc['Close']), max(ohlc['Close'])+1, 10.0))
+        
+        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
         xlocator = mdates.MinuteLocator(byminute=range(60))
         plt.gca().xaxis.set_major_locator(xlocator)  
         plt.show() 
