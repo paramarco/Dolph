@@ -25,7 +25,7 @@ class Dolph:
     
         # MODE := 'TRAIN_OFFLINE' | TEST_OFFLINE' | 'TEST_ONLINE' | 'OPERATIONAL'
 
-        self.MODE = 'TEST_OFFLINE' 
+        self.MODE = 'TEST_ONLINE' 
 
         self.numTestSample = 3000
         self.since = datetime.date(year=2020,month=3,day=1)

@@ -29,6 +29,7 @@ class DataServer:
         self.__dataFrames = {}
         
         log.info('DataServer starting ...')
+        print('DataServer starting ...')
 
     def __createDBtables(self):
         try:
@@ -1003,6 +1004,8 @@ class DataServer:
     def insertCSV2DB(self, security_id, fileName):
         
         log.info(" having security_id: " + str(security_id))
+        print(" having security_id: " + str(security_id))
+
         
         try:
             sqliteConnection = sqlite3.connect('bimbi.sqlite')    
@@ -1042,6 +1045,7 @@ class DataServer:
                 sqliteConnection.commit()
             
             log.info(" finished")
+            print(" finished")
                 
         except sqlite3.Error as error:            
             log.error(" Failed for insert", error )
@@ -1190,8 +1194,8 @@ class DataServer:
 if __name__== "__main__":
     
      connector = DataServer()
-     security_id = 11
-     fileName = './bkp/ROSN/ROSN/ROSN.csv'
+     security_id = 3
+     fileName = './bkp/SBRF/SBRF.txt'
      connector.insertCSV2DB(security_id, fileName)
     
     # fileName = './bkp/SPFB.SBRF/SPFB.SBRF-9.20_190101_200726.csv'

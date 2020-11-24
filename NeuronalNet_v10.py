@@ -31,30 +31,19 @@ class NARemover:
         return single_stock
 
 class Featurizer:
+    
+    def __init__(self, target):
+        # target := "training" | "prediction"
+        self.target = target
+        
     def transform(self, single_stock, max_offset = 30):
 
         predictionWindow = 5
-        # stds = single_stock['EndPrice'].rolling(max_offset).std()       
-        
-        # # take the last EndPrice at [ t ]
-        # end_price = single_stock['EndPrice'].tail(1)
-        # # take the max price in the past at [  t - offset , t ]        
-        # min_price = single_stock['MinPrice'].rolling(max_offset).min()
-        # # take the min price in the past at [  t - offset , t ]   
-        # max_price = single_stock['MaxPrice'].rolling(max_offset).max()       
-        # # compute an indicator for time interval [  t - offset , t ] 
-        # ind = ((max_price - end_price) - (end_price - min_price)) / stds
-        # single_stock['x((MaxP-EndP)-(EndP-MinP))(t - {})'.format(str(max_offset))] = ind
         
         single_stock['x(DOW)'] = single_stock['CalcDateTime'].dt.dayofweek
         single_stock['x(Hour)'] = single_stock['CalcDateTime'].dt.hour
         single_stock['x(DOY)'] = single_stock['CalcDateTime'].dt.dayofyear
-        
-        # single_stock['x(open(t)'] = single_stock['StartPrice']
-        # single_stock['x(high(t)'] = single_stock['MaxPrice']
-        # single_stock['x(close(t)'] = single_stock['EndPrice'] 
-        # single_stock['x(low(t)'] = single_stock['MinPrice']
-        # single_stock['x(vol(t)'] = single_stock['addedVolume']
+       
         
         for offset in range(1, max_offset ):
             
@@ -64,12 +53,12 @@ class Featurizer:
             single_stock['x(low(t-{})'.format(str(offset))] = single_stock['MinPrice'] - single_stock['MinPrice'].shift(offset)   
             single_stock['x(vol(t-{})'.format(str(offset))] = single_stock['addedVolume'] - single_stock['addedVolume'].shift(offset)   
 
-             
-        for offset in range(1, predictionWindow ):
-            single_stock['y(open(t+{})'.format(str(offset))] =  single_stock['StartPrice'].shift(-offset) - single_stock['StartPrice']
-            single_stock['y(high(t+{})'.format(str(offset))] = single_stock['MaxPrice'].shift(-offset)    - single_stock['MaxPrice'] 
-            single_stock['y(close(t+{})'.format(str(offset))] = single_stock['EndPrice'].shift(-offset)   - single_stock['EndPrice'] 
-            single_stock['y(low(t+{})'.format(str(offset))] =   single_stock['MinPrice'].shift(-offset)   - single_stock['MinPrice']
+        if (self.target  == "training"):      
+            for offset in range(1, predictionWindow ):
+                single_stock['y(open(t+{})'.format(str(offset))] =  single_stock['StartPrice'].shift(-offset) - single_stock['StartPrice']
+                single_stock['y(high(t+{})'.format(str(offset))] = single_stock['MaxPrice'].shift(-offset)    - single_stock['MaxPrice'] 
+                single_stock['y(close(t+{})'.format(str(offset))] = single_stock['EndPrice'].shift(-offset)   - single_stock['EndPrice'] 
+                single_stock['y(low(t+{})'.format(str(offset))] =   single_stock['MinPrice'].shift(-offset)   - single_stock['MinPrice']
             
         return single_stock
 
@@ -145,14 +134,14 @@ class MLModel:
         
             single_stock = df_train[df_train.Mnemonic == mnemonic].copy()
             single_stock = single_stock[single_stock.HasTrade == 1.0]
-            single_stock = Featurizer().transform(single_stock)
+            single_stock = Featurizer("training").transform(single_stock)
             single_stock = NARemover(mnemonic).transform(single_stock)
             combined_training_set.append(single_stock)
             log.info(single_stock.shape)
         
             single_stock = df_valid[df_valid.Mnemonic == mnemonic].copy()
             single_stock = single_stock[single_stock.HasTrade == 1.0] 
-            single_stock = Featurizer().transform(single_stock)
+            single_stock = Featurizer("training").transform(single_stock)
             single_stock = NARemover(mnemonic).transform(single_stock)
             combined_valid_set.append(single_stock)            
             
@@ -214,7 +203,7 @@ class MLModel:
         self.model = model            
 
         # fit network
-        history = model.fit(train_X, train_y, epochs=50, batch_size=50, validation_data=(valid_X, valid_y), verbose=2, shuffle=True)
+        history = model.fit(train_X, train_y, epochs=50, batch_size=15, validation_data=(valid_X, valid_y), verbose=2, shuffle=True)
        
         # save network 
         model.save(self.fileName)
@@ -246,7 +235,7 @@ class MLModel:
         
             single_stock = df[df.Mnemonic == mnemonic].copy()
             single_stock = single_stock[single_stock.HasTrade == 1.0]
-            single_stock = Featurizer().transform(single_stock)
+            single_stock = Featurizer("prediction").transform(single_stock)
             single_stock = NARemover(mnemonic).transform(single_stock)
             single_stock = single_stock.tail(1)
             combined_data_set.append(single_stock)

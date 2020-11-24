@@ -727,6 +727,7 @@ class TrendViewer:
         currentLow = df.iloc[-1].MinPrice
         currentClose = df.iloc[-1].EndPrice
 
+        currentAverage= (currentOpen+currentHigh+currentLow+currentClose)/4
         p = df.loc[lastTime]
         data = [
             {
@@ -740,8 +741,43 @@ class TrendViewer:
             {'Date': t3, 'Open': currentOpen + p['open_t+3'], 'High': currentHigh + p['high_t+3'], 'Low': currentLow + p['low_t+3'], 'Close': currentClose + p['close_t+3']},
             {'Date': t4, 'Open': currentOpen +p['open_t+4'], 'High': currentHigh + p['high_t+4'], 'Low': currentLow +p['low_t+4'], 'Close':  currentClose +p['close_t+4']}
         ]          
-      
-        
+        def evaluatePositionTest (currentAverage,data):
+
+            
+           
+            numOfInputCandles=4
+            firstcandle=data[0]
+            secondcandle=data[1]
+            thirdcandle=data[2]
+            forthcandle=data[3]
+            
+            movAvOpen=(firstcandle['Open']+secondcandle['Open']+thirdcandle['Open']+forthcandle['Open'])/numOfInputCandles
+            movAvMax=(firstcandle['High']+secondcandle['High']+thirdcandle['High']+forthcandle['High'])/numOfInputCandles
+            movAvMin=(firstcandle['Low']+secondcandle['Low']+thirdcandle['Low']+forthcandle['Low'])/numOfInputCandles
+            movAvClose=(firstcandle['Close']+secondcandle['Close']+thirdcandle['Close']+forthcandle['Close'])/numOfInputCandles
+            
+            
+            # minDelta=10
+            # # first check if next avarage  max price if higher then current, assume rise
+            # if (movAvMax>FirstCandleMax):
+            #     print('It seems the market will grow:')
+            #     #check id its more than delta, if its make sente to enter in this postion to get some money
+            #     # choose entance price with respect to the average min price
+            #     entancePrice=movAvMin
+            #     if (abs(movAvMax-entancePrice)>minDelta):
+                    
+
+            #         #TODO THINK ABOUT OUT PRICE
+            #         outPrice=movAvMax
+            #         print('We choose entrance price:' + str(entancePrice))
+            #         print('We set the out price:' + str(outPrice))
+            #     else:
+            #         print('The predicted price is less than chosen delta to get some profit')
+            # print('openav:' + str(movAvOpen))
+            # print('closeav:' + str(movAvClose))
+            # print('higheav:' + str(movAvMax))
+            # print('loweav:' + str(movAvMin))
+        evaluatePositionTest(currentAverage,data)
         ohlc2 = pd.DataFrame(data)  
         ohlc2['Date'] = pd.to_datetime(ohlc2['Date'])
         ohlc2['Date'] = ohlc2['Date'].apply(mdates.date2num)
@@ -754,4 +790,6 @@ class TrendViewer:
         xlocator = mdates.MinuteLocator(byminute=range(60))
         plt.gca().xaxis.set_major_locator(xlocator)  
         plt.show() 
+        
+            
 
