@@ -17,7 +17,7 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 from tensorflow.keras import regularizers
 from tensorflow.keras.models import load_model
-
+from tensorflow.keras import optimizers
 log = logging.getLogger("TradingPlatform")
 
 class NARemover:
@@ -42,7 +42,7 @@ class Featurizer:
         
         single_stock['x(DOW)'] = single_stock['CalcDateTime'].dt.dayofweek
         single_stock['x(Hour)'] = single_stock['CalcDateTime'].dt.hour
-        single_stock['x(DOY)'] = single_stock['CalcDateTime'].dt.dayofyear
+        # single_stock['x(DOY)'] = single_stock['CalcDateTime'].dt.dayofyear
        
         
         for offset in range(1, max_offset ):
@@ -115,7 +115,7 @@ class MLModel:
         train_valid_days = list(set(unique_days[0:offset_test]))
         
         np.random.seed(484811945)
-        np.random.shuffle(train_valid_days)
+        # np.random.shuffle(train_valid_days)
         
         train_days = train_valid_days[0:offset_train]
         valid_days = train_valid_days[offset_train:]
@@ -199,11 +199,13 @@ class MLModel:
         loss_fn = tf.keras.losses.MeanSquaredError(reduction='sum')
         
         # model.compile(loss='mean_squared_error', optimizer='adam')
-        model.compile(loss=loss_fn,  optimizer='adam')
+        opt = optimizers.Adam(learning_rate=0.000001)
+        model.compile(loss=loss_fn, optimizer=opt)
+        # model.compile(loss=loss_fn,  optimizer='adam')
         self.model = model            
 
         # fit network
-        history = model.fit(train_X, train_y, epochs=50, batch_size=15, validation_data=(valid_X, valid_y), verbose=2, shuffle=True)
+        history = model.fit(train_X, train_y, epochs=5, batch_size=5, validation_data=(valid_X, valid_y), verbose=2, shuffle=False)
        
         # save network 
         model.save(self.fileName)

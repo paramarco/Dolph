@@ -23,11 +23,11 @@ import NeuronalNet_v10 as nn_v10
 class Dolph:
     def __init__(self, securities):
     
-        # MODE := 'TRAIN_OFFLINE' | TEST_OFFLINE' | 'TEST_ONLINE' | 'OPERATIONAL'
+        # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TEST_ONLINE' | 'OPERATIONAL'
 
         self.MODE = 'TEST_ONLINE' 
 
-        self.numTestSample = 3000
+        self.numTestSample = 500
         self.since = datetime.date(year=2020,month=3,day=1)
         self.between_time = ('07:30', '23:00')
 

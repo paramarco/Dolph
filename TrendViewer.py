@@ -46,9 +46,67 @@ class TrendViewer:
         self.previousPrediction=[]
         self.totalcounter= 0
         self.df_four=[]
+        self.entrancePrice =0
+        self.outPrice=0
+        self.printPrices = False
     def setDataTest(self, inputData):
         self.data_test = inputData
+    def evaluatePositionTest (self, data,currentOpen,currentHigh,currentLow, currentClose ):
+        currentAverage= (currentOpen+currentHigh+currentLow+currentClose)/4
+        self.printPrices = False
+        numOfInputCandles=4
+
+        firstcandle=data[0]
+        secondcandle=data[1]
+        thirdcandle=data[2]
+        forthcandle=data[3]
         
+        movAvOpen=(firstcandle['Open']+secondcandle['Open']+thirdcandle['Open']+forthcandle['Open'])/numOfInputCandles
+        movAvMax=(firstcandle['High']+secondcandle['High']+thirdcandle['High']+forthcandle['High'])/numOfInputCandles
+        movAvMin=(firstcandle['Low']+secondcandle['Low']+thirdcandle['Low']+forthcandle['Low'])/numOfInputCandles
+        movAvClose=(firstcandle['Close']+secondcandle['Close']+thirdcandle['Close']+forthcandle['Close'])/numOfInputCandles
+        
+        firstcandleAvg=(firstcandle['Open']+firstcandle['High']+firstcandle['Low']+firstcandle['Close'])/numOfInputCandles
+        secondcandleAvg=(secondcandle['Open']+secondcandle['High']+secondcandle['Low']+secondcandle['Close'])/numOfInputCandles
+        thirdcandleAvg=(thirdcandle['Open']+thirdcandle['High']+thirdcandle['Low']+thirdcandle['Close'])/numOfInputCandles
+        forthcandleAvg=(forthcandle['Open']+forthcandle['High']+forthcandle['Low']+forthcandle['Close'])/numOfInputCandles
+
+
+        totalAvg=(firstcandleAvg+secondcandleAvg+thirdcandleAvg+forthcandleAvg)/4
+
+        minDelta=10
+        #check the color of the candle
+        if (currentClose>currentOpen): #if this blue?
+        
+            # first check if next avarage  max price if higher then current, assume rise
+            if (movAvMax>currentHigh):
+                print('It seems the market will grow:')
+                #check id its more than delta, if its make sente to enter in this postion to get some money
+                # choose entance price with respect to the average min price
+                
+                
+                #entrance price like the avarage of the previos candle doesn not work!!
+               #maybe not everytime, maybe somtemis will work
+              # MAYBE TAKE CLOSE PRICE OF PREVIOS CANDLE
+                self.entrancePrice=currentClose
+                deltaForExit=15.0
+                #TODO THINK ABOUT OUT PRICE
+                self.outPrice=self.entrancePrice+deltaForExit
+                print('We choose entrance price:' + str(self.entrancePrice))
+                print('We set the out price:' + str(self.outPrice))
+                self.printPrices = True
+        else:
+            print('It seems the market will go down..')   
+            #the candle is black
+            if (movAvClose>currentLow):
+                print('It seems the market will go down..')  
+                self.entrancePrice=currentClose
+                deltaForExit=15.0
+                self.outPrice=self.entrancePrice-deltaForExit
+                self.printPrices = True
+
+                
+                
     def alignCruves (self, inputPredicion ):
         
         predLastDataRescaled = inputPredicion['predLastData']
@@ -548,49 +606,49 @@ class TrendViewer:
         xlocator = mdates.MinuteLocator(byminute=range(60))
         plt.gca().xaxis.set_major_locator(xlocator)  
         plt.show() 
-        def evaluatePositionTest (self):
-            dataFrameFourCandles=self.df_four[4]
-            dataFrameFirstCandles=dataFrameFourCandles.iloc[0]
+        # def evaluatePositionTest (self):
+        #     dataFrameFourCandles=self.df_four[4]
+        #     dataFrameFirstCandles=dataFrameFourCandles.iloc[0]
             
-            FirstCandleMax=dataFrameFirstCandles.loc['MaxPrice']
-            FirstCandleMin=dataFrameFirstCandles.loc['MinPrice']
-            FirstCandleStart=dataFrameFirstCandles.loc['StartPrice']
-            FisrtCandleEnd=dataFrameFirstCandles.loc['EndPrice']
+        #     FirstCandleMax=dataFrameFirstCandles.loc['MaxPrice']
+        #     FirstCandleMin=dataFrameFirstCandles.loc['MinPrice']
+        #     FirstCandleStart=dataFrameFirstCandles.loc['StartPrice']
+        #     FisrtCandleEnd=dataFrameFirstCandles.loc['EndPrice']
             
-            dataFrameFourCandles=dataFrameFourCandles.iloc[1:5]
-            numOfInputCandles=4
-            movAvOpen=sum(dataFrameFourCandles.loc[:,'StartPrice'])/numOfInputCandles
-            movAvMax=sum(dataFrameFourCandles.loc[:, 'MaxPrice'])/numOfInputCandles
-            movAvMin=sum(dataFrameFourCandles.loc[:, 'MinPrice'])/numOfInputCandles
-            movAvClose=sum(dataFrameFourCandles.loc[:, 'EndPrice'])/numOfInputCandles
-            minDelta=10
-            # first check if next avarage  max price if higher then current, assume rise
-            if (movAvMax>FirstCandleMax):
-                print('It seems the market will grow:')
-                #check id its more than delta, if its make sente to enter in this postion to get some money
-                # choose entance price with respect to the average min price
-                entancePrice=movAvMin
-                if (abs(movAvMax-entancePrice)>minDelta):
+        #     dataFrameFourCandles=dataFrameFourCandles.iloc[1:5]
+        #     numOfInputCandles=4
+        #     movAvOpen=sum(dataFrameFourCandles.loc[:,'StartPrice'])/numOfInputCandles
+        #     movAvMax=sum(dataFrameFourCandles.loc[:, 'MaxPrice'])/numOfInputCandles
+        #     movAvMin=sum(dataFrameFourCandles.loc[:, 'MinPrice'])/numOfInputCandles
+        #     movAvClose=sum(dataFrameFourCandles.loc[:, 'EndPrice'])/numOfInputCandles
+        #     minDelta=10
+        #     # first check if next avarage  max price if higher then current, assume rise
+        #     if (movAvMax>FirstCandleMax):
+        #         print('It seems the market will grow:')
+        #         #check id its more than delta, if its make sente to enter in this postion to get some money
+        #         # choose entance price with respect to the average min price
+        #         entancePrice=movAvMin
+        #         if (abs(movAvMax-entancePrice)>minDelta):
                     
 
-                    #TODO THINK ABOUT OUT PRICE
-                    outPrice=movAvMax
-                    print('We choose entrance price:' + str(entancePrice))
-                    print('We set the out price:' + str(outPrice))
-                else:
-                    print('The predicted price is less than chosen delta to get some profit')
-            print('openav:' + str(movAvOpen))
-            print('closeav:' + str(movAvClose))
-            print('higheav:' + str(movAvMax))
-            print('loweav:' + str(movAvMin))
+        #             #TODO THINK ABOUT OUT PRICE
+        #             outPrice=movAvMax
+        #             print('We choose entrance price:' + str(entancePrice))
+        #             print('We set the out price:' + str(outPrice))
+        #         else:
+        #             print('The predicted price is less than chosen delta to get some profit')
+        #     print('openav:' + str(movAvOpen))
+        #     print('closeav:' + str(movAvClose))
+        #     print('higheav:' + str(movAvMax))
+        #     print('loweav:' + str(movAvMin))
             
-        self.totalcounter+=1
-        if (self.totalcounter<6):
-            row=df[['timeDate','StartPrice','MaxPrice','MinPrice','EndPrice'] ]
-            self.df_four.append(row)
-            self.totalcounter
-            if (self.totalcounter==5):
-                evaluatePositionTest(self)
+        # self.totalcounter+=1
+        # if (self.totalcounter<6):
+        #     row=df[['timeDate','StartPrice','MaxPrice','MinPrice','EndPrice'] ]
+        #     self.df_four.append(row)
+        #     self.totalcounter
+        #     if (self.totalcounter==5):
+        #         evaluatePositionTest(self)
                 
 
         
@@ -727,7 +785,7 @@ class TrendViewer:
         currentLow = df.iloc[-1].MinPrice
         currentClose = df.iloc[-1].EndPrice
 
-        currentAverage= (currentOpen+currentHigh+currentLow+currentClose)/4
+
         p = df.loc[lastTime]
         data = [
             {
@@ -740,44 +798,11 @@ class TrendViewer:
             {'Date': t2, 'Open': currentOpen + p['open_t+2'], 'High': currentHigh + p['high_t+2'], 'Low': currentLow + p['low_t+2'], 'Close': currentClose + p['close_t+2']},
             {'Date': t3, 'Open': currentOpen + p['open_t+3'], 'High': currentHigh + p['high_t+3'], 'Low': currentLow + p['low_t+3'], 'Close': currentClose + p['close_t+3']},
             {'Date': t4, 'Open': currentOpen +p['open_t+4'], 'High': currentHigh + p['high_t+4'], 'Low': currentLow +p['low_t+4'], 'Close':  currentClose +p['close_t+4']}
-        ]          
-        def evaluatePositionTest (currentAverage,data):
-
-            
-           
-            numOfInputCandles=4
-            firstcandle=data[0]
-            secondcandle=data[1]
-            thirdcandle=data[2]
-            forthcandle=data[3]
-            
-            movAvOpen=(firstcandle['Open']+secondcandle['Open']+thirdcandle['Open']+forthcandle['Open'])/numOfInputCandles
-            movAvMax=(firstcandle['High']+secondcandle['High']+thirdcandle['High']+forthcandle['High'])/numOfInputCandles
-            movAvMin=(firstcandle['Low']+secondcandle['Low']+thirdcandle['Low']+forthcandle['Low'])/numOfInputCandles
-            movAvClose=(firstcandle['Close']+secondcandle['Close']+thirdcandle['Close']+forthcandle['Close'])/numOfInputCandles
+        ]      
+        
             
             
-            # minDelta=10
-            # # first check if next avarage  max price if higher then current, assume rise
-            # if (movAvMax>FirstCandleMax):
-            #     print('It seems the market will grow:')
-            #     #check id its more than delta, if its make sente to enter in this postion to get some money
-            #     # choose entance price with respect to the average min price
-            #     entancePrice=movAvMin
-            #     if (abs(movAvMax-entancePrice)>minDelta):
-                    
-
-            #         #TODO THINK ABOUT OUT PRICE
-            #         outPrice=movAvMax
-            #         print('We choose entrance price:' + str(entancePrice))
-            #         print('We set the out price:' + str(outPrice))
-            #     else:
-            #         print('The predicted price is less than chosen delta to get some profit')
-            # print('openav:' + str(movAvOpen))
-            # print('closeav:' + str(movAvClose))
-            # print('higheav:' + str(movAvMax))
-            # print('loweav:' + str(movAvMin))
-        evaluatePositionTest(currentAverage,data)
+            
         ohlc2 = pd.DataFrame(data)  
         ohlc2['Date'] = pd.to_datetime(ohlc2['Date'])
         ohlc2['Date'] = ohlc2['Date'].apply(mdates.date2num)
@@ -789,7 +814,23 @@ class TrendViewer:
         plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
         xlocator = mdates.MinuteLocator(byminute=range(60))
         plt.gca().xaxis.set_major_locator(xlocator)  
+                            
+                
+        self.evaluatePositionTest(data,currentOpen,currentHigh,currentLow,currentClose)
+             
+        if (self.printPrices == True):
+            plt.annotate(
+                    "entrance="+ str(self.entrancePrice), # this is the text
+                    (t1,currentLow), # this is the point to label
+                    textcoords="offset points", # how to position the text
+                    xytext=(0,10), # distance from text to points (x,y)
+                    ha='center',  # horizontal alignment 
+                    size=20)
+            plt.annotate(
+                "exit="+ str(self.outPrice), # this is the text
+                (t1,currentHigh), # this is the point to label
+                textcoords="offset points", # how to position the text
+                xytext=(0,10), # distance from text to points (x,y)
+                ha='center',  # horizontal alignment 
+                size=20)
         plt.show() 
-        
-            
-

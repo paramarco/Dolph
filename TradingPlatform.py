@@ -118,7 +118,9 @@ class TradingPlatform:
     
     def connect2TRANSAQ(self):
         log.info('connecting to TRANSAQ...')
-        res = self.tc.connect("FZTC8927A", "Lovemoney2018", "tr1.finam.ru:3900")        
+        res = self.tc.connect("FZTC8927A", "Lovemoney2018", "tr1.finam.ru:3900")    
+        # res = self.tc.connect("FZTC8929A", "vereda", "tr1.finam.ru:3900")        
+
         log.debug(repr(res))
    
     def disconnect(self):
