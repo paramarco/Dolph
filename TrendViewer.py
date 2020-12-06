@@ -51,15 +51,21 @@ class TrendViewer:
         self.printPrices = False
     def setDataTest(self, inputData):
         self.data_test = inputData
-    def evaluatePositionTest (self, data,currentOpen,currentHigh,currentLow, currentClose ):
+    def evaluatePositionTest (self, candlePredList,lastCandle ):
+        
+        currentOpen = lastCandle['currentOpen']
+        currentHigh = lastCandle['currentHigh']
+        currentLow = lastCandle['currentLow']
+        currentClose = lastCandle['currentClose']
+        
         currentAverage= (currentOpen+currentHigh+currentLow+currentClose)/4
         self.printPrices = False
         numOfInputCandles=4
 
-        firstcandle=data[0]
-        secondcandle=data[1]
-        thirdcandle=data[2]
-        forthcandle=data[3]
+        firstcandle  = candlePredList[0]
+        secondcandle = candlePredList[1]
+        thirdcandle  = candlePredList[2]
+        forthcandle  = candlePredList[3]
         
         movAvOpen=(firstcandle['Open']+secondcandle['Open']+thirdcandle['Open']+forthcandle['Open'])/numOfInputCandles
         movAvMax=(firstcandle['High']+secondcandle['High']+thirdcandle['High']+forthcandle['High'])/numOfInputCandles
@@ -787,7 +793,8 @@ class TrendViewer:
 
 
         p = df.loc[lastTime]
-        data = [
+        
+        candlePredList = [
             {
                 'Date': t1, 
                  'Open':    currentOpen     + p['open_t+1'], 
@@ -798,12 +805,9 @@ class TrendViewer:
             {'Date': t2, 'Open': currentOpen + p['open_t+2'], 'High': currentHigh + p['high_t+2'], 'Low': currentLow + p['low_t+2'], 'Close': currentClose + p['close_t+2']},
             {'Date': t3, 'Open': currentOpen + p['open_t+3'], 'High': currentHigh + p['high_t+3'], 'Low': currentLow + p['low_t+3'], 'Close': currentClose + p['close_t+3']},
             {'Date': t4, 'Open': currentOpen +p['open_t+4'], 'High': currentHigh + p['high_t+4'], 'Low': currentLow +p['low_t+4'], 'Close':  currentClose +p['close_t+4']}
-        ]      
-        
+        ]          
             
-            
-            
-        ohlc2 = pd.DataFrame(data)  
+        ohlc2 = pd.DataFrame(candlePredList)  
         ohlc2['Date'] = pd.to_datetime(ohlc2['Date'])
         ohlc2['Date'] = ohlc2['Date'].apply(mdates.date2num)
         ohlc2 = ohlc2.astype(float)
@@ -815,8 +819,13 @@ class TrendViewer:
         xlocator = mdates.MinuteLocator(byminute=range(60))
         plt.gca().xaxis.set_major_locator(xlocator)  
                             
-                
-        self.evaluatePositionTest(data,currentOpen,currentHigh,currentLow,currentClose)
+        lastCandle = { 
+            'currentOpen' : currentOpen,
+            'currentHigh' : currentHigh,
+            'currentLow' : currentLow,
+            'currentClose' : currentClose                      
+        }        
+        self.evaluatePositionTest(candlePredList, lastCandle)
              
         if (self.printPrices == True):
             plt.annotate(

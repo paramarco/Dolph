@@ -25,7 +25,7 @@ class Dolph:
     
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TEST_ONLINE' | 'OPERATIONAL'
 
-        self.MODE = 'TEST_ONLINE' 
+        self.MODE = 'OPERATIONAL' 
 
         self.numTestSample = 500
         self.since = datetime.date(year=2020,month=3,day=1)
@@ -227,7 +227,137 @@ class Dolph:
         for p in self.periods:
             preds = copy.deepcopy(self.predictions[p])
             self.showPrediction( preds , p)    
+      
         
+    def positionAssestment (self, candlePredList,lastCandle ):
+        
+        exitPrice = 0.0
+        entryPrice = 0.0
+        decision = 'no-go'
+        currentOpen = lastCandle['currentOpen']
+        currentHigh = lastCandle['currentHigh']
+        currentLow = lastCandle['currentLow']
+        currentClose = lastCandle['currentClose']
+        
+        currentAverage= (currentOpen+currentHigh+currentLow+currentClose)/4
+        self.printPrices = False
+        numOfInputCandles=4
+
+        firstcandle  = candlePredList[0]
+        secondcandle = candlePredList[1]
+        thirdcandle  = candlePredList[2]
+        forthcandle  = candlePredList[3]
+        
+        movAvOpen=(firstcandle['Open']+secondcandle['Open']+thirdcandle['Open']+forthcandle['Open'])/numOfInputCandles
+        movAvMax=(firstcandle['High']+secondcandle['High']+thirdcandle['High']+forthcandle['High'])/numOfInputCandles
+        movAvMin=(firstcandle['Low']+secondcandle['Low']+thirdcandle['Low']+forthcandle['Low'])/numOfInputCandles
+        movAvClose=(firstcandle['Close']+secondcandle['Close']+thirdcandle['Close']+forthcandle['Close'])/numOfInputCandles
+        
+        firstcandleAvg=(firstcandle['Open']+firstcandle['High']+firstcandle['Low']+firstcandle['Close'])/numOfInputCandles
+        secondcandleAvg=(secondcandle['Open']+secondcandle['High']+secondcandle['Low']+secondcandle['Close'])/numOfInputCandles
+        thirdcandleAvg=(thirdcandle['Open']+thirdcandle['High']+thirdcandle['Low']+thirdcandle['Close'])/numOfInputCandles
+        forthcandleAvg=(forthcandle['Open']+forthcandle['High']+forthcandle['Low']+forthcandle['Close'])/numOfInputCandles
+
+
+        totalAvg=(firstcandleAvg+secondcandleAvg+thirdcandleAvg+forthcandleAvg)/4
+
+        minDelta=10
+        #check the color of the candle
+        if (currentClose>currentOpen): #if this blue?
+        
+            # first check if next avarage  max price if higher then current, assume rise
+            if (movAvMax>currentHigh):
+                print('It seems the market will grow:')
+                #check id its more than delta, if its make sente to enter in this postion to get some money
+                # choose entance price with respect to the average min price
+                
+                
+                #entrance price like the avarage of the previos candle doesn not work!!
+               #maybe not everytime, maybe somtemis will work
+              # MAYBE TAKE CLOSE PRICE OF PREVIOS CANDLE
+                entryPrice = currentClose
+                deltaForExit=15.0
+                #TODO THINK ABOUT OUT PRICE
+                exitPrice = entryPrice+deltaForExit
+                print('We choose entrance price:' + str(entryPrice))
+                print('We set the out price:' + str( exitPrice ))
+                decision='long'
+        else:
+            print('It seems the market will go down..')   
+            #the candle is black
+            if (movAvClose>currentLow):
+                print('It seems the market will go down..')  
+                entryPrice=currentClose
+                deltaForExit=15.0
+                exitPrice = entryPrice - deltaForExit
+                decision='short'
+  
+        return entryPrice, exitPrice, decision
+    
+    def getPositionAssessmentParams(self,predictions):
+        
+        myCols = ['predictions','time','Mnemonic','EndPrice' ]
+        df_in = pd.DataFrame(columns=myCols)
+        
+        for p in predictions:
+            row = pd.DataFrame({
+                'time':                 p.training_set.original_df['CalcDateTime'],
+                'Mnemonic':             p.training_set.original_df['Mnemonic'],
+                'StartPrice':           p.training_set.original_df['StartPrice'],
+                'EndPrice':             p.training_set.original_df['EndPrice'],
+                'MinPrice':             p.training_set.original_df['MinPrice'],
+                'MaxPrice':             p.training_set.original_df['MaxPrice'] ,
+                'open_t+1':             p.predictions[0][0],
+                'high_t+1':             p.predictions[0][1],
+                'low_t+1':              p.predictions[0][2],
+                'close_t+1':            p.predictions[0][3],
+                'open_t+2':             p.predictions[0][4],
+                'high_t+2':             p.predictions[0][5],
+                'low_t+2':              p.predictions[0][6],
+                'close_t+2':            p.predictions[0][7],
+                'open_t+3':             p.predictions[0][8],
+                'high_t+3':             p.predictions[0][9],
+                'low_t+3':              p.predictions[0][10],
+                'close_t+3':            p.predictions[0][11],
+                'open_t+4':             p.predictions[0][12],
+                'high_t+4':             p.predictions[0][13],
+                'low_t+4':              p.predictions[0][14],
+                'close_t+4':            p.predictions[0][15]
+                }
+            )
+            df_in = df_in.append(row)
+        df_in['timeDate'] = df_in['time']  
+        df_in = df_in.set_index('time')
+        df = df_in        
+        times = sorted(list(df.index.unique()))
+        lastTime = times[-1]    
+        
+        t1 = lastTime + datetime.timedelta(minutes = 1)
+        t2 = lastTime + datetime.timedelta(minutes = 2)
+        t3 = lastTime + datetime.timedelta(minutes = 3)
+        t4 = lastTime + datetime.timedelta(minutes = 4)
+
+        currentOpen = df.iloc[-1].StartPrice
+        currentHigh = df.iloc[-1].MaxPrice
+        currentLow = df.iloc[-1].MinPrice
+        currentClose = df.iloc[-1].EndPrice
+
+        p = df.loc[lastTime]
+        candlePredList = [
+            {'Date':t1,'Open':currentOpen+p['open_t+1'],'High':currentHigh + p['high_t+1'],'Low': currentLow+p['low_t+1'],'Close': currentClose+ p['close_t+1'] },
+            {'Date':t2,'Open':currentOpen+p['open_t+2'],'High':currentHigh + p['high_t+2'],'Low': currentLow+p['low_t+2'], 'Close': currentClose + p['close_t+2']},
+            {'Date':t3,'Open':currentOpen+p['open_t+3'],'High':currentHigh + p['high_t+3'],'Low': currentLow+p['low_t+3'], 'Close': currentClose + p['close_t+3']},
+            {'Date':t4,'Open':currentOpen+p['open_t+4'],'High':currentHigh + p['high_t+4'],'Low': currentLow+p['low_t+4'], 'Close':currentClose +p['close_t+4']}
+        ]
+        
+        lastCandle = { 
+            'currentOpen' : currentOpen,
+            'currentHigh' : currentHigh,
+            'currentLow' : currentLow,
+            'currentClose' : currentClose                      
+        }
+        
+        return candlePredList,lastCandle
 
     def evaluatePosition (self):        
                 
@@ -245,27 +375,16 @@ class Dolph:
         quantity =              self.params['positionQuantity']
         k =                     self.params['stopLossCoefficient']
         
-        preds = self.predictions[longestPeriod]
-
-        lastPrice = preds[-1].training_set.original_df.iloc[-1]['EndPrice']
-        lastPrediction = preds[-1].predictions[-1][-1]
-                
-        #TODO the rules to choose the takePosition must be studied carefuly
-        takePosition = 'no-go'
-        if lastPrediction > 0.00:
-            takePosition = 'long'
-        elif  lastPrediction < 0.00:
-            takePosition = 'short'                
-        # takePosition = 'long'
-        #TODO the rules to choose the takePosition must be studied carefuly
         
-        # entryPrice = 0.0
-        entryPrice = lastPrice
-        if not byMarket:
-            entryPrice = lastPrice
-       
-        exitPrice = 0.0 
         stoploss = 0.0
+        exitPrice =  0.0
+        entryPrice = lastCandle[currentClose]
+        
+        predictions = copy.deepcopy(self.predictions[longestPeriod])
+        candlePredList,lastCandle = self.getPositionAssessmentParams(predictions)
+  
+        entryPrice, exitPrice, takePosition = self.positionAssestment(candlePredList,lastCandle)
+
         if takePosition == 'long':
             exitPrice = entryPrice  + longPositionMargin
             stoploss = entryPrice  - k * shortPositionMargin
@@ -327,6 +446,6 @@ if __name__== "__main__":
         dolph.dataAcquisition()
         dolph.predict()
         dolph.displayPredictions()
-        # dolph.takePosition( dolph.evaluatePosition() )          
+        dolph.takePosition( dolph.evaluatePosition() )          
 
         
