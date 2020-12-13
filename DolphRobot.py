@@ -7,6 +7,7 @@ import signal
 import gc; gc.collect()
 import datetime
 import copy
+import pandas as pd
 
 import DataServer as ds
 import TradingPlatform as tp
@@ -23,17 +24,17 @@ import NeuronalNet_v10 as nn_v10
 class Dolph:
     def __init__(self, securities):
     
-        # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TEST_ONLINE' | 'OPERATIONAL'
+        # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
 
-        self.MODE = 'OPERATIONAL' 
+        self.MODE = 'TEST_OFFLINE' 
 
         self.numTestSample = 500
-        self.since = datetime.date(year=2020,month=3,day=1)
+        self.since = datetime.date(year=2019,month=6,day=1)
         self.between_time = ('07:30', '23:00')
 
 
         # self.periods = ['1Min','2Min','3Min']
-        self.periods = ['1Min']
+        self.periods = ['5Min']
 
         self.data = {}
         self.inputDataTest = {}
@@ -275,7 +276,7 @@ class Dolph:
                 #entrance price like the avarage of the previos candle doesn not work!!
                #maybe not everytime, maybe somtemis will work
               # MAYBE TAKE CLOSE PRICE OF PREVIOS CANDLE
-                entryPrice = currentClose
+                entryPrice = currentAverage
                 deltaForExit=15.0
                 #TODO THINK ABOUT OUT PRICE
                 exitPrice = entryPrice+deltaForExit
@@ -287,7 +288,7 @@ class Dolph:
             #the candle is black
             if (movAvClose>currentLow):
                 print('It seems the market will go down..')  
-                entryPrice=currentClose
+                entryPrice=currentAverage
                 deltaForExit=15.0
                 exitPrice = entryPrice - deltaForExit
                 decision='short'
@@ -376,13 +377,14 @@ class Dolph:
         k =                     self.params['stopLossCoefficient']
         
         
-        stoploss = 0.0
-        exitPrice =  0.0
-        entryPrice = lastCandle[currentClose]
+
         
         predictions = copy.deepcopy(self.predictions[longestPeriod])
         candlePredList,lastCandle = self.getPositionAssessmentParams(predictions)
-  
+        stoploss = 0.0
+        exitPrice =  0.0
+        entryPrice = lastCandle['currentClose']
+        
         entryPrice, exitPrice, takePosition = self.positionAssestment(candlePredList,lastCandle)
 
         if takePosition == 'long':
@@ -396,7 +398,8 @@ class Dolph:
         else:
             exitPrice = entryPrice
             stoploss = entryPrice
-              
+        print('exitPrice'+str(exitPrice))  
+        print('entryPrice'+str(entryPrice)) 
         position = tp.Position(
             takePosition, board, seccode, marketId, entryTimeSeconds, 
             quantity, entryPrice, exitPrice , stoploss, decimals, byMarket
@@ -443,9 +446,13 @@ if __name__== "__main__":
 
     while True:
 
+        # dolph.tp.cancellAllOrders()
+        # dolph.tp.cancellAllStopOrders()
+
         dolph.dataAcquisition()
         dolph.predict()
         dolph.displayPredictions()
-        dolph.takePosition( dolph.evaluatePosition() )          
-
+        dolph.takePosition( dolph.evaluatePosition() )
+        
+        
         

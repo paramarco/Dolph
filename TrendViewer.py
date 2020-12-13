@@ -94,8 +94,8 @@ class TrendViewer:
                 #entrance price like the avarage of the previos candle doesn not work!!
                #maybe not everytime, maybe somtemis will work
               # MAYBE TAKE CLOSE PRICE OF PREVIOS CANDLE
-                self.entrancePrice=currentClose
-                deltaForExit=15.0
+                self.entrancePrice=currentAverage
+                deltaForExit=10.0
                 #TODO THINK ABOUT OUT PRICE
                 self.outPrice=self.entrancePrice+deltaForExit
                 print('We choose entrance price:' + str(self.entrancePrice))
@@ -106,8 +106,8 @@ class TrendViewer:
             #the candle is black
             if (movAvClose>currentLow):
                 print('It seems the market will go down..')  
-                self.entrancePrice=currentClose
-                deltaForExit=15.0
+                self.entrancePrice=currentAverage
+                deltaForExit=10.0
                 self.outPrice=self.entrancePrice-deltaForExit
                 self.printPrices = True
 
