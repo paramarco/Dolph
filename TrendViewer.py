@@ -26,7 +26,7 @@ import datetime
 
 class TrendViewer:
     
-    def __init__(self, periods):
+    def __init__(self, periods, func):
         self.preds = []
         self.predsplot = []
         self.predsplot1 = []
@@ -49,67 +49,73 @@ class TrendViewer:
         self.entrancePrice =0
         self.outPrice=0
         self.printPrices = False
+        
+        self.evaluatePositionTest = func
+        
+        
     def setDataTest(self, inputData):
         self.data_test = inputData
-    def evaluatePositionTest (self, candlePredList,lastCandle ):
         
-        currentOpen = lastCandle['currentOpen']
-        currentHigh = lastCandle['currentHigh']
-        currentLow = lastCandle['currentLow']
-        currentClose = lastCandle['currentClose']
         
-        currentAverage= (currentOpen+currentHigh+currentLow+currentClose)/4
-        self.printPrices = False
-        numOfInputCandles=4
+    # def evaluatePositionTest (self, candlePredList,lastCandle ):
+        
+    #     currentOpen = lastCandle['currentOpen']
+    #     currentHigh = lastCandle['currentHigh']
+    #     currentLow = lastCandle['currentLow']
+    #     currentClose = lastCandle['currentClose']
+        
+    #     currentAverage= (currentOpen+currentHigh+currentLow+currentClose)/4
+    #     self.printPrices = False
+    #     numOfInputCandles=4
 
-        firstcandle  = candlePredList[0]
-        secondcandle = candlePredList[1]
-        thirdcandle  = candlePredList[2]
-        forthcandle  = candlePredList[3]
+    #     firstcandle  = candlePredList[0]
+    #     secondcandle = candlePredList[1]
+    #     thirdcandle  = candlePredList[2]
+    #     forthcandle  = candlePredList[3]
         
-        movAvOpen=(firstcandle['Open']+secondcandle['Open']+thirdcandle['Open']+forthcandle['Open'])/numOfInputCandles
-        movAvMax=(firstcandle['High']+secondcandle['High']+thirdcandle['High']+forthcandle['High'])/numOfInputCandles
-        movAvMin=(firstcandle['Low']+secondcandle['Low']+thirdcandle['Low']+forthcandle['Low'])/numOfInputCandles
-        movAvClose=(firstcandle['Close']+secondcandle['Close']+thirdcandle['Close']+forthcandle['Close'])/numOfInputCandles
+    #     movAvOpen=(firstcandle['Open']+secondcandle['Open']+thirdcandle['Open']+forthcandle['Open'])/numOfInputCandles
+    #     movAvMax=(firstcandle['High']+secondcandle['High']+thirdcandle['High']+forthcandle['High'])/numOfInputCandles
+    #     movAvMin=(firstcandle['Low']+secondcandle['Low']+thirdcandle['Low']+forthcandle['Low'])/numOfInputCandles
+    #     movAvClose=(firstcandle['Close']+secondcandle['Close']+thirdcandle['Close']+forthcandle['Close'])/numOfInputCandles
         
-        firstcandleAvg=(firstcandle['Open']+firstcandle['High']+firstcandle['Low']+firstcandle['Close'])/numOfInputCandles
-        secondcandleAvg=(secondcandle['Open']+secondcandle['High']+secondcandle['Low']+secondcandle['Close'])/numOfInputCandles
-        thirdcandleAvg=(thirdcandle['Open']+thirdcandle['High']+thirdcandle['Low']+thirdcandle['Close'])/numOfInputCandles
-        forthcandleAvg=(forthcandle['Open']+forthcandle['High']+forthcandle['Low']+forthcandle['Close'])/numOfInputCandles
+    #     firstcandleAvg=(firstcandle['Open']+firstcandle['High']+firstcandle['Low']+firstcandle['Close'])/numOfInputCandles
+    #     secondcandleAvg=(secondcandle['Open']+secondcandle['High']+secondcandle['Low']+secondcandle['Close'])/numOfInputCandles
+    #     thirdcandleAvg=(thirdcandle['Open']+thirdcandle['High']+thirdcandle['Low']+thirdcandle['Close'])/numOfInputCandles
+    #     forthcandleAvg=(forthcandle['Open']+forthcandle['High']+forthcandle['Low']+forthcandle['Close'])/numOfInputCandles
 
 
-        totalAvg=(firstcandleAvg+secondcandleAvg+thirdcandleAvg+forthcandleAvg)/4
+    #     totalAvg=(firstcandleAvg+secondcandleAvg+thirdcandleAvg+forthcandleAvg)/4
 
-        minDelta=10
-        #check the color of the candle
-        if (currentClose>currentOpen): #if this blue?
+    #     minDelta=10
+    #     #check the color of the candle
+    #     if (currentClose>currentOpen): #if this blue?
         
-            # first check if next avarage  max price if higher then current, assume rise
-            if (movAvMax>currentHigh):
-                print('It seems the market will grow:')
-                #check id its more than delta, if its make sente to enter in this postion to get some money
-                # choose entance price with respect to the average min price
+    #         # first check if next avarage  max price if higher then current, assume rise
+    #         if (movAvMax>currentHigh):
+    #             print('It seems the market will grow:')
+    #             #check id its more than delta, if its make sente to enter in this postion to get some money
+    #             # choose entance price with respect to the average min price
                 
                 
-                #entrance price like the avarage of the previos candle doesn not work!!
-               #maybe not everytime, maybe somtemis will work
-              # MAYBE TAKE CLOSE PRICE OF PREVIOS CANDLE
-                self.entrancePrice=currentAverage
-                deltaForExit=10.0
-                #TODO THINK ABOUT OUT PRICE
-                self.outPrice=self.entrancePrice+deltaForExit
-                print('We choose entrance price:' + str(self.entrancePrice))
-                print('We set the out price:' + str(self.outPrice))
-                self.printPrices = True
-        else:
-            print('It seems the market will go down..')   
-            #the candle is black
-            if (movAvClose>currentLow):
-                print('It seems the market will go down..')  
-                self.entrancePrice=currentAverage
-                deltaForExit=10.0
-                self.outPrice=self.entrancePrice-deltaForExit
-                self.printPrices = True
+    #             #entrance price like the avarage of the previos candle doesn not work!!
+    #            #maybe not everytime, maybe somtemis will work
+    #           # MAYBE TAKE CLOSE PRICE OF PREVIOS CANDLE
+    #             self.entrancePrice=currentAverage
+    #             deltaForExit=10.0
+    #             #TODO THINK ABOUT OUT PRICE
+    #             self.outPrice=self.entrancePrice+deltaForExit
+    #             print('We choose entrance price:' + str(self.entrancePrice))
+    #             print('We set the out price:' + str(self.outPrice))
+    #             self.printPrices = True
+    #     else:
+    #         print('It seems the market will go down..')   
+    #         #the candle is black
+    #         if (movAvClose>currentLow):
+    #             print('It seems the market will go down..')  
+    #             self.entrancePrice=currentAverage
+    #             deltaForExit=10.0
+    #             self.outPrice=self.entrancePrice-deltaForExit
+    #             self.printPrices = True
 
                 
                 
@@ -825,18 +831,19 @@ class TrendViewer:
             'currentLow' : currentLow,
             'currentClose' : currentClose                      
         }        
-        self.evaluatePositionTest(candlePredList, lastCandle)
+        entryPrice, exitPrice, takePosition, printPrices = \
+            self.evaluatePositionTest(candlePredList, lastCandle)
              
-        if (self.printPrices == True):
+        if (printPrices == True):
             plt.annotate(
-                    "entrance="+ str(self.entrancePrice), # this is the text
+                    "entrance="+ str(entryPrice), # this is the text
                     (t1,currentLow), # this is the point to label
                     textcoords="offset points", # how to position the text
                     xytext=(0,10), # distance from text to points (x,y)
                     ha='center',  # horizontal alignment 
                     size=20)
             plt.annotate(
-                "exit="+ str(self.outPrice), # this is the text
+                "exit="+ str(exitPrice), # this is the text
                 (t1,currentHigh), # this is the point to label
                 textcoords="offset points", # how to position the text
                 xytext=(0,10), # distance from text to points (x,y)

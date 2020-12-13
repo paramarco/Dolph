@@ -236,6 +236,9 @@ class TradingPlatform:
             
             if order in self.monitoredOrders:
                 self.monitoredOrders.remove(order)
+                self.monitoredPositions = [ p for p in self.monitoredPositions 
+                                             if p.entry_id != order.id ]
+                self.tc.cancel_order(order.id)                
             m = 'order {} with status: {} deleted from monitoredOrders'.format( order.id, s)
             logging.info( m )
                     

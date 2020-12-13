@@ -29,12 +29,12 @@ class Dolph:
         self.MODE = 'TEST_OFFLINE' 
 
         self.numTestSample = 500
-        self.since = datetime.date(year=2019,month=6,day=1)
+        self.since = datetime.date(year=2020,month=3,day=1)
         self.between_time = ('07:30', '23:00')
 
 
         # self.periods = ['1Min','2Min','3Min']
-        self.periods = ['5Min']
+        self.periods = ['1Min']
 
         self.data = {}
         self.inputDataTest = {}
@@ -61,7 +61,7 @@ class Dolph:
         logging.info('running on mode: ' + self.MODE)
         
         self.ds = ds.DataServer()
-        self.plotter = tv.TrendViewer(self.periods)
+        self.plotter = tv.TrendViewer(self.periods, self.positionAssestment)
         self.securities = securities
         self.getData = None
         self.getTrainingModel = None
@@ -232,6 +232,7 @@ class Dolph:
         
     def positionAssestment (self, candlePredList,lastCandle ):
         
+        printPrices = False
         exitPrice = 0.0
         entryPrice = 0.0
         decision = 'no-go'
@@ -283,6 +284,7 @@ class Dolph:
                 print('We choose entrance price:' + str(entryPrice))
                 print('We set the out price:' + str( exitPrice ))
                 decision='long'
+                printPrices = True
         else:
             print('It seems the market will go down..')   
             #the candle is black
@@ -292,8 +294,9 @@ class Dolph:
                 deltaForExit=15.0
                 exitPrice = entryPrice - deltaForExit
                 decision='short'
+                printPrices = True
   
-        return entryPrice, exitPrice, decision
+        return entryPrice, exitPrice, decision, printPrices
     
     def getPositionAssessmentParams(self,predictions):
         
@@ -385,7 +388,8 @@ class Dolph:
         exitPrice =  0.0
         entryPrice = lastCandle['currentClose']
         
-        entryPrice, exitPrice, takePosition = self.positionAssestment(candlePredList,lastCandle)
+        entryPrice, exitPrice, takePosition, printPrices = \
+            self.positionAssestment(candlePredList,lastCandle)
 
         if takePosition == 'long':
             exitPrice = entryPrice  + longPositionMargin
@@ -426,10 +430,10 @@ if __name__== "__main__":
 
     securities = [] 
 
-    #securities.append( {'board':'FUT', 'seccode':'GZZ0'} )
+    securities.append( {'board':'FUT', 'seccode':'GZZ0'} )
 
 
-    securities.append( {'board':'FUT', 'seccode':'SRZ0'} )
+    #securities.append( {'board':'FUT', 'seccode':'SRZ0'} )
     # securities.append( {'board':'FUT', 'seccode':'GDZ0'} ) 
     # securities.append( {'board':'FUT', 'seccode':'SiZ0'} )
     #securities.append( {'board':'FUT', 'seccode':'VBZ0'} )
