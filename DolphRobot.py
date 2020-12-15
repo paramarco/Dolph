@@ -26,15 +26,15 @@ class Dolph:
     
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
 
-        self.MODE = 'TEST_OFFLINE' 
+        self.MODE = 'TEST_ONLINE' 
 
         self.numTestSample = 500
-        self.since = datetime.date(year=2020,month=3,day=1)
+        self.since = datetime.date(year=2020,month=9,day=1)
         self.between_time = ('07:30', '23:00')
 
 
         # self.periods = ['1Min','2Min','3Min']
-        self.periods = ['1Min']
+        self.periods = ['5Min']
 
         self.data = {}
         self.inputDataTest = {}
@@ -259,39 +259,45 @@ class Dolph:
         secondcandleAvg=(secondcandle['Open']+secondcandle['High']+secondcandle['Low']+secondcandle['Close'])/numOfInputCandles
         thirdcandleAvg=(thirdcandle['Open']+thirdcandle['High']+thirdcandle['Low']+thirdcandle['Close'])/numOfInputCandles
         forthcandleAvg=(forthcandle['Open']+forthcandle['High']+forthcandle['Low']+forthcandle['Close'])/numOfInputCandles
-
+        def checkCandleColour(firstcandle,secondcandle, thirdcandle,forthcandle ):
+            blue = False 
+            if ((firstcandle['Close']>firstcandle['Open']) and (secondcandle['Close']>secondcandle['Open']) and (thirdcandle['Close']>thirdcandle['Open']) and (forthcandle['Close'] and forthcandle['Open'])):
+                blue= True
+            return blue
 
         totalAvg=(firstcandleAvg+secondcandleAvg+thirdcandleAvg+forthcandleAvg)/4
 
         minDelta=10
         #check the color of the candle
         if (currentClose>currentOpen): #if this blue?
-        
-            # first check if next avarage  max price if higher then current, assume rise
-            if (movAvMax>currentHigh):
-                print('It seems the market will grow:')
-                #check id its more than delta, if its make sente to enter in this postion to get some money
-                # choose entance price with respect to the average min price
-                
-                
-                #entrance price like the avarage of the previos candle doesn not work!!
-               #maybe not everytime, maybe somtemis will work
-              # MAYBE TAKE CLOSE PRICE OF PREVIOS CANDLE
-                entryPrice = currentAverage
-                deltaForExit=15.0
-                #TODO THINK ABOUT OUT PRICE
-                exitPrice = entryPrice+deltaForExit
-                print('We choose entrance price:' + str(entryPrice))
-                print('We set the out price:' + str( exitPrice ))
-                decision='long'
-                printPrices = True
+        #check if all predicted candles are blue?
+            allCandlesBlue=checkCandleColour(firstcandle,secondcandle, thirdcandle,forthcandle)
+            if (allCandlesBlue == True):
+                # first check if next avarage  max price if higher then current, assume rise
+                if (movAvMax>currentHigh):
+                    print('It seems the market will grow:')
+                    #check id its more than delta, if its make sente to enter in this postion to get some money
+                    # choose entance price with respect to the average min price
+                    
+                    
+                    #entrance price like the avarage of the previos candle doesn not work!!
+                   #maybe not everytime, maybe somtemis will work
+                  # MAYBE TAKE CLOSE PRICE OF PREVIOS CANDLE
+                    entryPrice = currentAverage
+                    deltaForExit=10.0
+                    #TODO THINK ABOUT OUT PRICE
+                    exitPrice = entryPrice+deltaForExit
+                    print('We choose entrance price:' + str(entryPrice))
+                    print('We set the out price:' + str( exitPrice ))
+                    decision='long'
+                    printPrices = True
         else:
             print('It seems the market will go down..')   
             #the candle is black
             if (movAvClose>currentLow):
                 print('It seems the market will go down..')  
                 entryPrice=currentAverage
-                deltaForExit=15.0
+                deltaForExit=10.0
                 exitPrice = entryPrice - deltaForExit
                 decision='short'
                 printPrices = True
@@ -430,10 +436,10 @@ if __name__== "__main__":
 
     securities = [] 
 
-    securities.append( {'board':'FUT', 'seccode':'GZZ0'} )
+    securities.append( {'board':'FUT', 'seccode':'GZH1'} )
 
 
-    #securities.append( {'board':'FUT', 'seccode':'SRZ0'} )
+    #securities.append( {'board':'FUT', 'seccode':'SRH1'} )
     # securities.append( {'board':'FUT', 'seccode':'GDZ0'} ) 
     # securities.append( {'board':'FUT', 'seccode':'SiZ0'} )
     #securities.append( {'board':'FUT', 'seccode':'VBZ0'} )
