@@ -100,6 +100,7 @@ class TradingPlatform:
                 logging.info('connected to TRANSAQ' )
         elif isinstance(obj, ts.HistoryCandlePacket):
             self.onHistoryCandleCall(obj)
+            self.cancelTimeoutEntries()
         elif isinstance(obj, ts.MarketPacket):
             logging.info( repr(obj) ) 
             
@@ -394,5 +395,28 @@ class TradingPlatform:
         else:
             log.warning('wait!, not connected to TRANSAQ yet...')  
         
+    def cancelTimeoutEntries(self):
+        
+        fmt = "%d.%m.%Y %H:%M:%S"
+        moscowTimeZone = pytz.timezone('Europe/Moscow')                    
+        moscowTime = datetime.datetime.now(moscowTimeZone) 
+        list2cancel = []
+        
+        for mp in self.monitoredPositions:
+            nSec = mp.entryTimeSeconds
+            for mo in self.monitoredOrders:
+                orderTime_plusNsec = mo.time + datetime.timedelta(seconds = nSec)                
+                if ( moscowTime > orderTime_plusNsec ):
+                    res = self.tc.cancel_order(mo.id)
+                    log.debug(repr(res))
+                    list2cancel.append(mo)
+                    moscow = moscowTime.strftime(fmt)
+                    expTime = orderTime_plusNsec.strftime(fmt)
+                    log.debug('moscow: '+ moscow + 'postion timeouts: '+ expTime)
+                   
                     
-            
+        for mo in list2cancel:
+            self.monitoredOrders.remove(mo)
+            self.monitoredPositions = [ p for p in self.monitoredPositions 
+                                             if p.entry_id != mo.id ]
+
