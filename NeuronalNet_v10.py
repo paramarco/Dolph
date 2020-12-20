@@ -32,11 +32,12 @@ class NARemover:
 
 class Featurizer:
     
-    def __init__(self, target):
+    def __init__(self, target, numPastSamples):
         # target := "training" | "prediction"
         self.target = target
+        self.numPastSamples = numPastSamples
         
-    def transform(self, single_stock, max_offset = 30):
+    def transform(self, single_stock):
 
         predictionWindow = 5
         
@@ -45,7 +46,7 @@ class Featurizer:
         # single_stock['x(DOY)'] = single_stock['CalcDateTime'].dt.dayofyear
        
         
-        for offset in range(1, max_offset ):
+        for offset in range(1, self.numPastSamples ):
             
             single_stock['x(open(t-{})'.format(str(offset))] = single_stock['StartPrice'] - single_stock['StartPrice'].shift(offset) 
             single_stock['x(high(t-{})'.format(str(offset))] = single_stock['MaxPrice'] - single_stock['MaxPrice'].shift(offset)   
@@ -88,8 +89,10 @@ class MLModel:
     def __init__(self, df, params, period):
         self.model = None
         self.period = period
+        self.params = params
         # month = datetime.now().strftime('%h') 
-        self.fileName =  __name__ + "_" + self.period 
+        nameParts=[__name__,self.period,str(params['minNumPastSamples'])+'Samples']
+        self.fileName = '_'.join(nameParts)
         
         if ( os.path.isdir( self.fileName ) ):
             log.info('pre-trainned model found! loading it ...')
@@ -134,14 +137,16 @@ class MLModel:
         
             single_stock = df_train[df_train.Mnemonic == mnemonic].copy()
             single_stock = single_stock[single_stock.HasTrade == 1.0]
-            single_stock = Featurizer("training").transform(single_stock)
+            single_stock = Featurizer("training", self.params['minNumPastSamples']) \
+                    .transform(single_stock)
             single_stock = NARemover(mnemonic).transform(single_stock)
             combined_training_set.append(single_stock)
             log.info(single_stock.shape)
         
             single_stock = df_valid[df_valid.Mnemonic == mnemonic].copy()
             single_stock = single_stock[single_stock.HasTrade == 1.0] 
-            single_stock = Featurizer("training").transform(single_stock)
+            single_stock = Featurizer("training", self.params['minNumPastSamples']) \
+                .transform(single_stock)
             single_stock = NARemover(mnemonic).transform(single_stock)
             combined_valid_set.append(single_stock)            
             
@@ -237,7 +242,8 @@ class MLModel:
         
             single_stock = df[df.Mnemonic == mnemonic].copy()
             single_stock = single_stock[single_stock.HasTrade == 1.0]
-            single_stock = Featurizer("prediction").transform(single_stock)
+            single_stock = Featurizer("prediction", self.params['minNumPastSamples']) \
+                .transform(single_stock)
             single_stock = NARemover(mnemonic).transform(single_stock)
             single_stock = single_stock.tail(1)
             combined_data_set.append(single_stock)
