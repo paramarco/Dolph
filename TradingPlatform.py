@@ -405,7 +405,8 @@ class TradingPlatform:
         for mp in self.monitoredPositions:
             nSec = mp.entryTimeSeconds
             for mo in self.monitoredOrders:
-                orderTime_plusNsec = mo.time + datetime.timedelta(seconds = nSec)                
+                orderTime_plusNsec = mo.time + datetime.timedelta(seconds = nSec)
+                orderTime_plusNsec = moscowTimeZone.localize(orderTime_plusNsec)
                 if ( moscowTime > orderTime_plusNsec ):
                     res = self.tc.cancel_order(mo.id)
                     log.debug(repr(res))

@@ -29,12 +29,12 @@ class Dolph:
         self.MODE = 'OPERATIONAL' 
 
         self.numTestSample = 500
-        self.since = datetime.date(year=2020,month=9,day=1)
+        self.since = datetime.date(year=2020,month=11,day=1)
         self.between_time = ('07:30', '23:00')
 
 
         # self.periods = ['1Min','2Min','3Min']
-        self.periods = ['5Min']
+        self.periods = ['1Min']
 
         self.data = {}
         self.inputDataTest = {}
