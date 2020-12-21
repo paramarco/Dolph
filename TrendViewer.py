@@ -668,6 +668,7 @@ class TrendViewer:
         
     def displayPrediction_v10 (self, predictions, period):
         
+        numPeriod = int(period[0])
         df_in = pd.DataFrame(columns=['predictions',
                                       'time',
                                       'Mnemonic',
@@ -787,10 +788,10 @@ class TrendViewer:
         ohlc = ohlc.astype(float)        
         candlestick_ohlc(plt.gca(), ohlc.values, width=0.6/(24*60), colorup='green', colordown='red', alpha=0.9)
         
-        t1 = lastTime + datetime.timedelta(minutes = 1)
-        t2 = lastTime + datetime.timedelta(minutes = 2)
-        t3 = lastTime + datetime.timedelta(minutes = 3)
-        t4 = lastTime + datetime.timedelta(minutes = 4)
+        t1 = lastTime + datetime.timedelta(minutes = (1 * numPeriod) )
+        t2 = lastTime + datetime.timedelta(minutes = (2 * numPeriod) )
+        t3 = lastTime + datetime.timedelta(minutes = (3 * numPeriod) )
+        t4 = lastTime + datetime.timedelta(minutes = (4 * numPeriod) )
 
         currentOpen = df.iloc[-1].StartPrice
         currentHigh = df.iloc[-1].MaxPrice
@@ -801,13 +802,7 @@ class TrendViewer:
         p = df.loc[lastTime]
         
         candlePredList = [
-            {
-                'Date': t1, 
-                 'Open':    currentOpen     + p['open_t+1'], 
-                 'High':    currentHigh     + p['high_t+1'], 
-                 'Low':     currentLow      + p['low_t+1'], 
-                 'Close':   currentClose    + p['close_t+1']
-             },
+            {'Date': t1, 'Open': currentOpen+ p['open_t+1'], 'High': currentHigh + p['high_t+1'], 'Low': currentLow + p['low_t+1'], 'Close': currentClose + p['close_t+1']},
             {'Date': t2, 'Open': currentOpen + p['open_t+2'], 'High': currentHigh + p['high_t+2'], 'Low': currentLow + p['low_t+2'], 'Close': currentClose + p['close_t+2']},
             {'Date': t3, 'Open': currentOpen + p['open_t+3'], 'High': currentHigh + p['high_t+3'], 'Low': currentLow + p['low_t+3'], 'Close': currentClose + p['close_t+3']},
             {'Date': t4, 'Open': currentOpen +p['open_t+4'], 'High': currentHigh + p['high_t+4'], 'Low': currentLow +p['low_t+4'], 'Close':  currentClose +p['close_t+4']}

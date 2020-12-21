@@ -26,7 +26,7 @@ class Dolph:
     
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
 
-        self.MODE = 'OPERATIONAL' 
+        self.MODE = 'TEST_ONLINE' 
 
         self.numTestSample = 500
         self.since = datetime.date(year=2020,month=11,day=1)
@@ -34,11 +34,11 @@ class Dolph:
 
 
         # self.periods = ['1Min','2Min','3Min']
-        self.periods = ['1Min']
+        self.periods = ['1Min','5Min']
 
         self.data = {}
         self.inputDataTest = {}
-        self.lastMinuteUpdate = None
+        self.lastUpdate = None
         self.currentTestIndex = 0  
 
         self.predictions = {}
@@ -130,25 +130,42 @@ class Dolph:
            
     def isSufficientData (self, dataFrame):
     
-        isNew = False
         msg = 'there is only %s samples now, you need at least %s samples for '
         msg+= 'the model to be able to predict'
-
+        sufficient = True
+        
         numSamplesNow = len(dataFrame.index)
         if ( numSamplesNow < self.minNumPastSamples ):
             logging.warning(msg, numSamplesNow,self.minNumPastSamples)            
-            return False
+            sufficient = False
+            
+        return sufficient
+     
+    def isPeriodSynced(self, dfs, period):
+        # moscowTimeZone = pytz.timezone('Europe/Moscow')
+        synced = False        
+        numPeriod = int(period[0])        
         
-        currentDateDataframe = dataFrame.tail(1).index
-        currentDate = currentDateDataframe.to_pydatetime()
-        currentMinute = currentDate[0].strftime("%M") 
-        logging.debug(' current: '  + str( currentMinute) )
-        logging.debug(' last: '     + str( self.lastMinuteUpdate) )
-        if ( currentMinute != self.lastMinuteUpdate):
-            self.lastMinuteUpdate = currentMinute
-            isNew = True
+        timelastPeriod = dfs[period].tail(1).index
+        timelastPeriod = timelastPeriod.to_pydatetime()
+ 
+        timelast1Min = dfs['1Min'].tail(1).index
+        timelast1Min = timelast1Min.to_pydatetime()
         
-        return isNew    
+        nMin = -numPeriod + 1
+        timeAux = timelast1Min + datetime.timedelta(minutes = nMin)
+        
+        if (timeAux >= timelastPeriod and self.lastUpdate != timelastPeriod):
+            synced = True
+            self.lastUpdate = timelastPeriod
+        
+        logging.debug(' timelastPeriod: '  + str(timelastPeriod) )
+        logging.debug(' timelast1Min: '     + str(timelast1Min) )
+        logging.debug(' timeAux: '     + str(timeAux) )
+        logging.debug(' period synced: ' + str(synced) )
+
+        
+        return synced
 
     def dataAcquisition(_):
         
@@ -186,7 +203,9 @@ class Dolph:
                 _.tp.HistoryCandleReq(securities, longestPeriod)                
                 since = datetime.date.today()
                 dfs = _.getData(securities, periods, since, target, _.between_time )
-                if (_.isSufficientData(dfs[longestPeriod]) == True):
+                if not _.isSufficientData(dfs[longestPeriod]) :
+                    continue
+                if _.isPeriodSynced(dfs, longestPeriod):
                     break
                 
             for p in periods:
@@ -212,23 +231,23 @@ class Dolph:
     def predict( self ):
         
         params = self.ds.getSecurityAlgParams(self.securities[0] )
-        
-        for p in self.periods:            
-            if p not in self.models:
-                self.trainModel(p, params)                
-            logging.info( 'calling the model ...') 
-            pred = self.models[p].predict( self.data[p] )
-            self.storePrediction( pred, p, params)
+        p = self.periods[-1]
+            
+        if p not in self.models:
+            self.trainModel(p, params)                
+        logging.info( 'calling the model ...') 
+        pred = self.models[p].predict( self.data[p] )
+        self.storePrediction( pred, p, params)
             
    
     def displayPredictions (self):
         
         logging.info( 'plotting a graph ...') 
 
-        for p in self.periods:
-            preds = copy.deepcopy(self.predictions[p])
-            self.showPrediction( preds , p)    
-      
+        p = self.periods[-1]
+        preds = copy.deepcopy(self.predictions[p])
+        self.showPrediction( preds , p)    
+  
         
     def positionAssestment (self, candlePredList,lastCandle ):
         
