@@ -27,7 +27,8 @@ class NARemover:
         before = single_stock.shape[0]
         single_stock = single_stock.dropna()
         after = single_stock.shape[0]
-        print("{}: Dropped {:2.2f} % of records due to NA".format(self.name, 100.0*(before - after)/(0.0001 + before)))
+        m = "{}: Dropped {:2.2f} % of records due to NA"
+        print(m.format(self.name, 100.0*(before - after)/(0.0001 + before)))
         return single_stock
 
 class Featurizer:
@@ -37,31 +38,39 @@ class Featurizer:
         self.target = target
         self.numPastSamples = numPastSamples
         
-    def transform(self, single_stock):
+    def transform(self, sec):
 
         predictionWindow = 5
         
-        single_stock['x(DOW)'] = single_stock['CalcDateTime'].dt.dayofweek
-        single_stock['x(Hour)'] = single_stock['CalcDateTime'].dt.hour
-        # single_stock['x(DOY)'] = single_stock['CalcDateTime'].dt.dayofyear
+        sec['x(DOW)'] = sec['CalcDateTime'].dt.dayofweek
+        sec['x(Hour)'] = sec['CalcDateTime'].dt.hour
+        # sec['x(DOY)'] = sec['CalcDateTime'].dt.dayofyear
        
         
         for offset in range(1, self.numPastSamples ):
-            
-            single_stock['x(open(t-{})'.format(str(offset))] = single_stock['StartPrice'] - single_stock['StartPrice'].shift(offset) 
-            single_stock['x(high(t-{})'.format(str(offset))] = single_stock['MaxPrice'] - single_stock['MaxPrice'].shift(offset)   
-            single_stock['x(close(t-{})'.format(str(offset))] = single_stock['EndPrice'] - single_stock['EndPrice'].shift(offset)   
-            single_stock['x(low(t-{})'.format(str(offset))] = single_stock['MinPrice'] - single_stock['MinPrice'].shift(offset)   
-            single_stock['x(vol(t-{})'.format(str(offset))] = single_stock['addedVolume'] - single_stock['addedVolume'].shift(offset)   
+            j = 'x(open(t-{})'.format(str(offset))
+            sec[j] = sec['StartPrice'] - sec['StartPrice'].shift(offset) 
+            j = 'x(high(t-{})'.format(str(offset))
+            sec[j] = sec['MaxPrice'] - sec['MaxPrice'].shift(offset)   
+            j = 'x(close(t-{})'.format(str(offset))
+            sec[j] = sec['EndPrice'] - sec['EndPrice'].shift(offset)   
+            j = 'x(low(t-{})'.format(str(offset))
+            sec[j] = sec['MinPrice'] - sec['MinPrice'].shift(offset)   
+            j = 'x(vol(t-{})'.format(str(offset))
+            sec[j] = sec['addedVolume'] - sec['addedVolume'].shift(offset)   
 
-        if (self.target  == "training"):      
+        if (self.target  == "training"):
             for offset in range(1, predictionWindow ):
-                single_stock['y(open(t+{})'.format(str(offset))] =  single_stock['StartPrice'].shift(-offset) - single_stock['StartPrice']
-                single_stock['y(high(t+{})'.format(str(offset))] = single_stock['MaxPrice'].shift(-offset)    - single_stock['MaxPrice'] 
-                single_stock['y(close(t+{})'.format(str(offset))] = single_stock['EndPrice'].shift(-offset)   - single_stock['EndPrice'] 
-                single_stock['y(low(t+{})'.format(str(offset))] =   single_stock['MinPrice'].shift(-offset)   - single_stock['MinPrice']
+                j = 'y(open(t+{})'.format(str(offset))
+                sec[j] =  sec['StartPrice'].shift(-offset) - sec['StartPrice']
+                j = 'y(high(t+{})'.format(str(offset))
+                sec[j] =  sec['MaxPrice'].shift(-offset) - sec['MaxPrice'] 
+                j = 'y(close(t+{})'.format(str(offset))
+                sec[j] = sec['EndPrice'].shift(-offset) - sec['EndPrice'] 
+                j = 'y(low(t+{})'.format(str(offset))
+                sec[j] =   sec['MinPrice'].shift(-offset)- sec['MinPrice']
             
-        return single_stock
+        return sec
 
 class TrainingSet:
     def __init__(self, X, y, orig_df):
@@ -71,10 +80,14 @@ class TrainingSet:
         
 class TrainingSetBuilder:
     def transform(self, single_stock):
-        x_features = filter(lambda name: name.startswith('x('), list(single_stock.dtypes.index))
+        x_features = filter(
+            lambda name: name.startswith('x('), list(single_stock.dtypes.index)
+        )
         X = single_stock[x_features].values
         
-        y_features = filter(lambda name: name.startswith('y('), list(single_stock.dtypes.index))
+        y_features = filter(
+            lambda name: name.startswith('y('), list(single_stock.dtypes.index)
+        )
         y = single_stock[y_features].values        
         
         return TrainingSet(X, y, single_stock)
@@ -89,9 +102,9 @@ class MLModel:
     def __init__(self, df, params, period):
         self.model = None
         self.period = period
-        self.params = params
-        # month = datetime.now().strftime('%h') 
-        nameParts=[__name__,self.period,str(params['minNumPastSamples'])+'Samples']
+        self.params = params        
+        samples = str(params['minNumPastSamples'])  +'Samples'
+        nameParts=[ __name__, self.period, samples]
         self.fileName = '_'.join(nameParts)
         
         if ( os.path.isdir( self.fileName ) ):
@@ -106,11 +119,16 @@ class MLModel:
         
         def date_part(dt):
             return str(dt).split(' ')[0]
-        unique_days = sorted(list(set(map(date_part , list(df.index.unique())))))
+        unique_days = sorted(
+            list(
+                set(
+                    map(date_part , list( df.index.unique() ) )
+                )
+            )
+        )
 
         percent_train = 80.0
         percent_valid = 20.0
-        # percent_test = 100.0 - percent_train - percent_valid
         
         offset_train = int(len(unique_days)*percent_train/100.0)
         offset_test = offset_train + int(len(unique_days)*percent_valid/100.0)
@@ -137,16 +155,18 @@ class MLModel:
         
             single_stock = df_train[df_train.Mnemonic == mnemonic].copy()
             single_stock = single_stock[single_stock.HasTrade == 1.0]
-            single_stock = Featurizer("training", self.params['minNumPastSamples']) \
-                    .transform(single_stock)
+            single_stock = Featurizer(
+                "training", self.params['minNumPastSamples']
+            ).transform(single_stock)
             single_stock = NARemover(mnemonic).transform(single_stock)
             combined_training_set.append(single_stock)
             log.info(single_stock.shape)
         
             single_stock = df_valid[df_valid.Mnemonic == mnemonic].copy()
             single_stock = single_stock[single_stock.HasTrade == 1.0] 
-            single_stock = Featurizer("training", self.params['minNumPastSamples']) \
-                .transform(single_stock)
+            single_stock = Featurizer(
+                "training", self.params['minNumPastSamples']
+            ).transform(single_stock)
             single_stock = NARemover(mnemonic).transform(single_stock)
             combined_valid_set.append(single_stock)            
             
@@ -172,32 +192,28 @@ class MLModel:
         model = Sequential()
 
         model.add(  
-            Dense(1024, 
-                  activation='tanh', 
-                  input_shape =(train_X.shape[1],) , 
-                  kernel_regularizer=regularizers.l2(0.001)
-                  )
+            Dense(
+                1024, activation='tanh', input_shape =(train_X.shape[1],) , 
+                kernel_regularizer=regularizers.l2(0.001)
+            )
         ) 
         model.add(
-            Dense(512, 
-                  activation='tanh',
-                  input_shape =(train_X.shape[1],) ,
-                  kernel_regularizer=regularizers.l2(0.001)
-                  )
+            Dense(
+                512, activation='tanh', input_shape =(train_X.shape[1],) ,
+                kernel_regularizer=regularizers.l2(0.001)
+            )
         )
         model.add(
-            Dense(256, 
-                  activation='tanh',
-                  input_shape =(train_X.shape[1],) ,
-                  kernel_regularizer=regularizers.l2(0.001)
-                  )
+            Dense(
+                256, activation='tanh', input_shape =(train_X.shape[1],) ,
+                kernel_regularizer=regularizers.l2(0.001)
+            )
         ) 
         model.add(
-            Dense(128, 
-                  activation='tanh',
-                  input_shape =(train_X.shape[1],) ,
-                  kernel_regularizer=regularizers.l2(0.001)
-                  )
+            Dense(
+                128, activation='tanh', input_shape =(train_X.shape[1],) ,
+                kernel_regularizer=regularizers.l2(0.001)
+            )
         )
         model.add(Dense(train_y.shape[1]))
         
@@ -210,7 +226,10 @@ class MLModel:
         self.model = model            
 
         # fit network
-        history = model.fit(train_X, train_y, epochs=5, batch_size=5, validation_data=(valid_X, valid_y), verbose=2, shuffle=False)
+        history = model.fit(
+            train_X, train_y, epochs=5, batch_size=5, 
+            validation_data=(valid_X, valid_y), verbose=2, shuffle=False
+        )
        
         # save network 
         model.save(self.fileName)
@@ -242,8 +261,9 @@ class MLModel:
         
             single_stock = df[df.Mnemonic == mnemonic].copy()
             single_stock = single_stock[single_stock.HasTrade == 1.0]
-            single_stock = Featurizer("prediction", self.params['minNumPastSamples']) \
-                .transform(single_stock)
+            single_stock = Featurizer(
+                "prediction", self.params['minNumPastSamples']
+            ).transform(single_stock)
             single_stock = NARemover(mnemonic).transform(single_stock)
             single_stock = single_stock.tail(1)
             combined_data_set.append(single_stock)

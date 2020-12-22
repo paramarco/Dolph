@@ -119,8 +119,8 @@ class TradingPlatform:
     
     def connect2TRANSAQ(self):
         log.info('connecting to TRANSAQ...')
-        res = self.tc.connect("TRADER027", "111111", "tr1-demo5.finam.ru:3939")    
-        # res = self.tc.connect("FZTC8927A", "Lovemoney2018", "tr1.finam.ru:3900")    
+        # res = self.tc.connect("TRADER027", "111111", "tr1-demo5.finam.ru:3939")    
+        res = self.tc.connect("FZTC8927A", "Lovemoney2018", "tr1.finam.ru:3900")    
         # res = self.tc.connect("FZTC8929A", "vereda", "tr1.finam.ru:3900")
         
 
@@ -169,7 +169,7 @@ class TradingPlatform:
         
     def processOrderStatus(self, order):
         
-        logging.debug( repr(order) )
+        logging.info( repr(order) )
         
         s = order.status
         monitoredPosition = None
@@ -181,7 +181,7 @@ class TradingPlatform:
                      
             if monitoredPosition is None :
                 m ='already processed, deleting: {}'.format( repr(order))
-                logging.debug( m )
+                logging.info( m )
                 if order in self.monitoredOrders:
                     self.monitoredOrders.remove(order)                
                                     
@@ -249,7 +249,7 @@ class TradingPlatform:
             others = '"none","inactive","wait","disabled","failed","refused"'
             others += ',"removed" '
             m = 'status: {} , belongs to: {}'.format( s, others)
-            logging.debug( m )
+            logging.info( m )
             
         self.reportCurrentOpenPositions()
 
@@ -283,7 +283,7 @@ class TradingPlatform:
         else:            
             others = '"linkwait","tp_correction","tp_correction_guardtime"'
             m = 'status: {} skipped, belongs to: {}'.format( s, others)
-            logging.debug( m )
+            logging.info( m )
         
         self.reportCurrentOpenPositions()
             
@@ -415,7 +415,7 @@ class TradingPlatform:
                     list2cancel.append(mo)
                     moscow = moscowTime.strftime(fmt)
                     expTime = orderTime_plusNsec.strftime(fmt)
-                    log.debug('moscow: '+ moscow + 'postion timeouts: '+ expTime)
+                    log.info('moscow: '+ moscow + ' postion timeouts at: '+ expTime)
                    
                     
         for mo in list2cancel:

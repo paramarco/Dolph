@@ -26,7 +26,7 @@ class Dolph:
     
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
 
-        self.MODE = 'TEST_ONLINE' 
+        self.MODE = 'OPERATIONAL' 
 
         self.numTestSample = 500
         self.since = datetime.date(year=2020,month=11,day=1)
@@ -50,8 +50,8 @@ class Dolph:
         
         logFormat = '%(asctime)s | %(levelname)s | %(funcName)s |%(message)s'
         logging.basicConfig(
-            # level = logging.INFO , 
-            level = logging.DEBUG , 
+            level = logging.INFO , 
+            # level = logging.DEBUG , 
             format = logFormat,
             handlers=[  
                 logging.FileHandler("./log/Dolph.log"),
@@ -125,7 +125,7 @@ class Dolph:
 
 
     def onHistoryCandleRes(self, obj):
-        logging.debug( repr(obj) )            
+        logging.info( repr(obj) )            
         self.ds.storeCandles(obj)
            
     def isSufficientData (self, dataFrame):
@@ -199,7 +199,7 @@ class Dolph:
         elif ( _.MODE == 'TEST_ONLINE' or _.MODE == 'OPERATIONAL'):    
             
             while True:
-                logging.info( 'requesting data to the Trading  Platform ...')
+                logging.debug( 'requesting data to the Trading  Platform ...')
                 _.tp.HistoryCandleReq(securities, longestPeriod)                
                 since = datetime.date.today()
                 dfs = _.getData(securities, periods, since, target, _.between_time )
@@ -290,37 +290,51 @@ class Dolph:
         #check the color of the candle
         if (currentClose>currentOpen): #if this blue?
         #check if all predicted candles are blue?
-            allCandlesBlue=checkCandleColour(firstcandle,secondcandle, thirdcandle,forthcandle)
+            allCandlesBlue = checkCandleColour(
+                firstcandle,secondcandle, thirdcandle,forthcandle
+            )
             if (allCandlesBlue == True):
-                # first check if next avarage  max price if higher then current, assume rise
+                # first check if next avarage  max price if higher than 
+                # current, assume rise
                 if (movAvMax>currentHigh):
-                    print('It seems the market will grow:')
-                    #check id its more than delta, if its make sente to enter in this postion to get some money
-                    # choose entance price with respect to the average min price
+                    logging.info('It seems the market will grow:')
+                    # check id its more than delta, if its make sente to enter 
+                    # in this postion to get some money, choose entance price
+                    # with respect to the average min price
                     
                     
-                    #entrance price like the avarage of the previos candle doesn not work!!
-                   #maybe not everytime, maybe somtemis will work
-                  # MAYBE TAKE CLOSE PRICE OF PREVIOS CANDLE
+                    # entrance price like the avarage of the previos candle 
+                    # does not work!!
+                    # maybe not everytime, maybe somtemis will work
+                    # MAYBE TAKE CLOSE PRICE OF PREVIOS CANDLE
                     entryPrice = currentAverage
                     deltaForExit=10.0
                     #TODO THINK ABOUT OUT PRICE
                     exitPrice = entryPrice+deltaForExit
-                    print('We choose entrance price:' + str(entryPrice))
-                    print('We set the out price:' + str( exitPrice ))
+                    logging.info('We choose entrance price:' + str(entryPrice))
+                    logging.info('We set the out price:' + str( exitPrice ))
                     decision='long'
                     printPrices = True
         else:
-            print('It seems the market will go down..')   
+            logging.info('It seems the market will go down..')   
             #the candle is black
-            if (movAvClose>currentLow):
-                print('It seems the market will go down..')  
+            if (movAvMin>currentLow):
+                logging.info('It seems the market will go down..')  
                 entryPrice=currentAverage
                 deltaForExit=10.0
                 exitPrice = entryPrice - deltaForExit
                 decision='short'
                 printPrices = True
-  
+        if (currentClose>currentOpen): #if this blue?
+            if(currentClose==currentHigh): 
+                # if there is no big upper tail, it means the reversal of the 
+                # market; next one will be red and go down
+                logging.info('It seems the market will go down..')  
+                entryPrice=currentAverage
+                deltaForExit=10.0
+                exitPrice = entryPrice - deltaForExit
+                decision='short'
+                printPrices = True
         return entryPrice, exitPrice, decision, printPrices
     
     def getPositionAssessmentParams(self,predictions):
@@ -330,28 +344,28 @@ class Dolph:
         
         for p in predictions:
             row = pd.DataFrame({
-                'time':                 p.training_set.original_df['CalcDateTime'],
-                'Mnemonic':             p.training_set.original_df['Mnemonic'],
-                'StartPrice':           p.training_set.original_df['StartPrice'],
-                'EndPrice':             p.training_set.original_df['EndPrice'],
-                'MinPrice':             p.training_set.original_df['MinPrice'],
-                'MaxPrice':             p.training_set.original_df['MaxPrice'] ,
-                'open_t+1':             p.predictions[0][0],
-                'high_t+1':             p.predictions[0][1],
-                'low_t+1':              p.predictions[0][2],
-                'close_t+1':            p.predictions[0][3],
-                'open_t+2':             p.predictions[0][4],
-                'high_t+2':             p.predictions[0][5],
-                'low_t+2':              p.predictions[0][6],
-                'close_t+2':            p.predictions[0][7],
-                'open_t+3':             p.predictions[0][8],
-                'high_t+3':             p.predictions[0][9],
-                'low_t+3':              p.predictions[0][10],
-                'close_t+3':            p.predictions[0][11],
-                'open_t+4':             p.predictions[0][12],
-                'high_t+4':             p.predictions[0][13],
-                'low_t+4':              p.predictions[0][14],
-                'close_t+4':            p.predictions[0][15]
+                'time':         p.training_set.original_df['CalcDateTime'],
+                'Mnemonic':     p.training_set.original_df['Mnemonic'],
+                'StartPrice':   p.training_set.original_df['StartPrice'],
+                'EndPrice':     p.training_set.original_df['EndPrice'],
+                'MinPrice':     p.training_set.original_df['MinPrice'],
+                'MaxPrice':     p.training_set.original_df['MaxPrice'] ,
+                'open_t+1':     p.predictions[0][0],
+                'high_t+1':     p.predictions[0][1],
+                'low_t+1':      p.predictions[0][2],
+                'close_t+1':    p.predictions[0][3],
+                'open_t+2':     p.predictions[0][4],
+                'high_t+2':     p.predictions[0][5],
+                'low_t+2':      p.predictions[0][6],
+                'close_t+2':    p.predictions[0][7],
+                'open_t+3':     p.predictions[0][8],
+                'high_t+3':     p.predictions[0][9],
+                'low_t+3':      p.predictions[0][10],
+                'close_t+3':    p.predictions[0][11],
+                'open_t+4':     p.predictions[0][12],
+                'high_t+4':     p.predictions[0][13],
+                'low_t+4':      p.predictions[0][14],
+                'close_t+4':    p.predictions[0][15]
                 }
             )
             df_in = df_in.append(row)
@@ -427,8 +441,8 @@ class Dolph:
         else:
             exitPrice = entryPrice
             stoploss = entryPrice
-        print('exitPrice'+str(exitPrice))  
-        print('entryPrice'+str(entryPrice)) 
+        logging.info('exitPrice'+str(exitPrice))  
+        logging.info('entryPrice'+str(entryPrice)) 
         position = tp.Position(
             takePosition, board, seccode, marketId, entryTimeSeconds, 
             quantity, entryPrice, exitPrice , stoploss, decimals, byMarket

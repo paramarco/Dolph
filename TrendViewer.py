@@ -128,7 +128,7 @@ class TrendViewer:
         prediction_price_CLOSE = predLastDataRescaled[-1:][0][3]
         
         # here we take the 3.coloumn for predicted array
-        array_pred_coef = predTestDataRescaled[-19:, 3]     #òóò óæå âåêòîð ïðåäñêàçàíèé ó ïîñëåäíèé ó íåãî îòáðîøåí
+        array_pred_coef = predTestDataRescaled[-19:, 3]     
         
         
         # take 20 points for the plotting at the end the results
