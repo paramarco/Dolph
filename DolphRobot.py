@@ -274,58 +274,65 @@ class Dolph:
         movAvMin=(firstcandle['Low']+secondcandle['Low']+thirdcandle['Low']+forthcandle['Low'])/numOfInputCandles
         movAvClose=(firstcandle['Close']+secondcandle['Close']+thirdcandle['Close']+forthcandle['Close'])/numOfInputCandles
         
-        firstcandleAvg=(firstcandle['Open']+firstcandle['High']+firstcandle['Low']+firstcandle['Close'])/numOfInputCandles
-        secondcandleAvg=(secondcandle['Open']+secondcandle['High']+secondcandle['Low']+secondcandle['Close'])/numOfInputCandles
-        thirdcandleAvg=(thirdcandle['Open']+thirdcandle['High']+thirdcandle['Low']+thirdcandle['Close'])/numOfInputCandles
-        forthcandleAvg=(forthcandle['Open']+forthcandle['High']+forthcandle['Low']+forthcandle['Close'])/numOfInputCandles
-        def checkCandleColour(firstcandle,secondcandle, thirdcandle,forthcandle ):
+        # firstcandleAvg=(firstcandle['Open']+firstcandle['High']+firstcandle['Low']+firstcandle['Close'])/numOfInputCandles
+        # secondcandleAvg=(secondcandle['Open']+secondcandle['High']+secondcandle['Low']+secondcandle['Close'])/numOfInputCandles
+        # thirdcandleAvg=(thirdcandle['Open']+thirdcandle['High']+thirdcandle['Low']+thirdcandle['Close'])/numOfInputCandles
+        # forthcandleAvg=(forthcandle['Open']+forthcandle['High']+forthcandle['Low']+forthcandle['Close'])/numOfInputCandles
+        # totalAvg=(firstcandleAvg+secondcandleAvg+thirdcandleAvg+forthcandleAvg)/4
+
+        def checkAllBlue(firstcandle,secondcandle, thirdcandle,forthcandle ):
             blue = False 
-            if ((firstcandle['Close']>firstcandle['Open']) and (secondcandle['Close']>secondcandle['Open']) and (thirdcandle['Close']>thirdcandle['Open']) and (forthcandle['Close'] and forthcandle['Open'])):
+            if ((firstcandle['Close']>firstcandle['Open']) and (secondcandle['Close']>secondcandle['Open']) and (thirdcandle['Close']>thirdcandle['Open']) and (forthcandle['Close'] > forthcandle['Open'])):
                 blue= True
             return blue
+        def checkAllBlack(firstcandle,secondcandle, thirdcandle,forthcandle ):
+            black = False 
+            if ((firstcandle['Close']<firstcandle['Open']) and (secondcandle['Close']<secondcandle['Open']) and (thirdcandle['Close']<thirdcandle['Open']) and (forthcandle['Close'] < forthcandle['Open'])):
+                black= True
+            return black
 
-        totalAvg=(firstcandleAvg+secondcandleAvg+thirdcandleAvg+forthcandleAvg)/4
-
-        # minDelta=10
-        #check the color of the candle
-        if (currentClose>currentOpen): #if this blue?
+        allCandlesBlue = checkAllBlue(
+        firstcandle,secondcandle, thirdcandle,forthcandle)
+        allCandlesBlack = checkAllBlack(
+        firstcandle,secondcandle, thirdcandle,forthcandle)   
+        #check the color of the current candle
+        if (currentClose>currentOpen): #if this current blue?
         #check if all predicted candles are blue?
-            allCandlesBlue = checkCandleColour(
-                firstcandle,secondcandle, thirdcandle,forthcandle
-            )
-            if (allCandlesBlue == True):
-                # first check if next avarage  max price if higher than 
-                # current, assume rise
-                if (movAvMax>currentHigh):
-                    logging.info('It seems the market will grow up:')
-                    # check id its more than delta, if its make sente to enter 
-                    # in this postion to get some money, choose entance price
-                    # with respect to the average min price
-                    
-                    
-                    # entrance price like the avarage of the previos candle 
-                    # does not work!!
-                    # maybe not everytime, maybe somtemis will work
-                    # MAYBE TAKE CLOSE PRICE OF PREVIOS CANDLE
+            if (allCandlesBlue == True):                              
+                if (movAvClose>currentClose):
+                    logging.info('It seems the market will grow up:')                
                     entryPrice = currentAverage
                     deltaForExit=self.params['longPositionMargin']
-                    #TODO THINK ABOUT OUT PRICE
                     exitPrice = entryPrice+deltaForExit
-                    logging.info('We choose entrance price:' + str(entryPrice))
-                    logging.info('We set the out price:' + str( exitPrice ))
                     decision='long'
                     printPrices = True
-        else:
-            logging.info('It seems the market will go down..')   
-            #the candle is black
-            if (movAvClose>currentClose):
-                logging.info('It seems the market will go down..')  
-                entryPrice=currentAverage
-                deltaForExit= self.params['shortPositionMargin']
-                exitPrice = entryPrice - deltaForExit
-                decision='short'
-                printPrices = True
-
+            if (allCandlesBlack == True):
+                if (movAvClose<currentOpen):
+                    logging.info('It seems the market will go down..')  
+                    entryPrice=currentAverage
+                    deltaForExit= self.params['shortPositionMargin']
+                    exitPrice = entryPrice - deltaForExit
+                    decision='short'
+                    printPrices = True
+                    
+        if (currentClose<currentOpen): #if this current black?
+        
+            if (allCandlesBlack == True):
+                if (movAvClose<currentClose):
+                    logging.info('It seems the market will go down..')  
+                    entryPrice=currentAverage
+                    deltaForExit= self.params['shortPositionMargin']
+                    exitPrice = entryPrice - deltaForExit
+                    decision='short'
+                    printPrices = True
+            if (allCandlesBlue == True):
+                if (movAvClose>currentOpen):
+                    logging.info('It seems the market will grow up:')                
+                    entryPrice = currentAverage
+                    deltaForExit=self.params['longPositionMargin']
+                    exitPrice = entryPrice+deltaForExit
+                    decision='long'
+                    printPrices = True                                                                     
         return entryPrice, exitPrice, decision, printPrices
     
     def getPositionAssessmentParams(self,predictions):

@@ -816,7 +816,8 @@ class TrendViewer:
         
         # plt.yticks(np.arange(min(ohlc['Close']), max(ohlc['Close'])+1, 10.0))
         
-        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+        # plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%M'))
         xlocator = mdates.MinuteLocator(byminute=range(60))
         plt.gca().xaxis.set_major_locator(xlocator)  
                             
