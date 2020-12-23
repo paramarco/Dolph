@@ -26,7 +26,7 @@ class Dolph:
     
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
 
-        self.MODE = 'TEST_ONLINE' 
+        self.MODE = 'TEST_OFFLINE' 
 
         self.numTestSample = 500
         self.since = datetime.date(year=2020,month=11,day=1)
@@ -264,10 +264,11 @@ class Dolph:
         self.printPrices = False
         numOfInputCandles=4
 
+#TODO koschmar....
         firstcandle  = candlePredList[0]
-        secondcandle = candlePredList[1]
-        thirdcandle  = candlePredList[2]
-        forthcandle  = candlePredList[3]
+        secondcandle = candlePredList[0]
+        thirdcandle  = candlePredList[0]
+        forthcandle  = candlePredList[0]
         
         movAvOpen=(firstcandle['Open']+secondcandle['Open']+thirdcandle['Open']+forthcandle['Open'])/numOfInputCandles
         movAvMax=(firstcandle['High']+secondcandle['High']+thirdcandle['High']+forthcandle['High'])/numOfInputCandles
@@ -348,22 +349,22 @@ class Dolph:
                 'EndPrice':     p.training_set.original_df['EndPrice'],
                 'MinPrice':     p.training_set.original_df['MinPrice'],
                 'MaxPrice':     p.training_set.original_df['MaxPrice'] ,
-                'open_t+1':     p.predictions[0][0],
-                'high_t+1':     p.predictions[0][1],
-                'low_t+1':      p.predictions[0][2],
-                'close_t+1':    p.predictions[0][3],
-                'open_t+2':     p.predictions[0][4],
-                'high_t+2':     p.predictions[0][5],
-                'low_t+2':      p.predictions[0][6],
-                'close_t+2':    p.predictions[0][7],
-                'open_t+3':     p.predictions[0][8],
-                'high_t+3':     p.predictions[0][9],
-                'low_t+3':      p.predictions[0][10],
-                'close_t+3':    p.predictions[0][11],
-                'open_t+4':     p.predictions[0][12],
-                'high_t+4':     p.predictions[0][13],
-                'low_t+4':      p.predictions[0][14],
-                'close_t+4':    p.predictions[0][15]
+                
+                'high_t+1':             p.predictions[0][0],
+                'low_t+1':              p.predictions[0][1],
+                'close_t+1':            p.predictions[0][2] #,                
+                
+                # 'high_t+2':             p.predictions[0][3],
+                # 'low_t+2':              p.predictions[0][4],
+                # 'close_t+2':            p.predictions[0][5],
+
+                # 'high_t+3':             p.predictions[0][6],
+                # 'low_t+3':              p.predictions[0][7],
+                # 'close_t+3':            p.predictions[0][8],
+
+                # 'high_t+4':             p.predictions[0][9],
+                # 'low_t+4':              p.predictions[0][10],
+                # 'close_t+4':            p.predictions[0][11]
                 }
             )
             df_in = df_in.append(row)
@@ -385,11 +386,11 @@ class Dolph:
 
         p = df.loc[lastTime]
         candlePredList = [
-            {'Date':t1,'Open':currentOpen+p['open_t+1'],'High':currentHigh + p['high_t+1'],'Low': currentLow+p['low_t+1'],'Close': currentClose+ p['close_t+1'] },
-            {'Date':t2,'Open':currentOpen+p['open_t+2'],'High':currentHigh + p['high_t+2'],'Low': currentLow+p['low_t+2'], 'Close': currentClose + p['close_t+2']},
-            {'Date':t3,'Open':currentOpen+p['open_t+3'],'High':currentHigh + p['high_t+3'],'Low': currentLow+p['low_t+3'], 'Close': currentClose + p['close_t+3']},
-            {'Date':t4,'Open':currentOpen+p['open_t+4'],'High':currentHigh + p['high_t+4'],'Low': currentLow+p['low_t+4'], 'Close':currentClose +p['close_t+4']}
-        ]
+            {'Date': t1, 'Open': currentClose, 'High': currentHigh + p['high_t+1'], 'Low': currentLow + p['low_t+1'], 'Close': currentClose + p['close_t+1']}   #,
+            # {'Date': t2, 'Open': currentClose + p['close_t+1'], 'High': currentHigh + p['high_t+2'], 'Low': currentLow + p['low_t+2'], 'Close': currentClose + p['close_t+1'] + p['close_t+2']},
+            # {'Date': t3, 'Open': currentClose + p['close_t+1'] + p['close_t+2'], 'High': currentHigh + p['high_t+3'], 'Low': currentLow + p['low_t+3'], 'Close': currentClose + p['close_t+1'] + p['close_t+2'] + p['close_t+3']},
+            # {'Date': t4, 'Open': currentClose + p['close_t+1'] + p['close_t+2'] + p['close_t+3'], 'High': currentHigh + p['high_t+4'], 'Low': currentLow +p['low_t+4'], 'Close':  currentClose + p['close_t+1'] + p['close_t+2'] + p['close_t+3'] + p['close_t+4']}
+        ] 
         
         lastCandle = { 
             'currentOpen' : currentOpen,

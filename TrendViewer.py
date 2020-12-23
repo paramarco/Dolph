@@ -682,22 +682,23 @@ class TrendViewer:
                 'EndPrice':             p.training_set.original_df['EndPrice'],
                 'MinPrice':             p.training_set.original_df['MinPrice'],
                 'MaxPrice':             p.training_set.original_df['MaxPrice'] ,
-                'open_t+1':             p.predictions[0][0],
-                'high_t+1':             p.predictions[0][1],
-                'low_t+1':              p.predictions[0][2],
-                'close_t+1':            p.predictions[0][3],
-                'open_t+2':             p.predictions[0][4],
-                'high_t+2':             p.predictions[0][5],
-                'low_t+2':              p.predictions[0][6],
-                'close_t+2':            p.predictions[0][7],
-                'open_t+3':             p.predictions[0][8],
-                'high_t+3':             p.predictions[0][9],
-                'low_t+3':              p.predictions[0][10],
-                'close_t+3':            p.predictions[0][11],
-                'open_t+4':             p.predictions[0][12],
-                'high_t+4':             p.predictions[0][13],
-                'low_t+4':              p.predictions[0][14],
-                'close_t+4':            p.predictions[0][15]
+                
+                'high_t+1':             p.predictions[0][0],
+                'low_t+1':              p.predictions[0][1],
+                'close_t+1':            p.predictions[0][2] #,                
+                
+                # 'high_t+2':             p.predictions[0][3],
+                # 'low_t+2':              p.predictions[0][4],
+                # 'close_t+2':            p.predictions[0][5],
+
+                # 'high_t+3':             p.predictions[0][6],
+                # 'low_t+3':              p.predictions[0][7],
+                # 'close_t+3':            p.predictions[0][8],
+
+                # 'high_t+4':             p.predictions[0][9],
+                # 'low_t+4':              p.predictions[0][10],
+                # 'close_t+4':            p.predictions[0][11]
+
                 }
             )
             df_in = df_in.append(row)
@@ -723,60 +724,7 @@ class TrendViewer:
                 prices.append(high[0])
             lastTime = t
         
-  
-        # def setLabel(sign):
-        #     label = ""
-        #     if ( sign > 0.0 ):
-        #         label = "\u2197"
-        #     elif ( sign < 0.0 ):
-        #         label = "\u2198" 
-        #     else:
-        #         label = "\u003D"
-        #     return label
-            
-        # prediction_sign = df.loc[t].predictions.tolist()
-        # currentPrice=df.iloc[-1].EndPrice
-        # if (self.numTotalPrices > 0):
-        #         self.numTotalPrices+=1         
-        #         print('current:' + str(currentPrice))
-        #         print('previous:' + str(self.previousPrice))
-        #         signPriceDiff=np.sign(currentPrice-self.previousPrice)
-        #         signPrediction=np.sign( self.previousPrediction)
-        #         self.previousPrediction = prediction_sign #sign of prediction -1 or +1
-
-        #         if(signPriceDiff==signPrediction):
-        #             self.numPositivePrices+=1
-        #         else:
-        #             self.numNegativePrices+=1
-        #         probaility=self.numPositivePrices/self.numTotalPrices
-        #         self.previousPrice=currentPrice
-        #         print('probability:' + str(probaility))
-        #         print('numTotal:' + str(self.numTotalPrices))
-        #         print('numPositiv:' + str(self.numPositivePrices))
-        # else:
-        #       self.numTotalPrices=1
-        #       self.previousPrice = currentPrice
-        #       self.previousPrediction = prediction_sign #sign of prediction -1 or +1
-
-
-        # for t,price in zip(times,prices):            
-        #     label = u""
-        #     signs = df.loc[t].predictions.tolist()
-        #     if isinstance(signs,  float):
-        #         label += setLabel(signs)
-        #     else:  
-        #         for s in signs:
-        #             label += setLabel(s)
-            
-        #     plt.annotate(
-        #         label, # this is the text
-        #         (t,price), # this is the point to label
-        #         textcoords="offset points", # how to position the text
-        #         xytext=(0,10), # distance from text to points (x,y)
-        #         ha='center',  # horizontal alignment 
-        #         size=20
-        #     )
-        
+          
         etiquete= 'close price, prediction for:' + period
         plt.title(label = etiquete )
         
@@ -798,15 +746,14 @@ class TrendViewer:
         currentLow = df.iloc[-1].MinPrice
         currentClose = df.iloc[-1].EndPrice
 
-
         p = df.loc[lastTime]
         
         candlePredList = [
-            {'Date': t1, 'Open': currentOpen+ p['open_t+1'], 'High': currentHigh + p['high_t+1'], 'Low': currentLow + p['low_t+1'], 'Close': currentClose + p['close_t+1']},
-            {'Date': t2, 'Open': currentOpen + p['open_t+2'], 'High': currentHigh + p['high_t+2'], 'Low': currentLow + p['low_t+2'], 'Close': currentClose + p['close_t+2']},
-            {'Date': t3, 'Open': currentOpen + p['open_t+3'], 'High': currentHigh + p['high_t+3'], 'Low': currentLow + p['low_t+3'], 'Close': currentClose + p['close_t+3']},
-            {'Date': t4, 'Open': currentOpen +p['open_t+4'], 'High': currentHigh + p['high_t+4'], 'Low': currentLow +p['low_t+4'], 'Close':  currentClose +p['close_t+4']}
-        ]          
+            {'Date': t1, 'Open': currentClose, 'High': currentHigh + p['high_t+1'], 'Low': currentLow + p['low_t+1'], 'Close': currentClose + p['close_t+1']}   #,
+            # {'Date': t2, 'Open': currentClose + p['close_t+1'], 'High': currentHigh + p['high_t+2'], 'Low': currentLow + p['low_t+2'], 'Close': currentClose + p['close_t+1'] + p['close_t+2']},
+            # {'Date': t3, 'Open': currentClose + p['close_t+1'] + p['close_t+2'], 'High': currentHigh + p['high_t+3'], 'Low': currentLow + p['low_t+3'], 'Close': currentClose + p['close_t+1'] + p['close_t+2'] + p['close_t+3']},
+            # {'Date': t4, 'Open': currentClose + p['close_t+1'] + p['close_t+2'] + p['close_t+3'], 'High': currentHigh + p['high_t+4'], 'Low': currentLow +p['low_t+4'], 'Close':  currentClose + p['close_t+1'] + p['close_t+2'] + p['close_t+3'] + p['close_t+4']}
+        ]         
             
         ohlc2 = pd.DataFrame(candlePredList)  
         ohlc2['Date'] = pd.to_datetime(ohlc2['Date'])

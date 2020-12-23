@@ -40,7 +40,7 @@ class Featurizer:
         
     def transform(self, sec):
 
-        predictionWindow = 5
+        predictionWindow = 2
         
         sec['x(DOW)'] = sec['CalcDateTime'].dt.dayofweek
         sec['x(Hour)'] = sec['CalcDateTime'].dt.hour
@@ -61,14 +61,17 @@ class Featurizer:
 
         if (self.target  == "training"):
             for offset in range(1, predictionWindow ):
-                j = 'y(open(t+{})'.format(str(offset))
-                sec[j] = sec['StartPrice'].shift(-offset).pow(2) - sec['StartPrice'].pow(2)
+
+                
                 j = 'y(high(t+{})'.format(str(offset))
-                sec[j] = sec['MaxPrice'].shift(-offset).pow(2) - sec['MaxPrice'].pow(2) 
-                j = 'y(close(t+{})'.format(str(offset))
-                sec[j] = sec['EndPrice'].shift(-offset).pow(2) - sec['EndPrice'].pow(2) 
+                sec[j] = sec['MaxPrice'].shift(-offset) - sec['MaxPrice']
+                
                 j = 'y(low(t+{})'.format(str(offset))
-                sec[j] = sec['MinPrice'].shift(-offset).pow(2)- sec['MinPrice'].pow(2) 
+                sec[j] = sec['MinPrice'].shift(-offset) - sec['MinPrice'] 
+                
+                j = 'y(close(t+{})'.format(str(offset))
+                sec[j] = sec['EndPrice'].shift(-offset) - sec['EndPrice']
+                
                             
         return sec
 
@@ -220,14 +223,15 @@ class MLModel:
         loss_fn = tf.keras.losses.MeanSquaredError(reduction='sum')
         
         # model.compile(loss='mean_squared_error', optimizer='adam')
-        opt = optimizers.Adam(learning_rate=0.000001)
+        # opt = optimizers.Adam(learning_rate=0.000001)
+        opt = optimizers.Adam(learning_rate=0.1)
         model.compile(loss=loss_fn, optimizer=opt)
         # model.compile(loss=loss_fn,  optimizer='adam')
         self.model = model            
 
         # fit network
         history = model.fit(
-            train_X, train_y, epochs=20, batch_size=5, 
+            train_X, train_y, epochs=10, batch_size=5, 
             validation_data=(valid_X, valid_y), verbose=2, shuffle=False
         )
        
