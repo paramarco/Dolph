@@ -249,8 +249,8 @@ class Dolph:
         self.showPrediction( preds , p)    
   
         
-    def positionAssestment (self, candlePredList,lastCandle ):
-        
+    def positionAssestment (self, candlePredList,lastCandle ):        
+
         printPrices = False
         exitPrice = 0.0
         entryPrice = 0.0
@@ -286,7 +286,7 @@ class Dolph:
 
         totalAvg=(firstcandleAvg+secondcandleAvg+thirdcandleAvg+forthcandleAvg)/4
 
-        minDelta=10
+        # minDelta=10
         #check the color of the candle
         if (currentClose>currentOpen): #if this blue?
         #check if all predicted candles are blue?
@@ -297,7 +297,7 @@ class Dolph:
                 # first check if next avarage  max price if higher than 
                 # current, assume rise
                 if (movAvMax>currentHigh):
-                    logging.info('It seems the market will grow:')
+                    logging.info('It seems the market will grow up:')
                     # check id its more than delta, if its make sente to enter 
                     # in this postion to get some money, choose entance price
                     # with respect to the average min price
@@ -308,7 +308,7 @@ class Dolph:
                     # maybe not everytime, maybe somtemis will work
                     # MAYBE TAKE CLOSE PRICE OF PREVIOS CANDLE
                     entryPrice = currentAverage
-                    deltaForExit=10.0
+                    deltaForExit=self.params['longPositionMargin']
                     #TODO THINK ABOUT OUT PRICE
                     exitPrice = entryPrice+deltaForExit
                     logging.info('We choose entrance price:' + str(entryPrice))
@@ -318,10 +318,10 @@ class Dolph:
         else:
             logging.info('It seems the market will go down..')   
             #the candle is black
-            if (movAvMin>currentLow):
+            if (movAvClose>currentClose):
                 logging.info('It seems the market will go down..')  
                 entryPrice=currentAverage
-                deltaForExit=10.0
+                deltaForExit= self.params['shortPositionMargin']
                 exitPrice = entryPrice - deltaForExit
                 decision='short'
                 printPrices = True
