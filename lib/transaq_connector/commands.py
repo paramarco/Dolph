@@ -53,12 +53,12 @@ class TransaqConnector:
         """
         obj = ts.parse(msg.decode('utf8'))
         if isinstance(obj, ts.Error):
-            log.error(u"Траблы: %s" % obj.text)
+            log.error("trouble: %s", obj.text)
             raise TransaqException(obj.text.encode(encoding))
         elif isinstance(obj, ts.ServerStatus):
-            log.info(u"Соединен с серваком: %s" % obj.connected)
+            log.info("connected to server: %s", obj.connected)
             if obj.connected == 'error':
-                log.warn(u"Ёпта, ошибка соединения: %s" % obj.text)
+                log.warn("upps, error on connecting: %s", obj.text)
             log.info( repr(obj) )
 
         if global_handler:

@@ -102,7 +102,7 @@ class TradingPlatform:
             self.onHistoryCandleCall(obj)
             self.cancelTimeoutEntries()
         elif isinstance(obj, ts.MarketPacket):
-            logging.info( repr(obj) ) 
+            pass # logging.info( repr(obj) ) 
             
     def onClientAccountRes(self, obj):
         logging.info( repr(obj) )            

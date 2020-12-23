@@ -62,14 +62,14 @@ class Featurizer:
         if (self.target  == "training"):
             for offset in range(1, predictionWindow ):
                 j = 'y(open(t+{})'.format(str(offset))
-                sec[j] =  sec['StartPrice'].shift(-offset) - sec['StartPrice']
+                sec[j] = sec['StartPrice'].shift(-offset).pow(2) - sec['StartPrice'].pow(2)
                 j = 'y(high(t+{})'.format(str(offset))
-                sec[j] =  sec['MaxPrice'].shift(-offset) - sec['MaxPrice'] 
+                sec[j] = sec['MaxPrice'].shift(-offset).pow(2) - sec['MaxPrice'].pow(2) 
                 j = 'y(close(t+{})'.format(str(offset))
-                sec[j] = sec['EndPrice'].shift(-offset) - sec['EndPrice'] 
+                sec[j] = sec['EndPrice'].shift(-offset).pow(2) - sec['EndPrice'].pow(2) 
                 j = 'y(low(t+{})'.format(str(offset))
-                sec[j] =   sec['MinPrice'].shift(-offset)- sec['MinPrice']
-            
+                sec[j] = sec['MinPrice'].shift(-offset).pow(2)- sec['MinPrice'].pow(2) 
+                            
         return sec
 
 class TrainingSet:
@@ -227,7 +227,7 @@ class MLModel:
 
         # fit network
         history = model.fit(
-            train_X, train_y, epochs=5, batch_size=5, 
+            train_X, train_y, epochs=20, batch_size=5, 
             validation_data=(valid_X, valid_y), verbose=2, shuffle=False
         )
        

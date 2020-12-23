@@ -26,7 +26,7 @@ class Dolph:
     
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
 
-        self.MODE = 'OPERATIONAL' 
+        self.MODE = 'TEST_ONLINE' 
 
         self.numTestSample = 500
         self.since = datetime.date(year=2020,month=11,day=1)
@@ -125,7 +125,7 @@ class Dolph:
 
 
     def onHistoryCandleRes(self, obj):
-        logging.info( repr(obj) )            
+        logging.debug( repr(obj) )            
         self.ds.storeCandles(obj)
            
     def isSufficientData (self, dataFrame):
@@ -325,16 +325,7 @@ class Dolph:
                 exitPrice = entryPrice - deltaForExit
                 decision='short'
                 printPrices = True
-        if (currentClose>currentOpen): #if this blue?
-            if(currentClose==currentHigh): 
-                # if there is no big upper tail, it means the reversal of the 
-                # market; next one will be red and go down
-                logging.info('It seems the market will go down..')  
-                entryPrice=currentAverage
-                deltaForExit=10.0
-                exitPrice = entryPrice - deltaForExit
-                decision='short'
-                printPrices = True
+
         return entryPrice, exitPrice, decision, printPrices
     
     def getPositionAssessmentParams(self,predictions):
