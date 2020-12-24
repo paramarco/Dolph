@@ -49,20 +49,14 @@ class Featurizer:
         for offset in range(1, self.numPastSamples ):
 
             
-            j = 'x(multHighLow(t-{})'.format(str(offset))
+            j = 'x(mult(t-{})'.format(str(offset))
             sec[j] =    (sec['MaxPrice'] - sec['MaxPrice'].shift(offset)) * \
-                        (sec['MinPrice'] - sec['MinPrice'].shift(offset))
-                       
-            j = 'x(multOpenClose(t-{})'.format(str(offset))
-            sec[j] =    (sec['StartPrice'] - sec['StartPrice'].shift(offset)) * \
-                        (sec['EndPrice'] - sec['EndPrice'].shift(offset)) * \
-                        (sec['addedVolume'] - sec['addedVolume'].shift(offset) )
-                      
-            # j = 'x(sqrtVol(t-{})'.format(str(offset))
-            # sec[j] = np.sqrt(
-            #     sec['addedVolume'] - sec['addedVolume'].shift(offset)
-            # ) 
-         
+                        (sec['MinPrice'] - sec['MinPrice'].shift(offset)) 
+ 
+            j = 'x(multEnd(t-{})'.format(str(offset))
+            sec[j] =   (sec['EndPrice'] - sec['EndPrice'].shift(offset)) * \
+                        np.abs(sec['addedVolume'] - sec['addedVolume'].shift(offset))   
+           
 
         if (self.target  == "training"):
             for offset in range(1, predictionWindow ):
@@ -236,7 +230,7 @@ class MLModel:
 
         # fit network
         history = model.fit(
-            train_X, train_y, epochs=10, batch_size=5, 
+            train_X, train_y, epochs=4, batch_size=5, 
             validation_data=(valid_X, valid_y), verbose=2, shuffle=False
         )
        
