@@ -26,7 +26,7 @@ class Dolph:
     
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
 
-        self.MODE = 'TEST_ONLINE' 
+        self.MODE = 'TEST_OFFLINE' 
 
         self.numTestSample = 1100
         self.since = datetime.date(year=2019,month=6,day=1)
@@ -201,7 +201,7 @@ class Dolph:
             while True:
                 logging.debug( 'requesting data to the Trading  Platform ...')
                 _.tp.HistoryCandleReq(securities, longestPeriod)                
-                since = datetime.date.today()
+                since = datetime.date.today() - datetime.timedelta(days=1)
                 dfs = _.getData(securities, periods, since, target, _.between_time )
                 if not _.isSufficientData(dfs[longestPeriod]) :
                     continue

@@ -734,7 +734,7 @@ class TrendViewer:
         ohlc['Date'] = pd.to_datetime(ohlc['Date'])
         ohlc['Date'] = ohlc['Date'].apply(mdates.date2num)
         ohlc = ohlc.astype(float)        
-        candlestick_ohlc(plt.gca(), ohlc.values, width=0.6/(24*60), colorup='green', colordown='red', alpha=0.9)
+        candlestick_ohlc(plt.gca(), ohlc.values, width=0.6/(24*60), colorup='green', colordown='black', alpha=0.9)
         
         t1 = lastTime + datetime.timedelta(minutes = (1 * numPeriod) )
         t2 = lastTime + datetime.timedelta(minutes = (2 * numPeriod) )
@@ -749,7 +749,7 @@ class TrendViewer:
         p = df.loc[lastTime]
         
         candlePredList = [
-            {'Date': t1, 'Open': currentClose, 'High': currentHigh + p['high_t+1'], 'Low': currentLow + p['low_t+1'], 'Close': currentClose + p['close_t+1']}   #,
+            {'Date': t1, 'Open': currentClose, 'High': currentClose + p['high_t+1'], 'Low': currentClose + p['low_t+1'], 'Close': currentClose + p['close_t+1']}   #,
             # {'Date': t2, 'Open': currentClose + p['close_t+1'], 'High': currentHigh + p['high_t+2'], 'Low': currentLow + p['low_t+2'], 'Close': currentClose + p['close_t+1'] + p['close_t+2']},
             # {'Date': t3, 'Open': currentClose + p['close_t+1'] + p['close_t+2'], 'High': currentHigh + p['high_t+3'], 'Low': currentLow + p['low_t+3'], 'Close': currentClose + p['close_t+1'] + p['close_t+2'] + p['close_t+3']},
             # {'Date': t4, 'Open': currentClose + p['close_t+1'] + p['close_t+2'] + p['close_t+3'], 'High': currentHigh + p['high_t+4'], 'Low': currentLow +p['low_t+4'], 'Close':  currentClose + p['close_t+1'] + p['close_t+2'] + p['close_t+3'] + p['close_t+4']}
@@ -759,7 +759,7 @@ class TrendViewer:
         ohlc2['Date'] = pd.to_datetime(ohlc2['Date'])
         ohlc2['Date'] = ohlc2['Date'].apply(mdates.date2num)
         ohlc2 = ohlc2.astype(float)
-        candlestick_ohlc(plt.gca(), ohlc2.values, width=0.6/(24*60), colorup='blue', colordown='black', alpha=0.2)
+        candlestick_ohlc(plt.gca(), ohlc2.values, width=0.6/(24*60), colorup='green', colordown='black', alpha=0.15)
         
         # plt.yticks(np.arange(min(ohlc['Close']), max(ohlc['Close'])+1, 10.0))
         

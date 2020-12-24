@@ -44,31 +44,35 @@ class Featurizer:
         
         sec['x(DOW)'] = sec['CalcDateTime'].dt.dayofweek
         sec['x(Hour)'] = sec['CalcDateTime'].dt.hour
-        # sec['x(DOY)'] = sec['CalcDateTime'].dt.dayofyear
        
         
         for offset in range(1, self.numPastSamples ):
-            j = 'x(open(t-{})'.format(str(offset))
-            sec[j] = sec['StartPrice'] - sec['StartPrice'].shift(offset)
-            j = 'x(high(t-{})'.format(str(offset))
-            sec[j] = sec['MaxPrice'] - sec['MaxPrice'].shift(offset)   
-            j = 'x(close(t-{})'.format(str(offset))
-            sec[j] = sec['EndPrice'] - sec['EndPrice'].shift(offset)   
-            j = 'x(low(t-{})'.format(str(offset))
-            sec[j] = sec['MinPrice'] - sec['MinPrice'].shift(offset)   
-            j = 'x(vol(t-{})'.format(str(offset))
-            sec[j] = sec['addedVolume'] - sec['addedVolume'].shift(offset)
 
+            
+            j = 'x(multHighLow(t-{})'.format(str(offset))
+            sec[j] =    (sec['MaxPrice'] - sec['MaxPrice'].shift(offset)) * \
+                        (sec['MinPrice'] - sec['MinPrice'].shift(offset))
+                       
+            j = 'x(multOpenClose(t-{})'.format(str(offset))
+            sec[j] =    (sec['StartPrice'] - sec['StartPrice'].shift(offset)) * \
+                        (sec['EndPrice'] - sec['EndPrice'].shift(offset)) * \
+                        (sec['addedVolume'] - sec['addedVolume'].shift(offset) )
+                      
+            # j = 'x(sqrtVol(t-{})'.format(str(offset))
+            # sec[j] = np.sqrt(
+            #     sec['addedVolume'] - sec['addedVolume'].shift(offset)
+            # ) 
+         
 
         if (self.target  == "training"):
             for offset in range(1, predictionWindow ):
 
                 
                 j = 'y(high(t+{})'.format(str(offset))
-                sec[j] = sec['MaxPrice'].shift(-offset) - sec['MaxPrice']
+                sec[j] = sec['MaxPrice'].shift(-offset) - sec['EndPrice']
                 
                 j = 'y(low(t+{})'.format(str(offset))
-                sec[j] = sec['MinPrice'].shift(-offset) - sec['MinPrice'] 
+                sec[j] = sec['MinPrice'].shift(-offset) - sec['EndPrice']
                 
                 j = 'y(close(t+{})'.format(str(offset))
                 sec[j] = sec['EndPrice'].shift(-offset) - sec['EndPrice']
