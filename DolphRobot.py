@@ -26,10 +26,10 @@ class Dolph:
     
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
 
-        self.MODE = 'TEST_OFFLINE' 
+        self.MODE = 'TEST_ONLINE' 
 
-        self.numTestSample = 500
-        self.since = datetime.date(year=2020,month=11,day=1)
+        self.numTestSample = 1100
+        self.since = datetime.date(year=2019,month=6,day=1)
         self.between_time = ('07:30', '23:00')
 
 
@@ -266,49 +266,34 @@ class Dolph:
 
 #TODO koschmar....
         firstcandle  = candlePredList[0]
-        secondcandle = candlePredList[0]
-        thirdcandle  = candlePredList[0]
-        forthcandle  = candlePredList[0]
-        
-        movAvOpen=(firstcandle['Open']+secondcandle['Open']+thirdcandle['Open']+forthcandle['Open'])/numOfInputCandles
-        movAvMax=(firstcandle['High']+secondcandle['High']+thirdcandle['High']+forthcandle['High'])/numOfInputCandles
-        movAvMin=(firstcandle['Low']+secondcandle['Low']+thirdcandle['Low']+forthcandle['Low'])/numOfInputCandles
-        movAvClose=(firstcandle['Close']+secondcandle['Close']+thirdcandle['Close']+forthcandle['Close'])/numOfInputCandles
-        
-        # firstcandleAvg=(firstcandle['Open']+firstcandle['High']+firstcandle['Low']+firstcandle['Close'])/numOfInputCandles
-        # secondcandleAvg=(secondcandle['Open']+secondcandle['High']+secondcandle['Low']+secondcandle['Close'])/numOfInputCandles
-        # thirdcandleAvg=(thirdcandle['Open']+thirdcandle['High']+thirdcandle['Low']+thirdcandle['Close'])/numOfInputCandles
-        # forthcandleAvg=(forthcandle['Open']+forthcandle['High']+forthcandle['Low']+forthcandle['Close'])/numOfInputCandles
-        # totalAvg=(firstcandleAvg+secondcandleAvg+thirdcandleAvg+forthcandleAvg)/4
+          
+       
 
-        def checkAllBlue(firstcandle,secondcandle, thirdcandle,forthcandle ):
+        def checkAllBlue(firstcandle):
             blue = False 
-            if ((firstcandle['Close']>firstcandle['Open']) and (secondcandle['Close']>secondcandle['Open']) and (thirdcandle['Close']>thirdcandle['Open']) and (forthcandle['Close'] > forthcandle['Open'])):
+            if (firstcandle['Close']>firstcandle['Open']):
                 blue= True
             return blue
-        def checkAllBlack(firstcandle,secondcandle, thirdcandle,forthcandle ):
+        def checkAllBlack(firstcandle):
             black = False 
-            if ((firstcandle['Close']<firstcandle['Open']) and (secondcandle['Close']<secondcandle['Open']) and (thirdcandle['Close']<thirdcandle['Open']) and (forthcandle['Close'] < forthcandle['Open'])):
+            if ((firstcandle['Close']<firstcandle['Open'])):
                 black= True
             return black
 
-        allCandlesBlue = checkAllBlue(
-        firstcandle,secondcandle, thirdcandle,forthcandle)
-        allCandlesBlack = checkAllBlack(
-        firstcandle,secondcandle, thirdcandle,forthcandle)   
+        
         #check the color of the current candle
         if (currentClose>currentOpen): #if this current blue?
         #check if all predicted candles are blue?
-            if (allCandlesBlue == True):                              
-                if (movAvClose>currentClose):
+           # if (allCandlesBlue == True):                              
+                # if (movAvClose>currentClose):
                     logging.info('It seems the market will grow up:')                
                     entryPrice = currentAverage
                     deltaForExit=self.params['longPositionMargin']
                     exitPrice = entryPrice+deltaForExit
                     decision='long'
                     printPrices = True
-            if (allCandlesBlack == True):
-                if (movAvClose<currentOpen):
+          #  if (allCandlesBlack == True):
+                # if (movAvClose<currentOpen):
                     logging.info('It seems the market will go down..')  
                     entryPrice=currentAverage
                     deltaForExit= self.params['shortPositionMargin']
@@ -318,16 +303,16 @@ class Dolph:
                     
         if (currentClose<currentOpen): #if this current black?
         
-            if (allCandlesBlack == True):
-                if (movAvClose<currentClose):
+         #   if (allCandlesBlack == True):
+                #if (movAvClose<currentClose):
                     logging.info('It seems the market will go down..')  
                     entryPrice=currentAverage
                     deltaForExit= self.params['shortPositionMargin']
                     exitPrice = entryPrice - deltaForExit
                     decision='short'
                     printPrices = True
-            if (allCandlesBlue == True):
-                if (movAvClose>currentOpen):
+          #  if (allCandlesBlue == True):
+               # if (movAvClose>currentOpen):
                     logging.info('It seems the market will grow up:')                
                     entryPrice = currentAverage
                     deltaForExit=self.params['longPositionMargin']

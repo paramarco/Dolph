@@ -49,7 +49,7 @@ class Featurizer:
         
         for offset in range(1, self.numPastSamples ):
             j = 'x(open(t-{})'.format(str(offset))
-            sec[j] = sec['StartPrice'] - sec['StartPrice'].shift(offset) 
+            sec[j] = sec['StartPrice'] - sec['StartPrice'].shift(offset)
             j = 'x(high(t-{})'.format(str(offset))
             sec[j] = sec['MaxPrice'] - sec['MaxPrice'].shift(offset)   
             j = 'x(close(t-{})'.format(str(offset))
@@ -57,7 +57,8 @@ class Featurizer:
             j = 'x(low(t-{})'.format(str(offset))
             sec[j] = sec['MinPrice'] - sec['MinPrice'].shift(offset)   
             j = 'x(vol(t-{})'.format(str(offset))
-            sec[j] = sec['addedVolume'] - sec['addedVolume'].shift(offset)   
+            sec[j] = sec['addedVolume'] - sec['addedVolume'].shift(offset)
+
 
         if (self.target  == "training"):
             for offset in range(1, predictionWindow ):
