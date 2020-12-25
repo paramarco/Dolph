@@ -45,46 +45,45 @@ class Featurizer:
         sec['x(DOW)'] = sec['CalcDateTime'].dt.dayofweek
         sec['x(Hour)'] = sec['CalcDateTime'].dt.hour
         
-        end_price_fixed = sec['EndPrice'].shift(1)
-        steps = 5
-        stds =  0.000001 + 0.9 * end_price_fixed.rolling(steps).std() + \
-                0.1*end_price_fixed.rolling(self.numPastSamples).std()
-
         
         for offset in range(1, self.numPastSamples ):
-
             
-            j = 'x(mult(t-{})'.format(str(offset))
-            sec[j] =    (sec['MaxPrice'] - sec['MaxPrice'].shift(offset)) * \
-                        (sec['MinPrice'] - sec['MinPrice'].shift(offset)) 
+            # j = 'x(mult(t-{})'.format(str(offset))
+            # sec[j] =    (sec['MaxPrice'] - sec['MaxPrice'].shift(offset)) * \
+            #             (sec['MinPrice'] - sec['MinPrice'].shift(offset))    
  
-            j = 'x(multEnd(t-{})'.format(str(offset))
-            sec[j] =   (sec['EndPrice'] - sec['EndPrice'].shift(offset)) * \
-                       (sec['addedVolume'])   
+            # j = 'x(multEnd(t-{})'.format(str(offset))
+            # sec[j] =    (sec['EndPrice'] - sec['EndPrice'].shift(offset)) * \
+            #             (sec['StartPrice'] - sec['StartPrice'].shift(offset) ) * \
+            #             np.abs(sec['addedVolume'] - sec['addedVolume'].shift(offset)) 
             
-            # take the end price in the past at (t - offset)
-            end_price = sec['EndPrice'].shift(offset)
-
-            # take the max price in the past at (t - offset)        
-            min_price = sec['MinPrice'].shift(offset)
-
-            # take the min price in the past at (t - offset)
-            max_price = sec['MaxPrice'].shift(offset)
+            j = 'x(high(t-{})'.format(str(offset))
+            sec[j] =    sec['MaxPrice'] - sec['MaxPrice'].shift(offset)
             
-            # compute an indicator for time (t - offset)
-            ind = ((max_price - end_price) - (end_price - min_price)) / stds
-            sec['x((MaxP-EndP)-(EndP-MinP))(t - {})'.format(str(offset))]  = ind
+            j = 'x(low(t-{})'.format(str(offset))
+            sec[j] =    sec['MinPrice'] - sec['MinPrice'].shift(offset)
+            
+            j = 'x(open(t-{})'.format(str(offset))
+            sec[j] =    sec['StartPrice'] - sec['StartPrice'].shift(offset)
+            
+            j = 'x(close(t-{})'.format(str(offset))
+            sec[j] =    sec['EndPrice'] - sec['EndPrice'].shift(offset)
+            
+            j = 'x(vol(t-{})'.format(str(offset))
+            sec[j] =    sec['addedVolume'] - sec['addedVolume'].shift(offset)
+            
+            
            
 
         if (self.target  == "training"):
             for offset in range(1, predictionWindow ):
 
                 
-                j = 'y(high(t+{})'.format(str(offset))
-                sec[j] = sec['MaxPrice'].shift(-offset) - sec['EndPrice']
+                # j = 'y(high(t+{})'.format(str(offset))
+                # sec[j] = sec['MaxPrice'].shift(-offset) - sec['EndPrice']
                 
-                j = 'y(low(t+{})'.format(str(offset))
-                sec[j] = sec['MinPrice'].shift(-offset) - sec['EndPrice']
+                # j = 'y(low(t+{})'.format(str(offset))
+                # sec[j] = sec['MinPrice'].shift(-offset) - sec['EndPrice']
                 
                 j = 'y(close(t+{})'.format(str(offset))
                 sec[j] = sec['EndPrice'].shift(-offset) - sec['EndPrice']
@@ -213,30 +212,26 @@ class MLModel:
 
         model.add(  
             Dense(
-                32, activation='tanh', input_shape =(train_X.shape[1],)
-                # , 
-                # kernel_regularizer=regularizers.l2(0.000)
+                1024, activation='tanh', input_shape =(train_X.shape[1],), 
+                 kernel_regularizer=regularizers.l2(0.001)
             )
         ) 
         model.add(
             Dense(
-                16, activation='tanh', input_shape =(train_X.shape[1],) 
-                # ,
-                # kernel_regularizer=regularizers.l2(0.00)
+                512, activation='tanh', input_shape =(train_X.shape[1],) ,
+                 kernel_regularizer=regularizers.l2(0.001)
             )
         )
         model.add(
             Dense(
-                8, activation='tanh', input_shape =(train_X.shape[1],)
-                # ,
-                # kernel_regularizer=regularizers.l2(0.000)
+                256, activation='tanh', input_shape =(train_X.shape[1],), 
+                kernel_regularizer=regularizers.l2(0.001)
             )
         ) 
         model.add(
             Dense(
-                2, activation='tanh', input_shape =(train_X.shape[1],)
-                # ,
-                # kernel_regularizer=regularizers.l2(0.000)
+                128, activation='tanh', input_shape =(train_X.shape[1],),
+                kernel_regularizer=regularizers.l2(0.001)
             )
         )
         model.add(Dense(train_y.shape[1]))
@@ -252,7 +247,7 @@ class MLModel:
 
         # fit network
         history = model.fit(
-            train_X, train_y, epochs=10, batch_size=5, 
+            train_X, train_y, epochs=10, batch_size=10, 
             validation_data=(valid_X, valid_y), verbose=2, shuffle=False
         )
        

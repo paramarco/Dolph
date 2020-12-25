@@ -26,15 +26,15 @@ class Dolph:
     
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
 
-        self.MODE = 'TRAIN_OFFLINE' 
+        self.MODE = 'TEST_OFFLINE' 
 
-        self.numTestSample = 100
-        self.since = datetime.date(year=2012,month=6,day=1)
+        self.numTestSample = 200
+        self.since = datetime.date(year=2019,month=1,day=1)
         self.between_time = ('07:30', '23:00')
 
 
         # self.periods = ['1Min','2Min','3Min']
-        self.periods = ['1Min','1Min']
+        self.periods = ['1Min','5Min']
 
         self.data = {}
         self.inputDataTest = {}
@@ -335,9 +335,10 @@ class Dolph:
                 'MinPrice':     p.training_set.original_df['MinPrice'],
                 'MaxPrice':     p.training_set.original_df['MaxPrice'] ,
                 
-                'high_t+1':             p.predictions[0][0],
-                'low_t+1':              p.predictions[0][1],
-                'close_t+1':            p.predictions[0][2] #,                
+                # 'high_t+1':             p.predictions[0][0],
+                # 'low_t+1':              p.predictions[0][1],
+                # 'close_t+1':            p.predictions[0][2] #,  
+                'close_t+1':            p.predictions[0][0] #,  
                 
                 # 'high_t+2':             p.predictions[0][3],
                 # 'low_t+2':              p.predictions[0][4],
@@ -371,7 +372,8 @@ class Dolph:
 
         p = df.loc[lastTime]
         candlePredList = [
-            {'Date': t1, 'Open': currentClose, 'High': currentHigh + p['high_t+1'], 'Low': currentLow + p['low_t+1'], 'Close': currentClose + p['close_t+1']}   #,
+            # {'Date': t1, 'Open': currentClose, 'High': currentHigh + p['high_t+1'], 'Low': currentLow + p['low_t+1'], 'Close': currentClose + p['close_t+1']}   #,
+            {'Date': t1, 'Open': currentClose, 'High': currentClose  + 1, 'Low': currentClose  - 1, 'Close': currentClose + p['close_t+1']}   #,
             # {'Date': t2, 'Open': currentClose + p['close_t+1'], 'High': currentHigh + p['high_t+2'], 'Low': currentLow + p['low_t+2'], 'Close': currentClose + p['close_t+1'] + p['close_t+2']},
             # {'Date': t3, 'Open': currentClose + p['close_t+1'] + p['close_t+2'], 'High': currentHigh + p['high_t+3'], 'Low': currentLow + p['low_t+3'], 'Close': currentClose + p['close_t+1'] + p['close_t+2'] + p['close_t+3']},
             # {'Date': t4, 'Open': currentClose + p['close_t+1'] + p['close_t+2'] + p['close_t+3'], 'High': currentHigh + p['high_t+4'], 'Low': currentLow +p['low_t+4'], 'Close':  currentClose + p['close_t+1'] + p['close_t+2'] + p['close_t+3'] + p['close_t+4']}
