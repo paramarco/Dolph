@@ -44,7 +44,12 @@ class Featurizer:
         
         sec['x(DOW)'] = sec['CalcDateTime'].dt.dayofweek
         sec['x(Hour)'] = sec['CalcDateTime'].dt.hour
-       
+        
+        end_price_fixed = sec['EndPrice'].shift(1)
+        steps = 5
+        stds =  0.000001 + 0.9 * end_price_fixed.rolling(steps).std() + \
+                0.1*end_price_fixed.rolling(self.numPastSamples).std()
+
         
         for offset in range(1, self.numPastSamples ):
 
@@ -55,7 +60,20 @@ class Featurizer:
  
             j = 'x(multEnd(t-{})'.format(str(offset))
             sec[j] =   (sec['EndPrice'] - sec['EndPrice'].shift(offset)) * \
-                        np.abs(sec['addedVolume'] - sec['addedVolume'].shift(offset))   
+                       (sec['addedVolume'])   
+            
+            # take the end price in the past at (t - offset)
+            end_price = sec['EndPrice'].shift(offset)
+
+            # take the max price in the past at (t - offset)        
+            min_price = sec['MinPrice'].shift(offset)
+
+            # take the min price in the past at (t - offset)
+            max_price = sec['MaxPrice'].shift(offset)
+            
+            # compute an indicator for time (t - offset)
+            ind = ((max_price - end_price) - (end_price - min_price)) / stds
+            sec['x((MaxP-EndP)-(EndP-MinP))(t - {})'.format(str(offset))]  = ind
            
 
         if (self.target  == "training"):
@@ -230,7 +248,7 @@ class MLModel:
 
         # fit network
         history = model.fit(
-            train_X, train_y, epochs=4, batch_size=5, 
+            train_X, train_y, epochs=10, batch_size=5, 
             validation_data=(valid_X, valid_y), verbose=2, shuffle=False
         )
        

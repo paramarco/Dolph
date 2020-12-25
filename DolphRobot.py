@@ -28,7 +28,7 @@ class Dolph:
 
         self.MODE = 'TEST_OFFLINE' 
 
-        self.numTestSample = 1100
+        self.numTestSample = 100
         self.since = datetime.date(year=2019,month=6,day=1)
         self.between_time = ('07:30', '23:00')
 
