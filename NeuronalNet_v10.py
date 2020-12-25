@@ -213,26 +213,30 @@ class MLModel:
 
         model.add(  
             Dense(
-                1024, activation='tanh', input_shape =(train_X.shape[1],) , 
-                kernel_regularizer=regularizers.l2(0.001)
+                32, activation='tanh', input_shape =(train_X.shape[1],)
+                # , 
+                # kernel_regularizer=regularizers.l2(0.000)
             )
         ) 
         model.add(
             Dense(
-                512, activation='tanh', input_shape =(train_X.shape[1],) ,
-                kernel_regularizer=regularizers.l2(0.001)
+                16, activation='tanh', input_shape =(train_X.shape[1],) 
+                # ,
+                # kernel_regularizer=regularizers.l2(0.00)
             )
         )
         model.add(
             Dense(
-                256, activation='tanh', input_shape =(train_X.shape[1],) ,
-                kernel_regularizer=regularizers.l2(0.001)
+                8, activation='tanh', input_shape =(train_X.shape[1],)
+                # ,
+                # kernel_regularizer=regularizers.l2(0.000)
             )
         ) 
         model.add(
             Dense(
-                128, activation='tanh', input_shape =(train_X.shape[1],) ,
-                kernel_regularizer=regularizers.l2(0.001)
+                2, activation='tanh', input_shape =(train_X.shape[1],)
+                # ,
+                # kernel_regularizer=regularizers.l2(0.000)
             )
         )
         model.add(Dense(train_y.shape[1]))
