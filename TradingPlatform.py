@@ -17,7 +17,7 @@ log = logging.getLogger("TradingPlatform")
 class Position:
     def __init__(self, takePosition, board, seccode, marketId, entryTimeSeconds,
                  quantity, entryPrice, exitPrice, stoploss, 
-                 decimals, bymarket = False ):
+                 decimals, exitTime, bymarket = False ):
         
         # id:= transactionid of the first order, "your entry" of the Position
         # will be assigned once upon successful entry of the Position
@@ -29,7 +29,8 @@ class Position:
         self.board = board
         self.seccode = seccode
         self.marketId = marketId
-        # entryTimeSeconds := cancel position if it isn't executed within this seconds 
+        # entryTimeSeconds := cancel position entry if it isn't executed 
+        # yet within this seconds 
         self.entryTimeSeconds = entryTimeSeconds
         # quantity := number of lots
         self.quantity = quantity
@@ -43,7 +44,13 @@ class Position:
         self.stopOrderRequested = False
         # to be assigned when position is being proccessed by Tradingplatform
         self.buysell = None
+        # exitTime := time for a emergencuy exit, close current position at 
+        # this time by market if the planned exit is not executed yet
+        self.exitTime = exitTime
         self.bymarket = bymarket
+        self.client = None
+        self.union = None
+        self.expdate = None
 
     def __str__(self):
         msg = ' takePosition='+ self.takePosition 
@@ -59,6 +66,8 @@ class Position:
         msg += ' bymarket=' + str(self.bymarket)
         msg += ' entry_id=' + str(self.entry_id)
         msg += ' exit_id=' + str(self.exit_id)
+        fmt = "%d.%m.%Y %H:%M:%S"
+        msg += ' exitTime=' + self.exitTime.strftime(fmt)
         
 
         
@@ -100,7 +109,8 @@ class TradingPlatform:
                 logging.info('connected to TRANSAQ' )
         elif isinstance(obj, ts.HistoryCandlePacket):
             self.onHistoryCandleCall(obj)
-            self.cancelTimeoutEntries()
+            self.cancelTimedoutEntries()
+            self.cancelTimedoutExits()
         elif isinstance(obj, ts.MarketPacket):
             pass # logging.info( repr(obj) ) 
             
@@ -235,19 +245,19 @@ class TradingPlatform:
                 m = 'order {} with status: {} added to monitoredOrders'.format( order.id, s)
                 logging.info( m )                
            
-        elif s in ['rejected','expired','denied','cancelled'] :
+        elif s in ['rejected','expired','denied','cancelled','removed'] :
             
             if order in self.monitoredOrders:
                 self.monitoredOrders.remove(order)
-                self.monitoredPositions = [ p for p in self.monitoredPositions 
-                                             if p.entry_id != order.id ]
                 self.tc.cancel_order(order.id)                
+            self.monitoredPositions = [ p for p in self.monitoredPositions 
+                                         if p.entry_id != order.id ]
+
             m = 'order {} with status: {} deleted from monitoredOrders'.format( order.id, s)
             logging.info( m )
                     
         else :            
             others = '"none","inactive","wait","disabled","failed","refused"'
-            others += ',"removed" '
             m = 'status: {} , belongs to: {}'.format( s, others)
             logging.info( m )
             
@@ -255,7 +265,7 @@ class TradingPlatform:
 
     def processStopOrderStatus(self, stopOrder):
         
-        logging.debug( repr(stopOrder) )
+        logging.info( repr(stopOrder) )
         
         s = stopOrder.status
         
@@ -333,8 +343,8 @@ class TradingPlatform:
 
         board = position.board
         seccode = position.seccode
-        client = self.getClientIdByMarket(position.marketId)
-        union =  self.getUnionIdByMarket(position.marketId)        
+        position.client = self.getClientIdByMarket(position.marketId)
+        position.union =  self.getUnionIdByMarket(position.marketId)        
         buysell = ""
         
         if (position.takePosition == "long"):
@@ -357,8 +367,8 @@ class TradingPlatform:
         moscowTime = datetime.datetime.now(moscowTimeZone)
         nSec = position.entryTimeSeconds
         moscowTime_plusNsec = moscowTime + datetime.timedelta(seconds = nSec)
-        expdate = moscowTime_plusNsec.strftime(fmt) 
-        brokerref = union
+        position.expdate = moscowTime_plusNsec.strftime(fmt) 
+        brokerref = position.union
         quantity = position.quantity
         bymarket = position.bymarket 
         price = round(position.entryPrice , position.decimals)
@@ -367,8 +377,8 @@ class TradingPlatform:
         usecredit = False
         
         res = self.tc.new_order(
-            board,seccode,client,union,buysell,expdate,brokerref,
-            quantity,price,bymarket,usecredit
+            board,seccode,position.client,position.union,buysell,
+            position.expdate, brokerref, quantity,price,bymarket,usecredit
         )
         log.debug(repr(res))
         if res.success == True:
@@ -397,7 +407,7 @@ class TradingPlatform:
         else:
             log.warning('wait!, not connected to TRANSAQ yet...')  
         
-    def cancelTimeoutEntries(self):
+    def cancelTimedoutEntries(self):
         
         fmt = "%d.%m.%Y %H:%M:%S"
         moscowTimeZone = pytz.timezone('Europe/Moscow')                    
@@ -415,7 +425,8 @@ class TradingPlatform:
                     list2cancel.append(mo)
                     moscow = moscowTime.strftime(fmt)
                     expTime = orderTime_plusNsec.strftime(fmt)
-                    log.info('moscow: '+ moscow + ' postion timeouts at: '+ expTime)
+                    msg = 'moscow: '+ moscow + ' entry timedouts at: '+ expTime
+                    log.info(msg)
                    
                     
         for mo in list2cancel:
@@ -423,3 +434,53 @@ class TradingPlatform:
             self.monitoredPositions = [ p for p in self.monitoredPositions 
                                              if p.entry_id != mo.id ]
 
+    def cancelTimedoutExits(self):
+        fmt = "%d.%m.%Y %H:%M:%S"
+        moscowTimeZone = pytz.timezone('Europe/Moscow')                    
+        moscowTime = datetime.datetime.now(moscowTimeZone) 
+        list2cancel = []
+        
+        for mp in self.monitoredPositions:
+            for mso in self.monitoredStopOrders:
+                if ( moscowTime > mp.exitTime ):
+                    res = self.tc.cancel_stoploss(mso.id)
+                    log.debug(repr(res))
+                    if res.success == True:
+                        list2cancel.append(mso)
+                        moscow = moscowTime.strftime(fmt)
+                        exitTime = mp.exitTime.strftime(fmt)
+                        msg = 'moscow: '+moscow+' exit timedouts at: '+ exitTime
+                        log.info( msg )
+                        res = self.tc.new_order(
+                            mp.board,
+                            mp.seccode,
+                            mp.client,
+                            mp.union,
+                            mso.buysell,
+                            mp.expdate,
+                            mp.union,
+                            mp.quantity,
+                            price=0,
+                            bymarket = True,
+                            usecredit = False
+                        )
+                        log.debug(repr(res))
+                        if res.success == True:
+                            log.info( 'emergency exit requested successfuly' )
+                        
+                    else:
+                        logging.error( "cancel stop order error by transaq")
+
+        
+        for mso in list2cancel:
+            self.monitoredStopOrders.remove(mso)
+            self.monitoredPositions = [ p for p in self.monitoredPositions 
+                                             if p.exit_id != mso.id ]    
+               
+        
+        
+        
+        
+        
+        
+        

@@ -5,7 +5,9 @@ import logging
 import sys
 import signal
 import gc; gc.collect()
-import datetime
+import datetime as dt
+import pytz
+
 import copy
 import pandas as pd
 
@@ -30,7 +32,7 @@ class Dolph:
 
 
         self.numTestSample = 10000
-        self.since = datetime.date(year=2019,month=6,day=1)
+        self.since = dt.date(year=2019,month=6,day=1)
         self.between_time = ('07:30', '23:00')
 
 
@@ -154,7 +156,7 @@ class Dolph:
         timelast1Min = timelast1Min.to_pydatetime()
         
         nMin = -numPeriod + 1
-        timeAux = timelast1Min + datetime.timedelta(minutes = nMin)
+        timeAux = timelast1Min + dt.timedelta(minutes = nMin)
         
         if (timeAux >= timelastPeriod and self.lastUpdate != timelastPeriod):
             synced = True
@@ -202,7 +204,7 @@ class Dolph:
             while True:
                 logging.debug( 'requesting data to the Trading  Platform ...')
                 _.tp.HistoryCandleReq(securities, longestPeriod)                
-                since = datetime.date.today() - datetime.timedelta(days=1)
+                since = dt.date.today() - dt.timedelta(days=1)
                 dfs = _.getData(securities, periods, since, target, _.between_time )
                 if not _.isSufficientData(dfs[longestPeriod]) :
                     continue
@@ -359,10 +361,10 @@ class Dolph:
         times = sorted(list(df.index.unique()))
         lastTime = times[-1]    
         
-        t1 = lastTime + datetime.timedelta(minutes = 1)
-        t2 = lastTime + datetime.timedelta(minutes = 2)
-        t3 = lastTime + datetime.timedelta(minutes = 3)
-        t4 = lastTime + datetime.timedelta(minutes = 4)
+        t1 = lastTime + dt.timedelta(minutes = 1)
+        t2 = lastTime + dt.timedelta(minutes = 2)
+        t3 = lastTime + dt.timedelta(minutes = 3)
+        t4 = lastTime + dt.timedelta(minutes = 4)
 
         currentOpen = df.iloc[-1].StartPrice
         currentHigh = df.iloc[-1].MaxPrice
@@ -399,11 +401,14 @@ class Dolph:
         byMarket =              self.params['entryByMarket']
         longPositionMargin =    self.params['longPositionMargin']
         shortPositionMargin =   self.params['shortPositionMargin']
-        entryTimeSeconds =      self.params['entryTimeSeconds']        
+        entryTimeSeconds =      self.params['entryTimeSeconds']
+        exitTimeSeconds =       self.params['exitTimeSeconds']        
         quantity =              self.params['positionQuantity']
         k =                     self.params['stopLossCoefficient']
-        
-        
+                        
+        moscowTimeZone = pytz.timezone('Europe/Moscow')                    
+        moscowTime = dt.datetime.now(moscowTimeZone)
+        exitTime = moscowTime + dt.timedelta(seconds = exitTimeSeconds)
 
         
         predictions = copy.deepcopy(self.predictions[longestPeriod])
@@ -430,7 +435,8 @@ class Dolph:
         logging.info('entryPrice'+str(entryPrice)) 
         position = tp.Position(
             takePosition, board, seccode, marketId, entryTimeSeconds, 
-            quantity, entryPrice, exitPrice , stoploss, decimals, byMarket
+            quantity, entryPrice, exitPrice , stoploss, decimals, exitTime,
+            byMarket
         )
         logging.info( 'dolph decides: ' + str(position))    
             
