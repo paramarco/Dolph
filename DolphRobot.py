@@ -26,11 +26,11 @@ class Dolph:
     
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
 
-        self.MODE = 'TEST_ONLINE' 
+        self.MODE = 'OPERATIONAL' 
 
 
         self.numTestSample = 10000
-        self.since = datetime.date(year=2020,month=6,day=1)
+        self.since = datetime.date(year=2019,month=6,day=1)
         self.between_time = ('07:30', '23:00')
 
 
@@ -270,52 +270,50 @@ class Dolph:
           
        
 
-        def checkAllBlue(firstcandle):
+        def checkCandleBlue(firstcandle):
             blue = False 
             if (firstcandle['Close']>firstcandle['Open']):
                 blue= True
             return blue
-        def checkAllBlack(firstcandle):
+        def checkCandleBlack(firstcandle):
             black = False 
             if ((firstcandle['Close']<firstcandle['Open'])):
                 black= True
             return black
 
-        
+        margin=1
         #check the color of the current candle
         if (currentClose>currentOpen): #if this current blue?
-        #check if all predicted candles are blue?
-           # if (allCandlesBlue == True):                              
-                # if (movAvClose>currentClose):
+             CandlesBlackcheck=checkCandleBlack(firstcandle)
+             CandlesBluecheck =checkCandleBlue(firstcandle)
+             if (CandlesBlackcheck == True):
+                    logging.info('It seems the market will go down..')  
+                    entryPrice=currentClose-margin
+                    deltaForExit= self.params['shortPositionMargin']
+                    exitPrice = entryPrice - deltaForExit
+                    decision='short'
+                    printPrices = True
+             if (CandlesBluecheck == True):
                     logging.info('It seems the market will grow up:')                
-                    entryPrice = currentAverage
+                    entryPrice = currentClose+margin
                     deltaForExit=self.params['longPositionMargin']
                     exitPrice = entryPrice+deltaForExit
                     decision='long'
-                    printPrices = True
-          #  if (allCandlesBlack == True):
-                # if (movAvClose<currentOpen):
-                    logging.info('It seems the market will go down..')  
-                    entryPrice=currentAverage
-                    deltaForExit= self.params['shortPositionMargin']
-                    exitPrice = entryPrice - deltaForExit
-                    decision='short'
-                    printPrices = True
+                    printPrices = True   
                     
         if (currentClose<currentOpen): #if this current black?
-        
-         #   if (allCandlesBlack == True):
-                #if (movAvClose<currentClose):
+            CandlesBlackcheck=checkCandleBlack(firstcandle)
+            CandlesBluecheck =checkCandleBlue(firstcandle)
+            if (CandlesBlackcheck == True):
                     logging.info('It seems the market will go down..')  
-                    entryPrice=currentAverage
+                    entryPrice=currentClose-margin
                     deltaForExit= self.params['shortPositionMargin']
                     exitPrice = entryPrice - deltaForExit
                     decision='short'
                     printPrices = True
-          #  if (allCandlesBlue == True):
-               # if (movAvClose>currentOpen):
+            if (CandlesBluecheck == True):
                     logging.info('It seems the market will grow up:')                
-                    entryPrice = currentAverage
+                    entryPrice = currentClose+margin
                     deltaForExit=self.params['longPositionMargin']
                     exitPrice = entryPrice+deltaForExit
                     decision='long'
