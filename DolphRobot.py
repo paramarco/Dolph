@@ -263,15 +263,12 @@ class Dolph:
         currentLow = lastCandle['currentLow']
         currentClose = lastCandle['currentClose']
         
-        currentAverage= (currentOpen+currentHigh+currentLow+currentClose)/4
         self.printPrices = False
-        numOfInputCandles=4
         
-        fmt = "%d.%m.%Y %H:%M:%S"
         moscowTimeZone = pytz.timezone('Europe/Moscow')                    
         moscowTime = dt.datetime.now(moscowTimeZone)
         moscowHour = moscowTime.hour
-        nogoHours = [13,20,21,22,23]
+        nogoHours = [13,18,19,20,21,22,23]
         if moscowHour in nogoHours:
             logging.info('we are in a no-go hour ...')  
             return entryPrice, exitPrice, decision, printPrices        
@@ -342,23 +339,10 @@ class Dolph:
                 'EndPrice':     p.training_set.original_df['EndPrice'],
                 'MinPrice':     p.training_set.original_df['MinPrice'],
                 'MaxPrice':     p.training_set.original_df['MaxPrice'] ,
-                
-                # 'high_t+1':             p.predictions[0][0],
-                # 'low_t+1':              p.predictions[0][1],
-                # 'close_t+1':            p.predictions[0][2] #,  
+                  
                 'close_t+1':            p.predictions[0][0] #,  
                 
-                # 'high_t+2':             p.predictions[0][3],
-                # 'low_t+2':              p.predictions[0][4],
-                # 'close_t+2':            p.predictions[0][5],
 
-                # 'high_t+3':             p.predictions[0][6],
-                # 'low_t+3':              p.predictions[0][7],
-                # 'close_t+3':            p.predictions[0][8],
-
-                # 'high_t+4':             p.predictions[0][9],
-                # 'low_t+4':              p.predictions[0][10],
-                # 'close_t+4':            p.predictions[0][11]
                 }
             )
             df_in = df_in.append(row)
