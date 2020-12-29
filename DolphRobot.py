@@ -266,7 +266,18 @@ class Dolph:
         currentAverage= (currentOpen+currentHigh+currentLow+currentClose)/4
         self.printPrices = False
         numOfInputCandles=4
-
+        
+        fmt = "%d.%m.%Y %H:%M:%S"
+        moscowTimeZone = pytz.timezone('Europe/Moscow')                    
+        moscowTime = dt.datetime.now(moscowTimeZone)
+        moscowHour = moscowTime.hour
+        nogoHours = [13,20,21,22,23]
+        if moscowHour in nogoHours:
+            logging.info('we are in a no-go hour ...')  
+            return entryPrice, exitPrice, decision, printPrices        
+          
+        marginsByHour = self.params['positionMargin']
+        deltaForExit= marginsByHour[str(moscowHour)]
 #TODO koschmar....
         firstcandle  = candlePredList[0]
           
@@ -283,7 +294,7 @@ class Dolph:
                 black= True
             return black
 
-        margin=1
+        margin=2
         #check the color of the current candle
         if (currentClose>currentOpen): #if this current blue?
              CandlesBlackcheck=checkCandleBlack(firstcandle)
@@ -291,14 +302,12 @@ class Dolph:
              if (CandlesBlackcheck == True):
                     logging.info('It seems the market will go down..')  
                     entryPrice=currentClose-margin
-                    deltaForExit= self.params['shortPositionMargin']
                     exitPrice = entryPrice - deltaForExit
                     decision='short'
                     printPrices = True
              if (CandlesBluecheck == True):
                     logging.info('It seems the market will grow up:')                
                     entryPrice = currentClose+margin
-                    deltaForExit=self.params['longPositionMargin']
                     exitPrice = entryPrice+deltaForExit
                     decision='long'
                     printPrices = True   
@@ -309,14 +318,12 @@ class Dolph:
             if (CandlesBlackcheck == True):
                     logging.info('It seems the market will go down..')  
                     entryPrice=currentClose-margin
-                    deltaForExit= self.params['shortPositionMargin']
                     exitPrice = entryPrice - deltaForExit
                     decision='short'
                     printPrices = True
             if (CandlesBluecheck == True):
                     logging.info('It seems the market will grow up:')                
                     entryPrice = currentClose+margin
-                    deltaForExit=self.params['longPositionMargin']
                     exitPrice = entryPrice+deltaForExit
                     decision='long'
                     printPrices = True                                                                     
@@ -399,17 +406,18 @@ class Dolph:
         decimals = int(decimals)
         
         byMarket =              self.params['entryByMarket']
-        longPositionMargin =    self.params['longPositionMargin']
-        shortPositionMargin =   self.params['shortPositionMargin']
         entryTimeSeconds =      self.params['entryTimeSeconds']
         exitTimeSeconds =       self.params['exitTimeSeconds']        
         quantity =              self.params['positionQuantity']
         k =                     self.params['stopLossCoefficient']
+        marginsByHour =         self.params['positionMargin']
                         
         moscowTimeZone = pytz.timezone('Europe/Moscow')                    
         moscowTime = dt.datetime.now(moscowTimeZone)
+        moscowHour = moscowTime.hour
+        deltaForExit= marginsByHour[str(moscowHour)]
+        
         exitTime = moscowTime + dt.timedelta(seconds = exitTimeSeconds)
-
         
         predictions = copy.deepcopy(self.predictions[longestPeriod])
         candlePredList,lastCandle = self.getPositionAssessmentParams(predictions)
@@ -421,12 +429,12 @@ class Dolph:
             self.positionAssestment(candlePredList,lastCandle)
 
         if takePosition == 'long':
-            exitPrice = entryPrice  + longPositionMargin
-            stoploss = entryPrice  - k * shortPositionMargin
+            exitPrice = entryPrice  + deltaForExit
+            stoploss = entryPrice  - k * deltaForExit
             
         elif takePosition == 'short':
-            exitPrice = entryPrice  - shortPositionMargin
-            stoploss = entryPrice  + k * longPositionMargin
+            exitPrice = entryPrice  - deltaForExit
+            stoploss = entryPrice  + k * deltaForExit
             
         else:
             exitPrice = entryPrice

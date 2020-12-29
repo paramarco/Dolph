@@ -284,7 +284,7 @@ class TradingPlatform:
             if stopOrder in self.monitoredStopOrders:
                 self.monitoredStopOrders.remove(stopOrder)
             
-                m='takeProfit {} with status: {} deleted from monitoredStopOrders'
+                m='id: {} with status: {} deleted from monitoredStopOrders'
                 m = m.format( stopOrder.id, s )
                 logging.info( m )
                 self.monitoredPositions = [ p for p in self.monitoredPositions 
