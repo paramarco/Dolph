@@ -33,7 +33,7 @@ class DataServer:
 
     def __createDBtables(self):
         try:
-            sqliteConnection = sqlite3.connect('bimbi.sqlite')
+            sqliteConnection = sqlite3.connect('bimbiRTS.sqlite')
             cursor = sqliteConnection.cursor()
             log.info(" Connected to database ")
             query = """  BEGIN TRANSACTION; """
@@ -99,7 +99,7 @@ class DataServer:
                 
     def __normalizeVolume(self):
         try:
-            sqliteConnection = sqlite3.connect('bimbi.sqlite')
+            sqliteConnection = sqlite3.connect('bimbiRTS.sqlite')
             cursor = sqliteConnection.cursor()
             log.info(" Connected to database ") 
             
@@ -126,7 +126,7 @@ class DataServer:
 
     def __deleteOlder(self, date):
         try:
-            sqliteConnection = sqlite3.connect('bimbi.sqlite')
+            sqliteConnection = sqlite3.connect('bimbiRTS.sqlite')
             cursor = sqliteConnection.cursor()
             log.info(" Connected to database ") 
             
@@ -150,7 +150,7 @@ class DataServer:
         
     def __deleteTableDuplicates(self):
         try:
-            sqliteConnection = sqlite3.connect('bimbi.sqlite')
+            sqliteConnection = sqlite3.connect('bimbiRTS.sqlite')
             cursor = sqliteConnection.cursor()
             log.info(" connected to database ") 
                        
@@ -181,7 +181,7 @@ class DataServer:
     def __showTablesInfo(self, securities ):
 
         try:
-            sqliteConnection = sqlite3.connect('bimbi.sqlite')
+            sqliteConnection = sqlite3.connect('bimbiRTS.sqlite')
             cursor = sqliteConnection.cursor()
             log.info(" connected to database")                         
                 
@@ -225,7 +225,7 @@ class DataServer:
         
             seccode = securities[0]['seccode']
             
-            sqliteConnection = sqlite3.connect('bimbi.sqlite') 
+            sqliteConnection = sqlite3.connect('bimbiRTS.sqlite') 
             cursor = sqliteConnection.cursor()  
             query = """
                 SELECT id 
@@ -277,7 +277,7 @@ class DataServer:
         try:            
             log.info(" connecting to database ...")            
         
-            sqliteConnection = sqlite3.connect('bimbi.sqlite') 
+            sqliteConnection = sqlite3.connect('bimbiRTS.sqlite') 
             cursor = sqliteConnection.cursor()
             
             seccodes = [s['seccode'] for s in securities]
@@ -355,7 +355,7 @@ class DataServer:
         try:            
             log.info(" connecting to database ...")            
         
-            sqliteConnection = sqlite3.connect('bimbi.sqlite') 
+            sqliteConnection = sqlite3.connect('bimbiRTS.sqlite') 
             cursor = sqliteConnection.cursor()
             
             seccodes = [s['seccode'] for s in securities]
@@ -454,7 +454,7 @@ class DataServer:
             name_dict[seccode+"_CLOSE"] = None
 
         try: 
-            sqliteConnection = sqlite3.connect('bimbi.sqlite')
+            sqliteConnection = sqlite3.connect('bimbiRTS.sqlite')
             data = pd.read_sql_query(
                 query,
                 sqliteConnection,                
@@ -485,7 +485,7 @@ class DataServer:
         log.debug(" since: " +  date)
         
         try:            
-            sqliteConnection = sqlite3.connect('bimbi.sqlite') 
+            sqliteConnection = sqlite3.connect('bimbiRTS.sqlite') 
             cursor = sqliteConnection.cursor()   
             
             query = """
@@ -566,7 +566,7 @@ class DataServer:
                     log.debug( "building dataframe for: " + str(sec) )
                     query = self.__querySearchSec( sec, since )
                     
-                    sqliteConnection = sqlite3.connect('bimbi.sqlite')
+                    sqliteConnection = sqlite3.connect('bimbiRTS.sqlite')
                     df = pd.read_sql_query(
                         query,
                         sqliteConnection,                
@@ -615,7 +615,7 @@ class DataServer:
                 name_dict[seccode+"_VOL"] = None
 
             log.info(" reading from database ...")
-            sqliteConnection = sqlite3.connect('bimbi.sqlite')
+            sqliteConnection = sqlite3.connect('bimbiRTS.sqlite')
             data = pd.read_sql_query(
                  query,
                  sqliteConnection,
@@ -697,7 +697,7 @@ class DataServer:
         
         errMsg = "__getSecurityIdSQL: seccode: "+seccode+" not found"
         try:
-            sqliteConnection = sqlite3.connect('bimbi.sqlite')
+            sqliteConnection = sqlite3.connect('bimbiRTS.sqlite')
             sqliteConnection.isolation_level = None
             cursor = sqliteConnection.cursor()
             query = """
@@ -788,7 +788,7 @@ class DataServer:
             security_id = self.__getSecurityIdSQL(board,seccode)
             
             log.info(" writing to database ...")            
-            sqliteConnection = sqlite3.connect('bimbi.sqlite')
+            sqliteConnection = sqlite3.connect('bimbiRTS.sqlite')
             sqliteConnection.isolation_level = None
             cursor = sqliteConnection.cursor()
             cursor.execute("begin") 
@@ -869,7 +869,7 @@ class DataServer:
         security_id = self.__getSecurityIdSQL(board, seccode)
 
         try:            
-            sqliteConnection = sqlite3.connect('bimbi.sqlite')
+            sqliteConnection = sqlite3.connect('bimbiRTS.sqlite')
             sqliteConnection.isolation_level = None
             cursor = sqliteConnection.cursor()
             cursor.execute("begin") 
@@ -1008,7 +1008,7 @@ class DataServer:
 
         
         try:
-            sqliteConnection = sqlite3.connect('bimbi.sqlite')    
+            sqliteConnection = sqlite3.connect('bimbiRTS.sqlite')    
             cursor = sqliteConnection.cursor()
             with open (fileName, 'r') as f:
                 reader = csv.reader(f)
@@ -1060,7 +1060,7 @@ class DataServer:
         log.info(" previous_security_id: " + str(previous_security_id))
 
         try:
-            sqliteConnection = sqlite3.connect('bimbi.sqlite')    
+            sqliteConnection = sqlite3.connect('bimbiRTS.sqlite')    
             cursor = sqliteConnection.cursor()
                          
             query =  """
@@ -1094,7 +1094,7 @@ class DataServer:
         errMsg = "__getSecurityIdSQL: "+security['seccode']+" not found"
         
         try:
-            sqliteConnection = sqlite3.connect('bimbi.sqlite')    
+            sqliteConnection = sqlite3.connect('bimbiRTS.sqlite')    
             cursor = sqliteConnection.cursor()
                          
             query = """
@@ -1124,7 +1124,7 @@ class DataServer:
         errMsg = security['seccode']+" not found"
         
         try:
-            sqliteConnection = sqlite3.connect('bimbi.sqlite')    
+            sqliteConnection = sqlite3.connect('bimbiRTS.sqlite')    
             cursor = sqliteConnection.cursor()
                          
             query = """
@@ -1190,12 +1190,12 @@ class DataServer:
     #     except:
     #         log.error(sys.exc_info()[0])            
         
-                        
+           
 if __name__== "__main__":
     
      connector = DataServer()
-     security_id = 1
-     fileName = './bkp/GAZR/GAZR.txt'
+     security_id = 2
+     fileName = './bkp/RTS/SPFBRTS.txt'
      connector.insertCSV2DB(security_id, fileName)
     
     # fileName = './bkp/SPFB.SBRF/SPFB.SBRF-9.20_190101_200726.csv'

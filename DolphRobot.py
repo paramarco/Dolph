@@ -28,10 +28,10 @@ class Dolph:
     
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
 
-        self.MODE = 'OPERATIONAL' 
+        self.MODE = 'TEST_OFFLINE' 
 
 
-        self.numTestSample = 10000
+        self.numTestSample = 100
         self.since = dt.date(year=2019,month=6,day=1)
         self.between_time = ('07:30', '23:00')
 
@@ -452,7 +452,7 @@ if __name__== "__main__":
 
     securities = [] 
 
-    securities.append( {'board':'FUT', 'seccode':'GZH1'} )
+    #securities.append( {'board':'FUT', 'seccode':'GZH1'} )
 
 
     #securities.append( {'board':'FUT', 'seccode':'SRH1'} )
@@ -460,7 +460,7 @@ if __name__== "__main__":
     # securities.append( {'board':'FUT', 'seccode':'SiZ0'} )
     #securities.append( {'board':'FUT', 'seccode':'VBZ0'} )
 
-    # securities.append( {'board':'FUT', 'seccode':'RIZ0'} )
+    securities.append( {'board':'FUT', 'seccode':'RIH1'} )
     # # securities.append( {'board':'FUT', 'seccode':'EuZ0'} ) 
     # securities.append( {'board':'FUT', 'seccode':'GMZ0'} )
     # # securities.append( {'board':'FUT', 'seccode':'VBZ0'} )

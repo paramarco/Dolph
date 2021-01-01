@@ -56,21 +56,22 @@ class Featurizer:
             # sec[j] =    (sec['EndPrice'] - sec['EndPrice'].shift(offset)) * \
             #             (sec['StartPrice'] - sec['StartPrice'].shift(offset) ) * \
             #             np.abs(sec['addedVolume'] - sec['addedVolume'].shift(offset)) 
-            
+            delta=1
+            delta2=10
             j = 'x(high(t-{})'.format(str(offset))
-            sec[j] =    sec['MaxPrice'] - sec['MaxPrice'].shift(offset)
+            sec[j] =    sec['MaxPrice']/delta - sec['MaxPrice'].shift(offset)/delta
             
             j = 'x(low(t-{})'.format(str(offset))
-            sec[j] =    sec['MinPrice'] - sec['MinPrice'].shift(offset)
+            sec[j] =    sec['MinPrice']/delta - sec['MinPrice'].shift(offset)/delta
             
             j = 'x(open(t-{})'.format(str(offset))
-            sec[j] =    sec['StartPrice'] - sec['StartPrice'].shift(offset)
+            sec[j] =    sec['StartPrice']/delta - sec['StartPrice'].shift(offset)/delta
             
             j = 'x(close(t-{})'.format(str(offset))
-            sec[j] =    sec['EndPrice'] - sec['EndPrice'].shift(offset)
+            sec[j] =    sec['EndPrice']/delta - sec['EndPrice'].shift(offset)/delta
             
             j = 'x(vol(t-{})'.format(str(offset))
-            sec[j] =    sec['addedVolume'] - sec['addedVolume'].shift(offset)
+            sec[j] =    sec['addedVolume']/delta2 - sec['addedVolume'].shift(offset)/delta2
             
             
            
