@@ -31,7 +31,7 @@ class Dolph:
         self.MODE = 'TEST_OFFLINE' 
 
 
-        self.numTestSample = 100
+        self.numTestSample = 500
         self.since = dt.date(year=2019,month=6,day=1)
         self.between_time = ('07:30', '23:00')
 
@@ -455,12 +455,12 @@ if __name__== "__main__":
     #securities.append( {'board':'FUT', 'seccode':'GZH1'} )
 
 
-    #securities.append( {'board':'FUT', 'seccode':'SRH1'} )
-    # securities.append( {'board':'FUT', 'seccode':'GDZ0'} ) 
+    securities.append( {'board':'FUT', 'seccode':'SRH1'} )
+    # securities.append( {'board':'FUT', 'seccode':'LKH1'} ) 
     # securities.append( {'board':'FUT', 'seccode':'SiZ0'} )
     #securities.append( {'board':'FUT', 'seccode':'VBZ0'} )
 
-    securities.append( {'board':'FUT', 'seccode':'RIH1'} )
+    #securities.append( {'board':'FUT', 'seccode':'RIH1'} )
     # # securities.append( {'board':'FUT', 'seccode':'EuZ0'} ) 
     # securities.append( {'board':'FUT', 'seccode':'GMZ0'} )
     # # securities.append( {'board':'FUT', 'seccode':'VBZ0'} )

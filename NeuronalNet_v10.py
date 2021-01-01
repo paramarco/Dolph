@@ -57,7 +57,7 @@ class Featurizer:
             #             (sec['StartPrice'] - sec['StartPrice'].shift(offset) ) * \
             #             np.abs(sec['addedVolume'] - sec['addedVolume'].shift(offset)) 
             delta=1
-            delta2=10
+            delta2=1
             j = 'x(high(t-{})'.format(str(offset))
             sec[j] =    sec['MaxPrice']/delta - sec['MaxPrice'].shift(offset)/delta
             
