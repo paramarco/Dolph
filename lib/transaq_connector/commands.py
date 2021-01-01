@@ -253,7 +253,7 @@ class TransaqConnector:
             sl.append(et.Element("bymarket"))
         if usecredit:
             sl.append(et.Element("usecredit")) 
-        sl.append(self.__elem("brokerref","Dolph_sl"))   
+        sl.append(self.__elem("brokerref","Dolph_sl".encode('utf-8')))   
         root.append(sl)
         
         tp = et.Element("takeprofit")
@@ -262,7 +262,7 @@ class TransaqConnector:
         # tp.append(et.Element("bymarket"))
         if usecredit:
             tp.append(et.Element("usecredit"))
-        tp.append(self.__elem("brokerref","Dolph_tp"))
+        tp.append(self.__elem("brokerref","Dolph_tp".encode('utf-8')))
         if correction:
             tp.append(self.__elem("correction", str(correction)))
         root.append(tp)
