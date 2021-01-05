@@ -618,50 +618,7 @@ class TrendViewer:
         xlocator = mdates.MinuteLocator(byminute=range(60))
         plt.gca().xaxis.set_major_locator(xlocator)  
         plt.show() 
-        # def evaluatePositionTest (self):
-        #     dataFrameFourCandles=self.df_four[4]
-        #     dataFrameFirstCandles=dataFrameFourCandles.iloc[0]
-            
-        #     FirstCandleMax=dataFrameFirstCandles.loc['MaxPrice']
-        #     FirstCandleMin=dataFrameFirstCandles.loc['MinPrice']
-        #     FirstCandleStart=dataFrameFirstCandles.loc['StartPrice']
-        #     FisrtCandleEnd=dataFrameFirstCandles.loc['EndPrice']
-            
-        #     dataFrameFourCandles=dataFrameFourCandles.iloc[1:5]
-        #     numOfInputCandles=4
-        #     movAvOpen=sum(dataFrameFourCandles.loc[:,'StartPrice'])/numOfInputCandles
-        #     movAvMax=sum(dataFrameFourCandles.loc[:, 'MaxPrice'])/numOfInputCandles
-        #     movAvMin=sum(dataFrameFourCandles.loc[:, 'MinPrice'])/numOfInputCandles
-        #     movAvClose=sum(dataFrameFourCandles.loc[:, 'EndPrice'])/numOfInputCandles
-        #     minDelta=10
-        #     # first check if next avarage  max price if higher then current, assume rise
-        #     if (movAvMax>FirstCandleMax):
-        #         print('It seems the market will grow:')
-        #         #check id its more than delta, if its make sente to enter in this postion to get some money
-        #         # choose entance price with respect to the average min price
-        #         entancePrice=movAvMin
-        #         if (abs(movAvMax-entancePrice)>minDelta):
-                    
 
-        #             #TODO THINK ABOUT OUT PRICE
-        #             outPrice=movAvMax
-        #             print('We choose entrance price:' + str(entancePrice))
-        #             print('We set the out price:' + str(outPrice))
-        #         else:
-        #             print('The predicted price is less than chosen delta to get some profit')
-        #     print('openav:' + str(movAvOpen))
-        #     print('closeav:' + str(movAvClose))
-        #     print('higheav:' + str(movAvMax))
-        #     print('loweav:' + str(movAvMin))
-            
-        # self.totalcounter+=1
-        # if (self.totalcounter<6):
-        #     row=df[['timeDate','StartPrice','MaxPrice','MinPrice','EndPrice'] ]
-        #     self.df_four.append(row)
-        #     self.totalcounter
-        #     if (self.totalcounter==5):
-        #         evaluatePositionTest(self)
-                
 
         
         

@@ -268,7 +268,7 @@ class Dolph:
         moscowTimeZone = pytz.timezone('Europe/Moscow')                    
         moscowTime = dt.datetime.now(moscowTimeZone)
         moscowHour = moscowTime.hour
-        nogoHours = [10, 11, 13,18,19,20,21,22,23]
+        nogoHours = [10,18,19,20,21,22,23]
         if moscowHour in nogoHours:
             logging.info('we are in a no-go hour ...')  
             return entryPrice, exitPrice, decision, printPrices        
