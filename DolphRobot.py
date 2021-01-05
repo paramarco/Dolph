@@ -268,7 +268,8 @@ class Dolph:
         moscowTimeZone = pytz.timezone('Europe/Moscow')                    
         moscowTime = dt.datetime.now(moscowTimeZone)
         moscowHour = moscowTime.hour
-        nogoHours = [10,18,19,20,21,22,23]
+        moscowMin= moscowTime.minute
+        nogoHours = [11,18,19,20,21,22,23]
         if moscowHour in nogoHours:
             logging.info('we are in a no-go hour ...')  
             return entryPrice, exitPrice, decision, printPrices        
@@ -292,38 +293,57 @@ class Dolph:
             return black
 
         margin=2
-        #check the color of the current candle
-        if (currentClose>currentOpen): #if this current blue?
-             CandlesBlackcheck=checkCandleBlack(firstcandle)
-             CandlesBluecheck =checkCandleBlue(firstcandle)
-             if (CandlesBlackcheck == True):
+        if moscowHour>10:
+            #check the color of the current candle
+            if (currentClose>currentOpen): #if this current blue?
+                 CandlesBlackcheck=checkCandleBlack(firstcandle)
+                 CandlesBluecheck =checkCandleBlue(firstcandle)
+                 if (CandlesBlackcheck == True):
+                        logging.info('It seems the market will go down..')  
+                        entryPrice=currentClose-margin
+                        exitPrice = entryPrice - deltaForExit
+                        decision='short'
+                        printPrices = True
+                 if (CandlesBluecheck == True):
+                        logging.info('It seems the market will grow up:')                
+                        entryPrice = currentClose+margin
+                        exitPrice = entryPrice+deltaForExit
+                        decision='long'
+                        printPrices = True   
+                        
+            if (currentClose<currentOpen): #if this current black?
+                CandlesBlackcheck=checkCandleBlack(firstcandle)
+                CandlesBluecheck =checkCandleBlue(firstcandle)
+                if (CandlesBlackcheck == True):
+                        logging.info('It seems the market will go down..')  
+                        entryPrice=currentClose-margin
+                        exitPrice = entryPrice - deltaForExit
+                        decision='short'
+                        printPrices = True
+                if (CandlesBluecheck == True):
+                        logging.info('It seems the market will grow up:')                
+                        entryPrice = currentClose+margin
+                        exitPrice = entryPrice+deltaForExit
+                        decision='long'
+                        printPrices = True
+        else:
+            if (moscowHour =='10' and moscowMin<'20'):
+            #first three-four candles we will repeat the the first one until 10:20
+                if (currentClose>currentOpen): #if this current blue?
+                    logging.info('It seems the market will grow up:')                
+                    entryPrice = currentClose+margin
+                    exitPrice = entryPrice+deltaForExit
+                    decision='long'
+                    printPrices = True
+                if (currentClose<currentOpen): #if this current black?
                     logging.info('It seems the market will go down..')  
                     entryPrice=currentClose-margin
                     exitPrice = entryPrice - deltaForExit
                     decision='short'
                     printPrices = True
-             if (CandlesBluecheck == True):
-                    logging.info('It seems the market will grow up:')                
-                    entryPrice = currentClose+margin
-                    exitPrice = entryPrice+deltaForExit
-                    decision='long'
-                    printPrices = True   
-                    
-        if (currentClose<currentOpen): #if this current black?
-            CandlesBlackcheck=checkCandleBlack(firstcandle)
-            CandlesBluecheck =checkCandleBlue(firstcandle)
-            if (CandlesBlackcheck == True):
-                    logging.info('It seems the market will go down..')  
-                    entryPrice=currentClose-margin
-                    exitPrice = entryPrice - deltaForExit
-                    decision='short'
-                    printPrices = True
-            if (CandlesBluecheck == True):
-                    logging.info('It seems the market will grow up:')                
-                    entryPrice = currentClose+margin
-                    exitPrice = entryPrice+deltaForExit
-                    decision='long'
-                    printPrices = True                                                                     
+
+
+                                                                    
         return entryPrice, exitPrice, decision, printPrices
     
     def getPositionAssessmentParams(self,predictions):
