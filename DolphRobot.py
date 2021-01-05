@@ -28,10 +28,10 @@ class Dolph:
     
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
 
-        self.MODE = 'OPERATIONAL' 
+        self.MODE = 'TEST_OFFLINE' 
 
 
-        self.numTestSample = 10000
+        self.numTestSample = 200
         self.since = dt.date(year=2019,month=6,day=1)
         self.between_time = ('07:30', '23:00')
 
@@ -269,6 +269,8 @@ class Dolph:
         moscowTime = dt.datetime.now(moscowTimeZone)
         moscowHour = moscowTime.hour
         moscowMin= moscowTime.minute
+        moscowHour = 10
+        moscowMin =10
         nogoHours = [11,18,19,20,21,22,23]
         if moscowHour in nogoHours:
             logging.info('we are in a no-go hour ...')  
@@ -292,7 +294,7 @@ class Dolph:
                 black= True
             return black
 
-        margin=2
+        margin=0.2*deltaForExit
         if moscowHour>10:
             #check the color of the current candle
             if (currentClose>currentOpen): #if this current blue?
@@ -327,20 +329,21 @@ class Dolph:
                         decision='long'
                         printPrices = True
         else:
-            if (moscowHour =='10' and moscowMin<'20'):
+            if (moscowHour == 10):
+                if (moscowMin > 2 and moscowMin <20):
             #first three-four candles we will repeat the the first one until 10:20
-                if (currentClose>currentOpen): #if this current blue?
-                    logging.info('It seems the market will grow up:')                
-                    entryPrice = currentClose+margin
-                    exitPrice = entryPrice+deltaForExit
-                    decision='long'
-                    printPrices = True
-                if (currentClose<currentOpen): #if this current black?
-                    logging.info('It seems the market will go down..')  
-                    entryPrice=currentClose-margin
-                    exitPrice = entryPrice - deltaForExit
-                    decision='short'
-                    printPrices = True
+                    if (currentClose>currentOpen): #if this current blue?
+                        logging.info('It seems the market will grow up:')                
+                        entryPrice = currentClose+margin
+                        exitPrice = entryPrice+deltaForExit
+                        decision='long'
+                        printPrices = True
+                    if (currentClose<currentOpen): #if this current black?
+                        logging.info('It seems the market will go down..')  
+                        entryPrice=currentClose-margin
+                        exitPrice = entryPrice - deltaForExit
+                        decision='short'
+                        printPrices = True
 
 
                                                                     
