@@ -28,7 +28,7 @@ class Dolph:
     
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
 
-        self.MODE = 'TEST_OFFLINE' 
+        self.MODE = 'TEST_ONLINE' 
 
 
         self.numTestSample = 200
@@ -37,7 +37,7 @@ class Dolph:
 
 
         # self.periods = ['1Min','2Min','3Min']
-        self.periods = ['1Min','5Min']
+        self.periods = ['1Min','4Min']
 
         self.data = {}
         self.inputDataTest = {}
@@ -234,13 +234,13 @@ class Dolph:
     def predict( self ):
         
         params = self.ds.getSecurityAlgParams(self.securities[0] )
-        p = self.periods[-1]
-            
-        if p not in self.models:
-            self.trainModel(p, params)                
-        logging.info( 'calling the model ...') 
-        pred = self.models[p].predict( self.data[p] )
-        self.storePrediction( pred, p, params)
+        # p = self.periods[-1]
+        for p in self.periods:    
+            if p not in self.models:
+                self.trainModel(p, params)                
+            logging.info( 'calling the model ...') 
+            pred = self.models[p].predict( self.data[p] )
+            self.storePrediction( pred, p, params)
             
    
     def displayPredictions (self):
@@ -269,8 +269,7 @@ class Dolph:
         moscowTime = dt.datetime.now(moscowTimeZone)
         moscowHour = moscowTime.hour
         moscowMin= moscowTime.minute
-        moscowHour = 10
-        moscowMin =10
+
         nogoHours = [11,18,19,20,21,22,23]
         if moscowHour in nogoHours:
             logging.info('we are in a no-go hour ...')  
@@ -294,8 +293,8 @@ class Dolph:
                 black= True
             return black
 
-        margin=0.2*deltaForExit
-        if moscowHour>10:
+        margin=2
+        if moscowHour>9:
             #check the color of the current candle
             if (currentClose>currentOpen): #if this current blue?
                  CandlesBlackcheck=checkCandleBlack(firstcandle)
@@ -329,7 +328,7 @@ class Dolph:
                         decision='long'
                         printPrices = True
         else:
-            if (moscowHour == 10):
+            if (moscowHour == 9):
                 if (moscowMin > 2 and moscowMin <20):
             #first three-four candles we will repeat the the first one until 10:20
                     if (currentClose>currentOpen): #if this current blue?
@@ -340,9 +339,9 @@ class Dolph:
                         printPrices = True
                     if (currentClose<currentOpen): #if this current black?
                         logging.info('It seems the market will go down..')  
-                        entryPrice=currentClose-margin
-                        exitPrice = entryPrice - deltaForExit
-                        decision='short'
+                        entryPrice = currentClose+margin
+                        exitPrice = entryPrice+deltaForExit
+                        decision='long'
                         printPrices = True
 
 
