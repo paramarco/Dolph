@@ -28,16 +28,16 @@ class Dolph:
     
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
 
-        self.MODE = 'TEST_ONLINE' 
+        self.MODE = 'TEST_OFFLINE' 
 
 
         self.numTestSample = 200
-        self.since = dt.date(year=2019,month=6,day=1)
-        self.between_time = ('07:30', '23:00')
+        self.since = dt.date(year=2020,month=1,day=1)
+        self.between_time = ('10:00', '18:45')
 
 
         # self.periods = ['1Min','2Min','3Min']
-        self.periods = ['1Min','4Min']
+        self.periods = ['1Min','2Min']
 
         self.data = {}
         self.inputDataTest = {}
@@ -234,14 +234,14 @@ class Dolph:
     def predict( self ):
         
         params = self.ds.getSecurityAlgParams(self.securities[0] )
-        # p = self.periods[-1]
-        for p in self.periods:    
-            if p not in self.models:
-                self.trainModel(p, params)                
-            logging.info( 'calling the model ...') 
-            pred = self.models[p].predict( self.data[p] )
-            self.storePrediction( pred, p, params)
-            
+        p = self.periods[-1]
+        # for p in self.periods:    
+        if p not in self.models:
+            self.trainModel(p, params)                
+        logging.info( 'calling the model ...') 
+        pred = self.models[p].predict( self.data[p] )
+        self.storePrediction( pred, p, params)
+        
    
     def displayPredictions (self):
         
