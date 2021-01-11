@@ -52,22 +52,21 @@ class Featurizer:
             # sec[j] =    (sec['MaxPrice'] - sec['MaxPrice'].shift(offset)) * \
             #             (sec['MinPrice'] - sec['MinPrice'].shift(offset))    
  
-            # j = 'x(multEnd(t-{})'.format(str(offset))
-            # sec[j] =    (sec['EndPrice'] - sec['EndPrice'].shift(offset)) * \
-            #             (sec['StartPrice'] - sec['StartPrice'].shift(offset) ) * \
-            #             np.abs(sec['addedVolume'] - sec['addedVolume'].shift(offset)) 
+            j = 'x(multEnd(t-{})'.format(str(offset))
+            sec[j] =    (sec['EndPrice'] - sec['StartPrice']) * \
+                        (sec['EndPrice'] - sec['StartPrice'].shift(offset) )  #            ) 
             
-            j = 'x(high(t-{})'.format(str(offset))
-            sec[j] =    sec['MaxPrice'] - sec['MaxPrice'].shift(offset)
+            # j = 'x(high(t-{})'.format(str(offset))
+            # sec[j] =    sec['MaxPrice'] - sec['MaxPrice'].shift(offset)
             
-            j = 'x(low(t-{})'.format(str(offset))
-            sec[j] =    sec['MinPrice'] - sec['MinPrice'].shift(offset)
+            # j = 'x(low(t-{})'.format(str(offset))
+            # sec[j] =    sec['MinPrice'] - sec['MinPrice'].shift(offset)
             
-            j = 'x(open(t-{})'.format(str(offset))
-            sec[j] =    sec['StartPrice'] - sec['StartPrice'].shift(offset)
+            # j = 'x(open(t-{})'.format(str(offset))
+            # sec[j] =    sec['StartPrice'] - sec['StartPrice'].shift(offset)
             
-            j = 'x(close(t-{})'.format(str(offset))
-            sec[j] =    sec['EndPrice'] - sec['EndPrice'].shift(offset)
+            # j = 'x(close(t-{})'.format(str(offset))
+            # sec[j] =    sec['EndPrice'] - sec['EndPrice'].shift(offset)
             
             j = 'x(vol(t-{})'.format(str(offset))
             sec[j] =    sec['addedVolume'] - sec['addedVolume'].shift(offset)
