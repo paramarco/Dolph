@@ -42,8 +42,8 @@ class Featurizer:
 
         predictionWindow = 2
         
-        sec['x(DOW)'] = sec['CalcDateTime'].dt.dayofweek
-        sec['x(Hour)'] = sec['CalcDateTime'].dt.hour
+        # sec['x(DOW)'] = sec['CalcDateTime'].dt.dayofweek
+        # sec['x(Hour)'] = sec['CalcDateTime'].dt.hour
         
         
         for offset in range(1, self.numPastSamples ):
@@ -52,24 +52,32 @@ class Featurizer:
             # sec[j] =    (sec['MaxPrice'] - sec['MaxPrice'].shift(offset)) * \
             #             (sec['MinPrice'] - sec['MinPrice'].shift(offset))    
  
-            j = 'x(multEnd(t-{})'.format(str(offset))
-            sec[j] =    (sec['EndPrice'] - sec['StartPrice']) * \
-                        (sec['EndPrice'] - sec['StartPrice'].shift(offset) )  #            ) 
+            # j = 'x(multEnd(t-{})'.format(str(offset))
+            # sec[j] =    (sec['EndPrice'] - sec['StartPrice']) * \
+            #             (sec['EndPrice'] - sec['StartPrice'].shift(offset) )  #            ) 
+            isLong =    (sec['EndPrice'].shift(offset-1) - sec['StartPrice'].shift(offset-1) >= 0)
+            isShort =   (sec['EndPrice'].shift(offset-1) - sec['StartPrice'].shift(offset-1) < 0)
+            sec.loc[ isLong, 'coef'] = sec['MaxPrice'].shift(offset-1) - sec['EndPrice'].shift(offset-1)  
+            sec.loc[ isShort,'coef'] = sec['EndPrice'].shift(offset-1) - sec['MinPrice'].shift(offset-1)  
+            
+            j = 'x(dir(t-{})'.format(str(offset-1))
+            sec[j] = (sec['EndPrice'].shift(offset-1) - sec['StartPrice'].shift(offset-1)) * sec['addedVolume'].shift(offset-1) * sec['coef']
+            
             
             # j = 'x(high(t-{})'.format(str(offset))
-            # sec[j] =    sec['MaxPrice'] - sec['MaxPrice'].shift(offset)
+            # sec[j] =    sec['MaxPrice'].shift(offset-1) - sec['MaxPrice'].shift(offset)
             
             # j = 'x(low(t-{})'.format(str(offset))
-            # sec[j] =    sec['MinPrice'] - sec['MinPrice'].shift(offset)
+            # sec[j] =    sec['MinPrice'].shift(offset-1) - sec['MinPrice'].shift(offset)
             
             # j = 'x(open(t-{})'.format(str(offset))
-            # sec[j] =    sec['StartPrice'] - sec['StartPrice'].shift(offset)
+            # sec[j] =    sec['StartPrice'].shift(offset-1) - sec['StartPrice'].shift(offset)
             
             # j = 'x(close(t-{})'.format(str(offset))
-            # sec[j] =    sec['EndPrice'] - sec['EndPrice'].shift(offset)
+            # sec[j] =    sec['EndPrice'].shift(offset-1) - sec['EndPrice'].shift(offset)
             
-            j = 'x(vol(t-{})'.format(str(offset))
-            sec[j] =    sec['addedVolume'] - sec['addedVolume'].shift(offset)
+            # j = 'x(vol(t-{})'.format(str(offset))
+            # sec[j] =    sec['addedVolume'].shift(offset-1) - sec['addedVolume'].shift(offset)
             
             
            
@@ -211,25 +219,25 @@ class MLModel:
 
         model.add(  
             Dense(
-                1024, activation='tanh', input_shape =(train_X.shape[1],), 
+                60, activation='tanh', input_shape =(train_X.shape[1],), 
                  kernel_regularizer=regularizers.l2(0.001)
             )
         ) 
         model.add(
             Dense(
-                512, activation='tanh', input_shape =(train_X.shape[1],) ,
+                30, activation='tanh', input_shape =(train_X.shape[1],) ,
                  kernel_regularizer=regularizers.l2(0.001)
             )
         )
         model.add(
             Dense(
-                256, activation='tanh', input_shape =(train_X.shape[1],), 
+                15, activation='tanh', input_shape =(train_X.shape[1],), 
                 kernel_regularizer=regularizers.l2(0.001)
             )
         ) 
         model.add(
             Dense(
-                128, activation='tanh', input_shape =(train_X.shape[1],),
+                7, activation='tanh', input_shape =(train_X.shape[1],),
                 kernel_regularizer=regularizers.l2(0.001)
             )
         )
