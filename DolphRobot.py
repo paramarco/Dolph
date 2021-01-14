@@ -28,16 +28,16 @@ class Dolph:
     
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
 
-        self.MODE = 'TEST_ONLINE' 
+        self.MODE = 'OPERATIONAL' 
 
 
         self.numTestSample = 200
         self.since = dt.date(year=2019,month=6,day=1)
-        self.between_time = ('10:00', '18:45')
+        self.between_time = ('10:00', '20:45')
 
 
         # self.periods = ['1Min','2Min','3Min']
-        self.periods = ['1Min','3Min']
+        self.periods = ['1Min','2Min']
 
         self.data = {}
         self.inputDataTest = {}
@@ -270,7 +270,7 @@ class Dolph:
         moscowHour = moscowTime.hour
         moscowMin= moscowTime.minute
 
-        nogoHours = [11,18,19,20,21,22,23]
+        nogoHours = [18,20,21,22,23]
         if moscowHour in nogoHours:
             logging.info('we are in a no-go hour ...')  
             return entryPrice, exitPrice, decision, printPrices        
@@ -296,7 +296,7 @@ class Dolph:
         margin=2
         if moscowHour>9:
             #check the color of the current candle
-            if (currentClose>currentOpen): #if this current blue?
+            if (currentClose>=currentOpen): #if this current blue?
                  CandlesBlackcheck=checkCandleBlack(firstcandle)
                  CandlesBluecheck =checkCandleBlue(firstcandle)
                  if (CandlesBlackcheck == True):
@@ -327,6 +327,7 @@ class Dolph:
                         exitPrice = entryPrice+deltaForExit
                         decision='long'
                         printPrices = True
+                        
         else:
             if (moscowHour == 9):
                 if (moscowMin > 2 and moscowMin <20):
@@ -417,11 +418,16 @@ class Dolph:
         quantity =              self.params['positionQuantity']
         k =                     self.params['stopLossCoefficient']
         marginsByHour =         self.params['positionMargin']
+        correctionByHour =         self.params['correction']
+        spreadByHour =         self.params['spread']
+        
                         
         moscowTimeZone = pytz.timezone('Europe/Moscow')                    
         moscowTime = dt.datetime.now(moscowTimeZone)
         moscowHour = moscowTime.hour
         deltaForExit= marginsByHour[str(moscowHour)]
+        spread = spreadByHour[str(moscowHour)]
+        correction = correctionByHour[str(moscowHour)]
         
         exitTime = moscowTime + dt.timedelta(seconds = exitTimeSeconds)
         
@@ -450,7 +456,7 @@ class Dolph:
         position = tp.Position(
             takePosition, board, seccode, marketId, entryTimeSeconds, 
             quantity, entryPrice, exitPrice , stoploss, decimals, exitTime,
-            byMarket
+            correction, spread, byMarket
         )
         logging.info( 'dolph decides: ' + str(position))    
             

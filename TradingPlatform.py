@@ -17,7 +17,7 @@ log = logging.getLogger("TradingPlatform")
 class Position:
     def __init__(self, takePosition, board, seccode, marketId, entryTimeSeconds,
                  quantity, entryPrice, exitPrice, stoploss, 
-                 decimals, exitTime, bymarket = False ):
+                 decimals, exitTime, correction, spread, bymarket = False ):
         
         # id:= transactionid of the first order, "your entry" of the Position
         # will be assigned once upon successful entry of the Position
@@ -47,7 +47,12 @@ class Position:
         # exitTime := time for a emergencuy exit, close current position at 
         # this time by market if the planned exit is not executed yet
         self.exitTime = exitTime
+        
+        self.correction = correction
+        self.spread = spread
+               
         self.bymarket = bymarket
+        
         self.client = None
         self.union = None
         self.expdate = None
@@ -211,11 +216,13 @@ class TradingPlatform:
                     round(monitoredPosition.stoploss, monitoredPosition.decimals),
                     prec = monitoredPosition.decimals
                 ) 
-                correction = 0;    bymarket = monitoredPosition.bymarket; 
-                usecredit = False;    
+                correction = monitoredPosition.correction
+                bymarket = monitoredPosition.bymarket
+                spread = monitoredPosition.spread
+                usecredit = False    
                 res = self.tc.new_stoporder(
                     board, seccode, client, buysell, quantity, trigger_price_sl,
-                    trigger_price_tp, correction, bymarket, usecredit 
+                    trigger_price_tp, correction, spread, bymarket, usecredit 
                 )    
                 log.info(repr(res))
                 if res.success :
@@ -378,7 +385,8 @@ class TradingPlatform:
         
         res = self.tc.new_order(
             board,seccode,position.client,position.union,buysell,
-            position.expdate, brokerref, quantity,price,bymarket,usecredit
+            position.expdate, brokerref, quantity,price,
+            bymarket,usecredit
         )
         log.debug(repr(res))
         if res.success == True:

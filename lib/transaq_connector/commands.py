@@ -228,7 +228,7 @@ class TransaqConnector:
         return self.__send_command(et.tostring(root, encoding="utf-8"))
     
     def new_stoporder(self, board, ticker, client, buysell, quantity, 
-                      trigger_price_sl, trigger_price_tp, correction=0, 
+                      trigger_price_sl, trigger_price_tp, correction=0,spread=0, 
                       bymarket=True, usecredit=True, linked_order=None, 
                       valid_for=None):
         
@@ -265,6 +265,8 @@ class TransaqConnector:
         tp.append(self.__elem("brokerref","Dolph_tp".encode('utf-8')))
         if correction:
             tp.append(self.__elem("correction", str(correction)))
+        if spread:
+            tp.append(self.__elem("spread", str(spread)))            
         root.append(tp)
         
         return self.__send_command(et.tostring(root, encoding="utf-8"))
