@@ -10,7 +10,7 @@ import pytz
 
 import copy
 import pandas as pd
-
+                                                      
 import DataServer as ds
 import TradingPlatform as tp
 import TrendViewer as tv
@@ -28,12 +28,12 @@ class Dolph:
     
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
 
-        self.MODE = 'OPERATIONAL' 
+        self.MODE = 'TRAIN_OFFLINE' 
 
 
         self.numTestSample = 200
-        self.since = dt.date(year=2019,month=6,day=1)
-        self.between_time = ('10:00', '20:45')
+        self.since = dt.date(year=2012,month=1,day=1)
+        self.between_time = ('10:00', '20:00')
 
 
         # self.periods = ['1Min','2Min','3Min']

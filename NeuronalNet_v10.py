@@ -43,7 +43,7 @@ class Featurizer:
         predictionWindow = 2
         
         # sec['x(DOW)'] = sec['CalcDateTime'].dt.dayofweek
-        # sec['x(Hour)'] = sec['CalcDateTime'].dt.hour
+        sec['x(Hour)'] = sec['CalcDateTime'].dt.hour
         
         
         for offset in range(1, self.numPastSamples ):
@@ -55,29 +55,30 @@ class Featurizer:
             # j = 'x(multEnd(t-{})'.format(str(offset))
             # sec[j] =    (sec['EndPrice'] - sec['StartPrice']) * \
             #             (sec['EndPrice'] - sec['StartPrice'].shift(offset) )  #            ) 
-            isLong =    (sec['EndPrice'].shift(offset-1) - sec['StartPrice'].shift(offset-1) >= 0)
-            isShort =   (sec['EndPrice'].shift(offset-1) - sec['StartPrice'].shift(offset-1) < 0)
-            sec.loc[ isLong, 'coef'] = sec['MaxPrice'].shift(offset-1) - sec['EndPrice'].shift(offset-1)  
-            sec.loc[ isShort,'coef'] = sec['EndPrice'].shift(offset-1) - sec['MinPrice'].shift(offset-1)  
+            # isLong =    (sec['EndPrice'].shift(offset-1) - sec['StartPrice'].shift(offset-1) >= 0)
+            # isShort =   (sec['EndPrice'].shift(offset-1) - sec['StartPrice'].shift(offset-1) < 0)
+            # sec.loc[ isLong, 'coef'] = sec['MaxPrice'].shift(offset-1) - sec['EndPrice'].shift(offset-1)  
+            # sec.loc[ isShort,'coef'] = sec['EndPrice'].shift(offset-1) - sec['MinPrice'].shift(offset-1)  
             
-            j = 'x(dir(t-{})'.format(str(offset-1))
-            sec[j] = (sec['EndPrice'].shift(offset-1) - sec['StartPrice'].shift(offset-1)) * sec['addedVolume'].shift(offset-1) * sec['coef']
+            # j = 'x(dir(t-{})'.format(str(offset-1))
+            # sec[j] = (sec['EndPrice'].shift(offset-1) - sec['StartPrice'].shift(offset-1)) * sec['addedVolume'].shift(offset-1) * sec['coef']
             
-            
-            # j = 'x(high(t-{})'.format(str(offset))
-            # sec[j] =    sec['MaxPrice'].shift(offset-1) - sec['MaxPrice'].shift(offset)
-            
-            # j = 'x(low(t-{})'.format(str(offset))
-            # sec[j] =    sec['MinPrice'].shift(offset-1) - sec['MinPrice'].shift(offset)
-            
-            # j = 'x(open(t-{})'.format(str(offset))
-            # sec[j] =    sec['StartPrice'].shift(offset-1) - sec['StartPrice'].shift(offset)
-            
-            # j = 'x(close(t-{})'.format(str(offset))
-            # sec[j] =    sec['EndPrice'].shift(offset-1) - sec['EndPrice'].shift(offset)
-            
-            # j = 'x(vol(t-{})'.format(str(offset))
+            # j = 'diffVol'.format(str(offset))
             # sec[j] =    sec['addedVolume'].shift(offset-1) - sec['addedVolume'].shift(offset)
+            
+            j = 'x(high(t-{})'.format(str(offset))
+            sec[j] =  sec['MaxPrice'].shift(offset-1) - sec['MaxPrice'].shift(offset) 
+            
+            j = 'x(low(t-{})'.format(str(offset))
+            sec[j] =    sec['MinPrice'].shift(offset-1) - sec['MinPrice'].shift(offset) 
+            
+            j = 'x(open(t-{})'.format(str(offset))
+            sec[j] =    sec['StartPrice'].shift(offset-1) - sec['StartPrice'].shift(offset) 
+            
+            j = 'x(close(t-{})'.format(str(offset))
+            sec[j] =    sec['EndPrice'].shift(offset-1) - sec['EndPrice'].shift(offset) 
+            
+
             
             
            
@@ -219,42 +220,43 @@ class MLModel:
 
         model.add(  
             Dense(
-                60, activation='tanh', input_shape =(train_X.shape[1],), 
-                 kernel_regularizer=regularizers.l2(0.001)
+                200, activation='selu', input_shape =(train_X.shape[1],)
+                , bias_regularizer=regularizers.l2(1e-2)
+                , kernel_initializer='lecun_normal'
+                
             )
         ) 
         model.add(
             Dense(
-                30, activation='tanh', input_shape =(train_X.shape[1],) ,
-                 kernel_regularizer=regularizers.l2(0.001)
+                100, activation='selu', input_shape =(train_X.shape[1],)
+                , bias_regularizer=regularizers.l2(1e-2)
+                , kernel_initializer='lecun_normal'
+                # , activity_regularizer=regularizers.l2(1e-5)
             )
         )
         model.add(
             Dense(
-                15, activation='tanh', input_shape =(train_X.shape[1],), 
-                kernel_regularizer=regularizers.l2(0.001)
+                50, activation='selu', input_shape =(train_X.shape[1],)
+                , bias_regularizer=regularizers.l2(1e-2)
+                , kernel_initializer='lecun_normal'
+                # , activity_regularizer=regularizers.l2(1e-5)
             )
         ) 
-        model.add(
-            Dense(
-                7, activation='tanh', input_shape =(train_X.shape[1],),
-                kernel_regularizer=regularizers.l2(0.001)
-            )
-        )
+
         model.add(Dense(train_y.shape[1]))
         
         loss_fn = tf.keras.losses.MeanSquaredError(reduction='sum')
         
         # model.compile(loss='mean_squared_error', optimizer='adam')
         # opt = optimizers.Adam(learning_rate=0.000001)
-        opt = optimizers.Adam(learning_rate=0.1)
+        opt = optimizers.Adam(learning_rate=0.0001)
         model.compile(loss=loss_fn, optimizer=opt)
         # model.compile(loss=loss_fn,  optimizer='adam')
         self.model = model            
 
         # fit network
         history = model.fit(
-            train_X, train_y, epochs=10, batch_size=10, 
+            train_X, train_y, epochs=500, batch_size=32, 
             validation_data=(valid_X, valid_y), verbose=2, shuffle=False
         )
        
