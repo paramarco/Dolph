@@ -220,7 +220,7 @@ class MLModel:
 
         model.add(  
             Dense(
-                200, activation='selu', input_shape =(train_X.shape[1],)
+                32, activation='selu', input_shape =(train_X.shape[1],)
                 , bias_regularizer=regularizers.l2(1e-2)
                 , kernel_initializer='lecun_normal'
                 
@@ -228,7 +228,7 @@ class MLModel:
         ) 
         model.add(
             Dense(
-                100, activation='selu', input_shape =(train_X.shape[1],)
+                16, activation='selu', input_shape =(train_X.shape[1],)
                 , bias_regularizer=regularizers.l2(1e-2)
                 , kernel_initializer='lecun_normal'
                 # , activity_regularizer=regularizers.l2(1e-5)
@@ -236,7 +236,7 @@ class MLModel:
         )
         model.add(
             Dense(
-                50, activation='selu', input_shape =(train_X.shape[1],)
+                8, activation='selu', input_shape =(train_X.shape[1],)
                 , bias_regularizer=regularizers.l2(1e-2)
                 , kernel_initializer='lecun_normal'
                 # , activity_regularizer=regularizers.l2(1e-5)
@@ -249,7 +249,7 @@ class MLModel:
         
         # model.compile(loss='mean_squared_error', optimizer='adam')
         # opt = optimizers.Adam(learning_rate=0.000001)
-        opt = optimizers.Adam(learning_rate=0.0001)
+        opt = optimizers.Adam(learning_rate=0.000001)
         model.compile(loss=loss_fn, optimizer=opt)
         # model.compile(loss=loss_fn,  optimizer='adam')
         self.model = model            

@@ -32,7 +32,7 @@ class Dolph:
 
 
         self.numTestSample = 200
-        self.since = dt.date(year=2012,month=1,day=1)
+        self.since = dt.date(year=2017,month=1,day=1)
         self.between_time = ('10:00', '20:00')
 
 
