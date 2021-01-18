@@ -32,8 +32,8 @@ class Dolph:
 
 
         self.numTestSample = 200
-        self.since = dt.date(year=2017,month=1,day=1)
-        self.between_time = ('10:00', '20:00')
+        self.since = dt.date(year=2014,month=1,day=1)
+        self.between_time = ('10:00', '23:00')
 
 
         # self.periods = ['1Min','2Min','3Min']

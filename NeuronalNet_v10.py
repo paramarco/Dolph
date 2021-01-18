@@ -249,14 +249,14 @@ class MLModel:
         
         # model.compile(loss='mean_squared_error', optimizer='adam')
         # opt = optimizers.Adam(learning_rate=0.000001)
-        opt = optimizers.Adam(learning_rate=0.000001)
+        opt = optimizers.Adam(learning_rate=0.000005)
         model.compile(loss=loss_fn, optimizer=opt)
         # model.compile(loss=loss_fn,  optimizer='adam')
         self.model = model            
 
         # fit network
         history = model.fit(
-            train_X, train_y, epochs=500, batch_size=32, 
+            train_X, train_y, epochs=100, batch_size=8, 
             validation_data=(valid_X, valid_y), verbose=2, shuffle=False
         )
        
