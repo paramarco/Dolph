@@ -49,73 +49,15 @@ class TrendViewer:
         self.entrancePrice =0
         self.outPrice=0
         self.printPrices = False
-        
+        self.prediction_sign = 0
         self.evaluatePositionTest = func
-        
+        self.arrayPredictionsSigns = []
+        self.arrayTruecandlesSigns = []
         
     def setDataTest(self, inputData):
         self.data_test = inputData
         
         
-    # def evaluatePositionTest (self, candlePredList,lastCandle ):
-        
-    #     currentOpen = lastCandle['currentOpen']
-    #     currentHigh = lastCandle['currentHigh']
-    #     currentLow = lastCandle['currentLow']
-    #     currentClose = lastCandle['currentClose']
-        
-    #     currentAverage= (currentOpen+currentHigh+currentLow+currentClose)/4
-    #     self.printPrices = False
-    #     numOfInputCandles=4
-
-    #     firstcandle  = candlePredList[0]
-    #     secondcandle = candlePredList[1]
-    #     thirdcandle  = candlePredList[2]
-    #     forthcandle  = candlePredList[3]
-        
-    #     movAvOpen=(firstcandle['Open']+secondcandle['Open']+thirdcandle['Open']+forthcandle['Open'])/numOfInputCandles
-    #     movAvMax=(firstcandle['High']+secondcandle['High']+thirdcandle['High']+forthcandle['High'])/numOfInputCandles
-    #     movAvMin=(firstcandle['Low']+secondcandle['Low']+thirdcandle['Low']+forthcandle['Low'])/numOfInputCandles
-    #     movAvClose=(firstcandle['Close']+secondcandle['Close']+thirdcandle['Close']+forthcandle['Close'])/numOfInputCandles
-        
-    #     firstcandleAvg=(firstcandle['Open']+firstcandle['High']+firstcandle['Low']+firstcandle['Close'])/numOfInputCandles
-    #     secondcandleAvg=(secondcandle['Open']+secondcandle['High']+secondcandle['Low']+secondcandle['Close'])/numOfInputCandles
-    #     thirdcandleAvg=(thirdcandle['Open']+thirdcandle['High']+thirdcandle['Low']+thirdcandle['Close'])/numOfInputCandles
-    #     forthcandleAvg=(forthcandle['Open']+forthcandle['High']+forthcandle['Low']+forthcandle['Close'])/numOfInputCandles
-
-
-    #     totalAvg=(firstcandleAvg+secondcandleAvg+thirdcandleAvg+forthcandleAvg)/4
-
-    #     minDelta=10
-    #     #check the color of the candle
-    #     if (currentClose>currentOpen): #if this blue?
-        
-    #         # first check if next avarage  max price if higher then current, assume rise
-    #         if (movAvMax>currentHigh):
-    #             print('It seems the market will grow:')
-    #             #check id its more than delta, if its make sente to enter in this postion to get some money
-    #             # choose entance price with respect to the average min price
-                
-                
-    #             #entrance price like the avarage of the previos candle doesn not work!!
-    #            #maybe not everytime, maybe somtemis will work
-    #           # MAYBE TAKE CLOSE PRICE OF PREVIOS CANDLE
-    #             self.entrancePrice=currentAverage
-    #             deltaForExit=10.0
-    #             #TODO THINK ABOUT OUT PRICE
-    #             self.outPrice=self.entrancePrice+deltaForExit
-    #             print('We choose entrance price:' + str(self.entrancePrice))
-    #             print('We set the out price:' + str(self.outPrice))
-    #             self.printPrices = True
-    #     else:
-    #         print('It seems the market will go down..')   
-    #         #the candle is black
-    #         if (movAvClose>currentLow):
-    #             print('It seems the market will go down..')  
-    #             self.entrancePrice=currentAverage
-    #             deltaForExit=10.0
-    #             self.outPrice=self.entrancePrice-deltaForExit
-    #             self.printPrices = True
 
                 
                 
@@ -639,23 +581,7 @@ class TrendViewer:
                 'EndPrice':             p.training_set.original_df['EndPrice'],
                 'MinPrice':             p.training_set.original_df['MinPrice'],
                 'MaxPrice':             p.training_set.original_df['MaxPrice'] ,
-                
-                # 'high_t+1':             p.predictions[0][0],
-                # 'low_t+1':              p.predictions[0][1],
-                # 'close_t+1':            p.predictions[0][2] #,  
-                'close_t+1':            p.predictions[0][0] #,  
-                # 'high_t+2':             p.predictions[0][3],
-                # 'low_t+2':              p.predictions[0][4],
-                # 'close_t+2':            p.predictions[0][5],
-
-                # 'high_t+3':             p.predictions[0][6],
-                # 'low_t+3':              p.predictions[0][7],
-                # 'close_t+3':            p.predictions[0][8],
-
-                # 'high_t+4':             p.predictions[0][9],
-                # 'low_t+4':              p.predictions[0][10],
-                # 'close_t+4':            p.predictions[0][11]
-
+                'close_t+1':            p.predictions[0][0] 
                 }
             )
             df_in = df_in.append(row)
@@ -694,9 +620,7 @@ class TrendViewer:
         candlestick_ohlc(plt.gca(), ohlc.values, width=0.6/(24*60), colorup='green', colordown='black', alpha=0.9)
         
         t1 = lastTime + datetime.timedelta(minutes = (1 * numPeriod) )
-        t2 = lastTime + datetime.timedelta(minutes = (2 * numPeriod) )
-        t3 = lastTime + datetime.timedelta(minutes = (3 * numPeriod) )
-        t4 = lastTime + datetime.timedelta(minutes = (4 * numPeriod) )
+
 
         currentOpen = df.iloc[-1].StartPrice
         currentHigh = df.iloc[-1].MaxPrice
@@ -706,10 +630,7 @@ class TrendViewer:
         p = df.loc[lastTime]
         
         candlePredList = [
-            # {'Date': t1, 'Open': currentClose, 'High': currentHigh + p['high_t+1'], 'Low': currentLow + p['low_t+1'], 'Close': currentClose + p['close_t+1']}   #,
             {'Date': t1, 'Open': currentClose, 'High': currentClose  + 1, 'Low': currentClose  - 1, 'Close': currentClose + p['close_t+1']}   #,            # {'Date': t2, 'Open': currentClose + p['close_t+1'], 'High': currentHigh + p['high_t+2'], 'Low': currentLow + p['low_t+2'], 'Close': currentClose + p['close_t+1'] + p['close_t+2']},
-            # {'Date': t3, 'Open': currentClose + p['close_t+1'] + p['close_t+2'], 'High': currentHigh + p['high_t+3'], 'Low': currentLow + p['low_t+3'], 'Close': currentClose + p['close_t+1'] + p['close_t+2'] + p['close_t+3']},
-            # {'Date': t4, 'Open': currentClose + p['close_t+1'] + p['close_t+2'] + p['close_t+3'], 'High': currentHigh + p['high_t+4'], 'Low': currentLow +p['low_t+4'], 'Close':  currentClose + p['close_t+1'] + p['close_t+2'] + p['close_t+3'] + p['close_t+4']}
         ]         
             
         ohlc2 = pd.DataFrame(candlePredList)  
@@ -733,6 +654,58 @@ class TrendViewer:
         }        
         entryPrice, exitPrice, takePosition, printPrices = \
             self.evaluatePositionTest(candlePredList, lastCandle)
+            
+        predictionCandle = { 
+            'currentOpen' : entryPrice,
+            'currentClose' : exitPrice                      
+        }        
+        def checkCandleBlue(firstcandle):
+            blue = False 
+            if (firstcandle['currentClose']>firstcandle['currentOpen']):
+                blue= True
+            return blue
+        def checkCandleBlack(firstcandle):
+            black = False 
+            if ((firstcandle['currentClose']<firstcandle['currentOpen'])):
+                black= True
+            return black   
+        
+        blue_prediction = checkCandleBlue(predictionCandle)
+        black_prediction=checkCandleBlack(predictionCandle)
+        if (blue_prediction == True):
+            self.prediction_sign  = 1
+        if (black_prediction == True):
+            self.prediction_sign  = -1
+            
+        blue_current = checkCandleBlue(lastCandle)
+        black_current=checkCandleBlack(lastCandle)
+        if (blue_current == True):
+            self.current_sign  = 1
+        if (black_current == True):
+            self.current_sign  = -1  
+            
+        self.arrayPredictionsSigns.append(self.prediction_sign)
+        self.arrayTruecandlesSigns.append(self.current_sign )    
+        print('arrayPredictions:' + str(self.arrayPredictionsSigns))
+        print('arrayTruecandlesSigns:' + str(self.arrayTruecandlesSigns))  
+        if (self.numTotalPrices > 0):
+            
+                self.numTotalPrices+=1 
+                if(self.arrayPredictionsSigns[-2]==self.arrayTruecandlesSigns[-1]):
+                    self.numPositivePrices+=1
+                else:
+                    self.numNegativePrices+=1
+                    
+
+                print('numTotal:' + str(self.numTotalPrices-1))
+                print('numPositiv:' + str(self.numPositivePrices))
+                print('numNegative:' + str(self.numNegativePrices))
+        else:
+             self.numTotalPrices=1
+             
+             
+             
+             
              
         if (printPrices == True):
             plt.annotate(

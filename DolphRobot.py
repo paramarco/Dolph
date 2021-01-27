@@ -28,11 +28,11 @@ class Dolph:
     
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
 
-        self.MODE = 'TRAIN_OFFLINE' 
+        self.MODE = 'TEST_ONLINE' 
 
 
-        self.numTestSample = 200
-        self.since = dt.date(year=2014,month=1,day=1)
+        self.numTestSample = 1000
+        self.since = dt.date(year=2021 ,month=1,day=1)
         self.between_time = ('10:00', '23:00')
 
 
@@ -223,7 +223,16 @@ class Dolph:
         msg = 'training&prediction params: '+ period +' '+ str(params)
         logging.info( msg )
         df = self.data[period]
-        self.models[period] = self.getTrainingModel(df, params, period)
+        def Remove_Outlier_Indices(df):
+            Q1 = df.quantile(0.25)
+            Q3 = df.quantile(0.75)
+            IQR = Q3 - Q1
+            trueList = ~((df < (Q1 - 1.5 * IQR)) |(df > (Q3 + 1.5 * IQR)))
+            return trueList   
+    
+        indexOutliers = Remove_Outlier_Indices(df['EndPrice']) 
+        filteredData = df[indexOutliers]
+        self.models[period] = self.getTrainingModel(filteredData, params, period)
 
     
     def storePrediction(self, prediction, period, params):
