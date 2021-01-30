@@ -686,8 +686,7 @@ class TrendViewer:
             
         self.arrayPredictionsSigns.append(self.prediction_sign)
         self.arrayTruecandlesSigns.append(self.current_sign )    
-        print('arrayPredictions:' + str(self.arrayPredictionsSigns))
-        print('arrayTruecandlesSigns:' + str(self.arrayTruecandlesSigns))  
+ 
         if (self.numTotalPrices > 0):
             
                 self.numTotalPrices+=1 
