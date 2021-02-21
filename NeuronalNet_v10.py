@@ -68,18 +68,17 @@ class Featurizer:
             
             # j = 'diffVol'.format(str(offset))
             # sec[j] =    sec['addedVolume'].shift(offset-1) - sec['addedVolume'].shift(offset)
-            delta=stds
             j = 'x(high(t-{})'.format(str(offset))
-            sec[j] =  (sec['MaxPrice'].shift(offset-1) - sec['MaxPrice'].shift(offset))/delta 
+            sec[j] =  (sec['MaxPrice'].shift(offset)) /(sec['MaxPrice'].shift(offset-1)) 
             
             j = 'x(low(t-{})'.format(str(offset))
-            sec[j] =   ( sec['MinPrice'].shift(offset-1) - sec['MinPrice'].shift(offset))/delta 
+            sec[j] =   ( sec['MinPrice'].shift(offset))/ (sec['MinPrice'].shift(offset-1)) 
             
             j = 'x(open(t-{})'.format(str(offset))
-            sec[j] =    (sec['StartPrice'].shift(offset-1) - sec['StartPrice'].shift(offset))/delta
+            sec[j] =    (sec['StartPrice'].shift(offset)) /(sec['StartPrice'].shift(offset-1))
             
             j = 'x(close(t-{})'.format(str(offset))
-            sec[j] =    (sec['EndPrice'].shift(offset-1) - sec['EndPrice'].shift(offset))/delta
+            sec[j] =    (sec['EndPrice'].shift(offset))/ (sec['EndPrice'].shift(offset-1))
             
 
             
@@ -223,7 +222,7 @@ class MLModel:
 
         model.add(  
             Dense(
-                64, activation='selu', input_shape =(train_X.shape[1],)
+                32, activation='selu', input_shape =(train_X.shape[1],)
                 , bias_regularizer=regularizers.l2(1e-2)
                 , kernel_initializer='lecun_normal'
                 
@@ -234,7 +233,7 @@ class MLModel:
         # ) 
         model.add(
             Dense(
-                32, activation='selu', input_shape =(train_X.shape[1],)
+                16, activation='selu', input_shape =(train_X.shape[1],)
                 , bias_regularizer=regularizers.l2(1e-1)
                 , kernel_initializer='lecun_normal'
                 # , activity_regularizer=regularizers.l2(1e-5)
@@ -245,7 +244,7 @@ class MLModel:
         # ) 
         model.add(
             Dense(
-                16, activation='selu', input_shape =(train_X.shape[1],)
+                8, activation='selu', input_shape =(train_X.shape[1],)
                 , bias_regularizer=regularizers.l2(1e-2)
                 , kernel_initializer='lecun_normal'
                 # , activity_regularizer=regularizers.l2(1e-5)
@@ -268,8 +267,9 @@ class MLModel:
         #     decay_steps=0,
         #     decay_rate=0)
         
-        learningRate=0.000005
-        opt = optimizers.Adam(learning_rate=learningRate)
+        learningRate=0.000001
+        beta1=0.5
+        opt = optimizers.Ftrl(learning_rate=learningRate)
         # model.compile(loss='mean_squared_error',  optimizer=opt)
         
         # opt = optimizers.Adam(learning_rate=0.000005)

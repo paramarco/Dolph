@@ -32,7 +32,7 @@ class Dolph:
 
 
         self.numTestSample = 1000
-        self.since = dt.date(year=2015 ,month=1,day=1)
+        self.since = dt.date(year=2018 ,month=1,day=1)
         self.between_time = ('10:00', '23:00')
 
 
@@ -489,10 +489,10 @@ if __name__== "__main__":
 
     securities = [] 
 
-    securities.append( {'board':'FUT', 'seccode':'GZH1'} )
+    # securities.append( {'board':'FUT', 'seccode':'GZH1'} )
 
 
-    #securities.append( {'board':'FUT', 'seccode':'SRH1'} )
+    securities.append( {'board':'FUT', 'seccode':'SRH1'} )
     # securities.append( {'board':'FUT', 'seccode':'GDZ0'} ) 
     # securities.append( {'board':'FUT', 'seccode':'SiZ0'} )
     #securities.append( {'board':'FUT', 'seccode':'VBZ0'} )

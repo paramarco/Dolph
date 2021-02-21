@@ -8,6 +8,7 @@ import logging
 import time
 import datetime
 import pytz
+import sys
 
 import lib.transaq_connector.commands as tc
 import lib.transaq_connector.structures as ts
@@ -93,7 +94,10 @@ class TradingPlatform:
         self.numMaxOpenPositions = 1
         
         self.tc = tc.TransaqConnector()
-        self.tc.connected = False        
+        self.tc.connected = False
+        self.profitBalance = 0
+        self.exitCondition = 2
+        
 
         
         if connectOnInit:
@@ -296,6 +300,7 @@ class TradingPlatform:
                 logging.info( m )
                 self.monitoredPositions = [ p for p in self.monitoredPositions 
                                              if p.exit_id != stopOrder.id ] 
+                self.updatePortfolioPerformance(s)
            
         else:            
             others = '"linkwait","tp_correction","tp_correction_guardtime"'
@@ -486,6 +491,25 @@ class TradingPlatform:
                                              if p.exit_id != mso.id ]    
                
         
+    def updatePortfolioPerformance(self, status):
+        
+        if status == 'tp_executed':
+            self.profitBalance += 1
+                
+        elif status == 'sl_executed':
+            self.profitBalance -= 1
+        else:
+            m='status: {} does not update the portfolio performance'.format(s)
+            logging.info( m )
+        
+        logging.info('portforlio balance: {}'.format(self.profitBalance))
+        if self.profitBalance >= self.exitCondition :
+            m="""exit condition met, enough trading for today,
+                good job Dolphik, ciao !!!! """
+            logging.info(m)
+            sys.exit()
+
+            
         
         
         
