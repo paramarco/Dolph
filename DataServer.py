@@ -1194,8 +1194,8 @@ class DataServer:
 if __name__== "__main__":
     
      connector = DataServer()
-     security_id = 1
-     fileName = './bkp/GAZR/GAZR.txt'
+     security_id = 3
+     fileName = './bkp/SBRF/SBRF.txt'
      connector.insertCSV2DB(security_id, fileName)
     
     # fileName = './bkp/SPFB.SBRF/SPFB.SBRF-9.20_190101_200726.csv'

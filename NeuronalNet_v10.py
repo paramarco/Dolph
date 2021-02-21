@@ -47,7 +47,7 @@ class Featurizer:
         end_price_fixed = sec['EndPrice'].shift(1)
         steps = 5
         stds = 0.000001 + 0.9 * end_price_fixed.rolling(steps).std() + 0.1*end_price_fixed.rolling(10).std()
-
+        delta=1
         
         for offset in range(1, self.numPastSamples ):
             
@@ -69,16 +69,16 @@ class Featurizer:
             # j = 'diffVol'.format(str(offset))
             # sec[j] =    sec['addedVolume'].shift(offset-1) - sec['addedVolume'].shift(offset)
             j = 'x(high(t-{})'.format(str(offset))
-            sec[j] =  (sec['MaxPrice'].shift(offset)) /(sec['MaxPrice'].shift(offset-1)) 
+            sec[j] =  (sec['MaxPrice'].shift(offset-1) - sec['MaxPrice'].shift(offset))/delta 
             
             j = 'x(low(t-{})'.format(str(offset))
-            sec[j] =   ( sec['MinPrice'].shift(offset))/ (sec['MinPrice'].shift(offset-1)) 
+            sec[j] =   ( sec['MinPrice'].shift(offset-1) - sec['MinPrice'].shift(offset))/delta 
             
             j = 'x(open(t-{})'.format(str(offset))
-            sec[j] =    (sec['StartPrice'].shift(offset)) /(sec['StartPrice'].shift(offset-1))
+            sec[j] =    (sec['StartPrice'].shift(offset-1) - sec['StartPrice'].shift(offset))/delta
             
             j = 'x(close(t-{})'.format(str(offset))
-            sec[j] =    (sec['EndPrice'].shift(offset))/ (sec['EndPrice'].shift(offset-1))
+            sec[j] =    (sec['EndPrice'].shift(offset-1) - sec['EndPrice'].shift(offset))/delta
             
 
             
@@ -156,8 +156,8 @@ class MLModel:
             )
         )
 
-        percent_train = 70.0
-        percent_valid = 30.0
+        percent_train = 80.0
+        percent_valid = 20.0
         
         offset_train = int(len(unique_days)*percent_train/100.0)
         offset_test = offset_train + int(len(unique_days)*percent_valid/100.0)
@@ -222,7 +222,7 @@ class MLModel:
 
         model.add(  
             Dense(
-                32, activation='selu', input_shape =(train_X.shape[1],)
+                64, activation='selu', input_shape =(train_X.shape[1],)
                 , bias_regularizer=regularizers.l2(1e-2)
                 , kernel_initializer='lecun_normal'
                 
@@ -233,7 +233,7 @@ class MLModel:
         # ) 
         model.add(
             Dense(
-                16, activation='selu', input_shape =(train_X.shape[1],)
+                32, activation='selu', input_shape =(train_X.shape[1],)
                 , bias_regularizer=regularizers.l2(1e-1)
                 , kernel_initializer='lecun_normal'
                 # , activity_regularizer=regularizers.l2(1e-5)
@@ -244,7 +244,7 @@ class MLModel:
         # ) 
         model.add(
             Dense(
-                8, activation='selu', input_shape =(train_X.shape[1],)
+                16, activation='selu', input_shape =(train_X.shape[1],)
                 , bias_regularizer=regularizers.l2(1e-2)
                 , kernel_initializer='lecun_normal'
                 # , activity_regularizer=regularizers.l2(1e-5)
@@ -267,9 +267,10 @@ class MLModel:
         #     decay_steps=0,
         #     decay_rate=0)
         
-        learningRate=0.000001
-        beta1=0.5
-        opt = optimizers.Ftrl(learning_rate=learningRate)
+        learningRate=0.000005
+        opt = optimizers.Adam(learning_rate=learningRate)
+        
+
         # model.compile(loss='mean_squared_error',  optimizer=opt)
         
         # opt = optimizers.Adam(learning_rate=0.000005)
@@ -282,7 +283,7 @@ class MLModel:
 
         # fit network
         history = model.fit(
-            train_X, train_y, epochs=20, batch_size=32, 
+            train_X, train_y, epochs=100, batch_size=32, 
             validation_data=(valid_X, valid_y), verbose=2, shuffle=False
         )
        
