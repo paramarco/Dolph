@@ -283,7 +283,7 @@ class MLModel:
 
         # fit network
         history = model.fit(
-            train_X, train_y, epochs=100, batch_size=32, 
+            train_X, train_y, epochs=5, batch_size=32, 
             validation_data=(valid_X, valid_y), verbose=2, shuffle=False
         )
        

@@ -28,7 +28,7 @@ class Dolph:
     
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
 
-        self.MODE = 'TEST_OFFLINE' 
+        self.MODE = 'TEST_ONLINE' 
 
 
         self.numTestSample = 1000
@@ -37,7 +37,7 @@ class Dolph:
 
 
         # self.periods = ['1Min','2Min','3Min']
-        self.periods = ['1Min','2Min']
+        self.periods = ['1Min','5Min']
 
         self.data = {}
         self.inputDataTest = {}

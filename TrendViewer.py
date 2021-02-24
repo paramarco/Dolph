@@ -20,6 +20,8 @@ import math
 import time 
 import numbers
 import datetime
+import datetime as dt
+
 # import NeuronalNet_v6 as nn_v6
 
 
@@ -53,7 +55,9 @@ class TrendViewer:
         self.evaluatePositionTest = func
         self.arrayPredictionsSigns = []
         self.arrayTruecandlesSigns = []
-        
+        self.moscowHourarray = []
+        self.positiveHour = []
+        self.negativeHour =[]
     def setDataTest(self, inputData):
         self.data_test = inputData
         
@@ -620,8 +624,10 @@ class TrendViewer:
         candlestick_ohlc(plt.gca(), ohlc.values, width=0.6/(24*60), colorup='green', colordown='black', alpha=0.9)
         
         t1 = lastTime + datetime.timedelta(minutes = (1 * numPeriod) )
+        moscowHour = t1.hour
 
-
+        
+        
         currentOpen = df.iloc[-1].StartPrice
         currentHigh = df.iloc[-1].MaxPrice
         currentLow = df.iloc[-1].MinPrice
@@ -685,10 +691,12 @@ class TrendViewer:
             self.current_sign  = -1  
             
         self.arrayPredictionsSigns.append(self.prediction_sign)
-        self.arrayTruecandlesSigns.append(self.current_sign )    
- 
+        self.arrayTruecandlesSigns.append(self.current_sign )
+       
         if (self.numTotalPrices > 0):
-            
+            if (moscowHour == self.moscowHourarray[-1]):
+                print('previos:' + str(self.moscowHourarray[-1]))
+                print('current:' + str(moscowHour))
                 self.numTotalPrices+=1 
                 if(self.arrayPredictionsSigns[-2]==self.arrayTruecandlesSigns[-1]):
                     self.numPositivePrices+=1
@@ -699,10 +707,19 @@ class TrendViewer:
                 print('numTotal:' + str(self.numTotalPrices-1))
                 print('numPositiv:' + str(self.numPositivePrices))
                 print('numNegative:' + str(self.numNegativePrices))
+            else:   
+
+                 self.positiveHour.append(self.numPositivePrices)
+                 self.negativeHour.append(self.numNegativePrices)
+                 print('array positive:' + str(self.positiveHour))
+                 print('array negative:' + str(self.negativeHour))
+                 self.numTotalPrices=1
+                 self.numPositivePrices=0
+                 self.numNegativePrices =0
         else:
              self.numTotalPrices=1
              
-             
+        self.moscowHourarray.append(moscowHour)    
              
              
              
