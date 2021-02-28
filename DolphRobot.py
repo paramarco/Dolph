@@ -21,23 +21,24 @@ import NeuronalNet_v5 as nn_v5
 import NeuronalNet_v6 as nn_v6
 import NeuronalNet_v9 as nn_v9
 import NeuronalNet_v10 as nn_v10
-
-
+# array positive:[6, 6, 9]numPositiv:2
+# numNegative:3
+# array negative:[4, 5, 2]
 class Dolph:
     def __init__(self, securities):
     
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
 
-        self.MODE = 'TEST_ONLINE' 
+        self.MODE = 'TEST_OFFLINE' 
 
 
         self.numTestSample = 1000
-        self.since = dt.date(year=2020 ,month=1,day=1)
-        self.between_time = ('10:00', '18:00')
+        self.since = dt.date(year=2020 ,month=10,day=1)
+        self.between_time = ('10:00', '18:45')
 
 
         # self.periods = ['1Min','2Min','3Min']
-        self.periods = ['1Min','5Min']
+        self.periods = ['1Min','2Min']
 
         self.data = {}
         self.inputDataTest = {}

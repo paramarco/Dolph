@@ -6,6 +6,7 @@ Created on Thu Aug 13 10:20:45 2020
 """
 
 import os
+import math
 import logging
 import pandas as pd
 from pandas import DataFrame
@@ -49,6 +50,26 @@ class Featurizer:
         stds = 0.000001 + 0.9 * end_price_fixed.rolling(steps).std() + 0.1*end_price_fixed.rolling(10).std()
         delta=1
         
+
+        # close_fft = np.fft.fft(np.asarray(sec['EndPrice'].tolist()))
+        # fft_df = pd.DataFrame({'fft':close_fft})
+        # fft_list = np.asarray(fft_df['fft'].tolist())
+        
+        # numRows = sec.shape[0]
+        
+        # for f in [0.1, 0.2, 0.4]:
+        #     c = math.ceil( numRows * f )
+        #     fft_list_component = np.copy(fft_list)
+        #     fft_list_component[ c : -c ] = 0
+        #     ifft = np.fft.ifft(fft_list_component)
+            
+        #     j = 'x(fft_{}_mag)'.format(str(c))
+        #     sec[j] = np.abs(ifft)
+            
+            # j = 'x(fft_{}_ang)'.format(str(c))
+            # sec[j] = np.angle(ifft)        
+
+        
         for offset in range(1, self.numPastSamples ):
             
             # j = 'x(mult(t-{})'.format(str(offset))
@@ -69,19 +90,23 @@ class Featurizer:
             # j = 'diffVol'.format(str(offset))
             # sec[j] =    sec['addedVolume'].shift(offset-1) - sec['addedVolume'].shift(offset)
             j = 'x(high(t-{})'.format(str(offset))
-            sec[j] =  (sec['MaxPrice'].shift(offset-1) - sec['MaxPrice'].shift(offset))/delta 
-            
+            sec[j] =  (sec['MaxPrice'].shift(offset-1) - sec['MaxPrice'].shift(offset))            
             j = 'x(low(t-{})'.format(str(offset))
-            sec[j] =   ( sec['MinPrice'].shift(offset-1) - sec['MinPrice'].shift(offset))/delta 
+            sec[j] =   ( sec['MinPrice'].shift(offset-1) - sec['MinPrice'].shift(offset)) 
             
             j = 'x(open(t-{})'.format(str(offset))
-            sec[j] =    (sec['StartPrice'].shift(offset-1) - sec['StartPrice'].shift(offset))/delta
+            sec[j] =    (sec['StartPrice'].shift(offset-1) - sec['StartPrice'].shift(offset))
             
             j = 'x(close(t-{})'.format(str(offset))
-            sec[j] =    (sec['EndPrice'].shift(offset-1) - sec['EndPrice'].shift(offset))/delta
+            sec[j] =    (sec['EndPrice'].shift(offset-1) - sec['EndPrice'].shift(offset))
             
-
+            j = 'x(Volatility(t-{})'.format(str(offset))
+            sec[j] = 100 * ( sec['MaxPrice'].shift(offset) - sec['MinPrice'].shift(offset) ) / sec['MinPrice'].shift(offset)
             
+            j = 'x(PercentageChange(t-{})'.format(str(offset))
+            sec[j] = 100 * ( sec['EndPrice'].shift(offset) - sec['StartPrice'].shift(offset) ) / sec['EndPrice'].shift(offset)
+            
+          
             
            
 
@@ -283,7 +308,7 @@ class MLModel:
 
         # fit network
         history = model.fit(
-            train_X, train_y, epochs=5, batch_size=32, 
+            train_X, train_y, epochs=100, batch_size=32, 
             validation_data=(valid_X, valid_y), verbose=2, shuffle=False
         )
        
