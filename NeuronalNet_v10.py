@@ -13,7 +13,7 @@ from pandas import DataFrame
 import numpy as np
 from matplotlib import pyplot
 import tensorflow as tf
-
+import matplotlib.pyplot as plt
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 from tensorflow.keras import regularizers
@@ -50,7 +50,7 @@ class Featurizer:
         stds = 0.000001 + 0.9 * end_price_fixed.rolling(steps).std() + 0.1*end_price_fixed.rolling(10).std()
         delta=1
         
-
+#####################################################################################
         # close_fft = np.fft.fft(np.asarray(sec['EndPrice'].tolist()))
         # fft_df = pd.DataFrame({'fft':close_fft})
         # fft_list = np.asarray(fft_df['fft'].tolist())
@@ -68,26 +68,23 @@ class Featurizer:
             
             # j = 'x(fft_{}_ang)'.format(str(c))
             # sec[j] = np.angle(ifft)        
-
+ ##########################################################################################           
+            
+            
+            
+        rolling_mean = sec['EndPrice'].rolling(window=480).mean()
+        rolling_mean2 = sec['EndPrice'].rolling(window=1440).mean()
+        rolling_mean3 = sec['EndPrice'].rolling(window=3360).mean()
+        # plt.plot(sec['EndPrice'], label='AMD')
+        # plt.plot(rolling_mean, label='AMD 20 Day SMA', color='orange')
+        # plt.plot(rolling_mean2, label='AMD 50 Day SMA', color='magenta')
+        # plt.plot(rolling_mean3, label='AMD 3 Day SMA', color='blue')
+        # plt.legend(loc='upper left')
+        # plt.show()
         
         for offset in range(1, self.numPastSamples ):
             
-            # j = 'x(mult(t-{})'.format(str(offset))
-            # sec[j] =    (sec['MaxPrice'] - sec['MaxPrice'].shift(offset)) * \
-            #             (sec['MinPrice'] - sec['MinPrice'].shift(offset))    
- 
-            # j = 'x(multEnd(t-{})'.format(str(offset))
-            # sec[j] =    (sec['EndPrice'] - sec['StartPrice']) * \
-            #             (sec['EndPrice'] - sec['StartPrice'].shift(offset) )  #            ) 
-            # isLong =    (sec['EndPrice'].shift(offset-1) - sec['StartPrice'].shift(offset-1) >= 0)
-            # isShort =   (sec['EndPrice'].shift(offset-1) - sec['StartPrice'].shift(offset-1) < 0)
-            # sec.loc[ isLong, 'coef'] = sec['MaxPrice'].shift(offset-1) - sec['EndPrice'].shift(offset-1)  
-            # sec.loc[ isShort,'coef'] = sec['EndPrice'].shift(offset-1) - sec['MinPrice'].shift(offset-1)  
             
-            # j = 'x(dir(t-{})'.format(str(offset-1))
-            # sec[j] = (sec['EndPrice'].shift(offset-1) - sec['StartPrice'].shift(offset-1)) * sec['addedVolume'].shift(offset-1) * sec['coef']
-            
-            # j = 'diffVol'.format(str(offset))
             # sec[j] =    sec['addedVolume'].shift(offset-1) - sec['addedVolume'].shift(offset)
             j = 'x(high(t-{})'.format(str(offset))
             sec[j] =  (sec['MaxPrice'].shift(offset-1) - sec['MaxPrice'].shift(offset))            
