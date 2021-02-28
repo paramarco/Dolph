@@ -72,13 +72,18 @@ class Featurizer:
             
             
             
-        rolling_mean = sec['EndPrice'].rolling(window=480).mean()
-        rolling_mean2 = sec['EndPrice'].rolling(window=1440).mean()
-        rolling_mean3 = sec['EndPrice'].rolling(window=3360).mean()
+        movinAverage1 = sec['EndPrice'].rolling(window=480).mean()
+        movinAverage2 = sec['EndPrice'].rolling(window=1440).mean()
+        movinAverage3 = sec['EndPrice'].rolling(window=3360).mean()
+        
+        expMovinAverage1 = sec['EndPrice'].ewm(alpha=0.25, adjust=False).mean()
+        expMovinAverage2 = sec['EndPrice'].ewm(alpha=0.5, adjust=False).mean()
+
+        
         # plt.plot(sec['EndPrice'], label='AMD')
-        # plt.plot(rolling_mean, label='AMD 20 Day SMA', color='orange')
-        # plt.plot(rolling_mean2, label='AMD 50 Day SMA', color='magenta')
-        # plt.plot(rolling_mean3, label='AMD 3 Day SMA', color='blue')
+        # plt.plot(expMovinAverage1, label='AMD 20 Day SMA', color='orange')
+        # plt.plot(expMovinAverage2, label='AMD 50 Day SMA', color='magenta')
+        # # plt.plot(rolling_mean3, label='AMD 3 Day SMA', color='blue')
         # plt.legend(loc='upper left')
         # plt.show()
         
