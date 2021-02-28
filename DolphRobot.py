@@ -33,7 +33,7 @@ class Dolph:
 
 
         self.numTestSample = 1000
-        self.since = dt.date(year=2020 ,month=10,day=1)
+        self.since = dt.date(year=2020 ,month=1,day=1)
         self.between_time = ('10:00', '18:45')
 
 
@@ -280,7 +280,7 @@ class Dolph:
         moscowHour = moscowTime.hour
         moscowMin= moscowTime.minute
 
-        nogoHours = [18,20,21,22,23]
+        nogoHours = [18]
         if moscowHour in nogoHours:
             logging.info('we are in a no-go hour ...')  
             return entryPrice, exitPrice, decision, printPrices        

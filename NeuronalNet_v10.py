@@ -73,12 +73,24 @@ class Featurizer:
             
             
         movinAverage1 = sec['EndPrice'].rolling(window=480).mean()
+        j = 'mAv1'
+        sec[j] = movinAverage1 
+        
         movinAverage2 = sec['EndPrice'].rolling(window=1440).mean()
+        j = 'mAv2'
+        sec[j] = movinAverage2 
+        
         movinAverage3 = sec['EndPrice'].rolling(window=3360).mean()
+        j = 'mAv3'
+        sec[j] = movinAverage3 
         
         expMovinAverage1 = sec['EndPrice'].ewm(alpha=0.25, adjust=False).mean()
+        j = 'EMA1'
+        sec[j] = expMovinAverage1 
+        
         expMovinAverage2 = sec['EndPrice'].ewm(alpha=0.5, adjust=False).mean()
-
+        j = 'EMA2'
+        sec[j] = expMovinAverage2 
         
         # plt.plot(sec['EndPrice'], label='AMD')
         # plt.plot(expMovinAverage1, label='AMD 20 Day SMA', color='orange')
@@ -108,8 +120,20 @@ class Featurizer:
             j = 'x(PercentageChange(t-{})'.format(str(offset))
             sec[j] = 100 * ( sec['EndPrice'].shift(offset) - sec['StartPrice'].shift(offset) ) / sec['EndPrice'].shift(offset)
             
-          
+            j = 'x(mAv1(t-{})'.format(str(offset))
+            sec[j] =  (sec['mAv1'].shift(offset-1) - sec['mAv1'].shift(offset))
             
+            j = 'x(mAv2(t-{})'.format(str(offset))
+            sec[j] =  (sec['mAv2'].shift(offset-1) - sec['mAv2'].shift(offset))
+            
+            j = 'x(mAv3(t-{})'.format(str(offset))
+            sec[j] =  (sec['mAv3'].shift(offset-1) - sec['mAv3'].shift(offset)) 
+            
+            j = 'x(EMA1(t-{})'.format(str(offset))
+            sec[j] =  (sec['EMA1'].shift(offset-1) - sec['EMA1'].shift(offset)) 
+            
+            j = 'x(EMA2(t-{})'.format(str(offset))
+            sec[j] =  (sec['EMA2'].shift(offset-1) - sec['EMA2'].shift(offset)) 
            
 
         if (self.target  == "training"):
