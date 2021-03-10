@@ -69,20 +69,20 @@ class Featurizer:
             # j = 'x(fft_{}_ang)'.format(str(c))
             # sec[j] = np.angle(ifft)        
  ##########################################################################################           
-            
-            
-            
-        movinAverage1 = sec['EndPrice'].rolling(window=480).mean()
+        winDays1=20
+        winDays2=40    
+        winDays3=60    
+        movinAverage1 = sec['EndPrice'].rolling(window=winDays1).mean()
         j = 'mAv1'
         sec[j] = movinAverage1 
         
-        movinAverage2 = sec['EndPrice'].rolling(window=1440).mean()
-        j = 'mAv2'
-        sec[j] = movinAverage2 
+        # movinAverage2 = sec['EndPrice'].rolling(window=winDays2).mean()
+        # j = 'mAv2'
+        # sec[j] = movinAverage2 
         
-        movinAverage3 = sec['EndPrice'].rolling(window=3360).mean()
-        j = 'mAv3'
-        sec[j] = movinAverage3 
+        # movinAverage3 = sec['EndPrice'].rolling(window=winDays3).mean()
+        # j = 'mAv3'
+        # sec[j] = movinAverage3 
         
         expMovinAverage1 = sec['EndPrice'].ewm(alpha=0.25, adjust=False).mean()
         j = 'EMA1'
@@ -93,9 +93,9 @@ class Featurizer:
         sec[j] = expMovinAverage2 
         
         # plt.plot(sec['EndPrice'], label='AMD')
-        # plt.plot(expMovinAverage1, label='AMD 20 Day SMA', color='orange')
-        # plt.plot(expMovinAverage2, label='AMD 50 Day SMA', color='magenta')
-        # # plt.plot(rolling_mean3, label='AMD 3 Day SMA', color='blue')
+        # plt.plot(movinAverage1, label='AMD 20 Day SMA', color='orange')
+        # plt.plot(movinAverage2, label='AMD 50 Day SMA', color='magenta')
+        # plt.plot(movinAverage3, label='AMD 3 Day SMA', color='blue')
         # plt.legend(loc='upper left')
         # plt.show()
         
@@ -123,11 +123,11 @@ class Featurizer:
             j = 'x(mAv1(t-{})'.format(str(offset))
             sec[j] =  (sec['mAv1'].shift(offset-1) - sec['mAv1'].shift(offset))
             
-            j = 'x(mAv2(t-{})'.format(str(offset))
-            sec[j] =  (sec['mAv2'].shift(offset-1) - sec['mAv2'].shift(offset))
+            # j = 'x(mAv2(t-{})'.format(str(offset))
+            # sec[j] =  (sec['mAv2'].shift(offset-1) - sec['mAv2'].shift(offset))
             
-            j = 'x(mAv3(t-{})'.format(str(offset))
-            sec[j] =  (sec['mAv3'].shift(offset-1) - sec['mAv3'].shift(offset)) 
+            # j = 'x(mAv3(t-{})'.format(str(offset))
+            # sec[j] =  (sec['mAv3'].shift(offset-1) - sec['mAv3'].shift(offset)) 
             
             j = 'x(EMA1(t-{})'.format(str(offset))
             sec[j] =  (sec['EMA1'].shift(offset-1) - sec['EMA1'].shift(offset)) 
@@ -189,7 +189,8 @@ class MLModel:
         
         if ( os.path.isdir( self.fileName ) ):
             log.info('pre-trainned model found! loading it ...')
-            self.model = load_model( self.fileName )            
+            self.model = load_model( self.fileName )  
+            
         else:        
             self.loadData(df)
         
