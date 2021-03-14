@@ -21,6 +21,10 @@ from tensorflow.keras.models import load_model
 from tensorflow.keras import optimizers
 log = logging.getLogger("TradingPlatform")
 from keras.callbacks import LearningRateScheduler
+from keras import backend as K
+
+
+
 class NARemover:
     def __init__(self, name):
         self.name = name
@@ -69,12 +73,12 @@ class Featurizer:
             # j = 'x(fft_{}_ang)'.format(str(c))
             # sec[j] = np.angle(ifft)        
  ##########################################################################################           
-        winDays1=20
-        winDays2=40    
-        winDays3=60    
-        movinAverage1 = sec['EndPrice'].rolling(window=winDays1).mean()
-        j = 'mAv1'
-        sec[j] = movinAverage1 
+        # winDays1=20
+        # winDays2=40    
+        # winDays3=60    
+        # movinAverage1 = sec['EndPrice'].rolling(window=winDays1).mean()
+        # j = 'mAv1'
+        # sec[j] = movinAverage1 
         
         # movinAverage2 = sec['EndPrice'].rolling(window=winDays2).mean()
         # j = 'mAv2'
@@ -120,8 +124,8 @@ class Featurizer:
             j = 'x(PercentageChange(t-{})'.format(str(offset))
             sec[j] = 100 * ( sec['EndPrice'].shift(offset) - sec['StartPrice'].shift(offset) ) / sec['EndPrice'].shift(offset)
             
-            j = 'x(mAv1(t-{})'.format(str(offset))
-            sec[j] =  (sec['mAv1'].shift(offset-1) - sec['mAv1'].shift(offset))
+            # j = 'x(mAv1(t-{})'.format(str(offset))
+            # sec[j] =  (sec['mAv1'].shift(offset-1) - sec['mAv1'].shift(offset))
             
             # j = 'x(mAv2(t-{})'.format(str(offset))
             # sec[j] =  (sec['mAv2'].shift(offset-1) - sec['mAv2'].shift(offset))
@@ -179,20 +183,29 @@ class Predictions:
         self.training_set = training_set       
     
 class MLModel:
-    def __init__(self, df, params, period):
+    def __init__(self, df, params, period, mode):
         self.model = None
         self.period = period
         self.params = params        
+        self.mode = mode
         samples = str(params['minNumPastSamples'])  +'Samples'
         nameParts=[ __name__, self.period, samples]
         self.fileName = '_'.join(nameParts)
         
-        if ( os.path.isdir( self.fileName ) ):
+        
+        if ( self.mode == 'TRAIN_OFFLINE' and os.path.isdir( self.fileName ) ):
+            log.info('pre-trainned model found! loading it ...')
+            self.model = load_model( self.fileName )
+            training_set, valid_set = self.loadData(df)
+            self.trainAgain(training_set, valid_set)            
+
+        elif ( os.path.isdir( self.fileName ) ): 
+            
             log.info('pre-trainned model found! loading it ...')
             self.model = load_model( self.fileName )  
-            
-        else:        
-            self.loadData(df)
+        else:
+            training_set, valid_set = self.loadData(df)
+            self.fit(training_set, valid_set)
         
     def loadData(self, df):        
      
@@ -257,10 +270,10 @@ class MLModel:
             
         combined_valid_set_df = pd.concat(combined_valid_set, axis=0)
         valid_set = TrainingSetBuilder().transform(combined_valid_set_df) 
-                
-        log.info('Trainning Machine....' )        
-        self.fit(training_set, valid_set)        
-
+        
+        return training_set, valid_set
+    
+        
         
     def fit(self, training_set, valid_set = None):
         train_X, train_y = training_set.X, training_set.y
@@ -319,7 +332,7 @@ class MLModel:
         #     decay_steps=0,
         #     decay_rate=0)
         
-        learningRate=0.000005
+        learningRate=0.00001
         opt = optimizers.Adam(learning_rate=learningRate)
         
 
@@ -327,9 +340,7 @@ class MLModel:
         
         # opt = optimizers.Adam(learning_rate=0.000005)
         model.compile(loss='mean_squared_error', optimizer=opt)
-
- 
-            
+           
             
         self.model = model            
 
@@ -357,6 +368,43 @@ class MLModel:
     def fit_transform(self, training_set, valid_set):
         self.fit(training_set, valid_set)
         return self.transform(training_set), self.transform(valid_set)
+
+    def trainAgain(self, training_set, valid_set):
+        
+        if (self.model == None):
+            print ('we got a prorblem....')
+            exit
+        
+        train_X, train_y = training_set.X, training_set.y
+        
+        if valid_set is None:
+            valid_X, valid_y = train_X, train_y
+        else:
+            valid_X, valid_y = valid_set.X, valid_set.y
+        
+        # Change learning rate 
+        learningRate = 0.001
+        K.set_value(self.model.optimizer.learning_rate, learningRate)
+        newRate = self.model.optimizer.learning_rate.numpy()
+        print("Learning rate before second fit:", str(newRate))
+        
+        # fit network
+        history = self.model.fit(
+            train_X, train_y, epochs=100, batch_size=32, 
+            validation_data=(valid_X, valid_y), verbose=2, shuffle=False
+        )
+       
+        # save network 
+        self.model.save(self.fileName)
+        
+        # plot history
+        pyplot.plot(history.history['loss'], label='train')
+        pyplot.plot(history.history['val_loss'], label='valid')
+        # pyplot.plot(history.history['acc'], label='train')
+        # pyplot.plot(history.history['val_acc'], label='valid')
+        pyplot.legend()
+        pyplot.show()
+
 
     def predict(self, df ):
         

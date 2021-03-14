@@ -29,11 +29,11 @@ class Dolph:
     
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
 
-        self.MODE = 'TEST_ONLINE' 
+        self.MODE = 'OPERATIONAL' 
 
 
         self.numTestSample = 1000
-        self.since = dt.date(year=2015 ,month=6,day=1)
+        self.since = dt.date(year=2020 ,month=6,day=1)
         self.between_time = ('10:00', '18:45')
 
 
@@ -126,7 +126,7 @@ class Dolph:
         
         signal.signal(signal.SIGINT, signalHandler)
         
-
+        self.goodLuckStreak  = 3
 
     def onHistoryCandleRes(self, obj):
         logging.debug( repr(obj) )            
@@ -233,7 +233,12 @@ class Dolph:
     
         indexOutliers = Remove_Outlier_Indices(df['EndPrice']) 
         filteredData = df[indexOutliers]
-        self.models[period] = self.getTrainingModel(filteredData, params, period)
+        self.models[period] = self.getTrainingModel(
+            filteredData, 
+            params, 
+            period,
+            self.MODE
+        )
 
     
     def storePrediction(self, prediction, period, params):
@@ -437,8 +442,7 @@ class Dolph:
         moscowHour = moscowTime.hour
         deltaForExit= marginsByHour[str(moscowHour)]
         spread = spreadByHour[str(moscowHour)]
-        correction = correctionByHour[str(moscowHour)]
-        
+        correction = correctionByHour[str(moscowHour)]        
         exitTime = moscowTime + dt.timedelta(seconds = exitTimeSeconds)
         
         predictions = copy.deepcopy(self.predictions[longestPeriod])
@@ -473,6 +477,10 @@ class Dolph:
         return position
 
     def takePosition (self, position):
+        
+        if self.tp.getProfitBalance() >= self.goodLuckStreak :
+            logging.info( 'it went too well this hour, stop until next hour')
+            return
 
         action = position.takePosition
         if ( action != 'long' and action != 'short' ):

@@ -96,7 +96,7 @@ class TradingPlatform:
         self.tc = tc.TransaqConnector()
         self.tc.connected = False
         self.profitBalance = 0
-        self.exitCondition = 2
+        self.currentTradingHour = 0
         
 
         
@@ -120,6 +120,8 @@ class TradingPlatform:
             self.onHistoryCandleCall(obj)
             self.cancelTimedoutEntries()
             self.cancelTimedoutExits()
+            self.updateTradingHour()
+            
         elif isinstance(obj, ts.MarketPacket):
             pass # logging.info( repr(obj) ) 
             
@@ -499,20 +501,26 @@ class TradingPlatform:
         elif status == 'sl_executed':
             self.profitBalance -= 1
         else:
-            m='status: {} does not update the portfolio performance'.format(s)
+            m='status: {} does not update the portfolio performance'.format(status)
             logging.info( m )
         
-        logging.info('portforlio balance: {}'.format(self.profitBalance))
-        if self.profitBalance >= self.exitCondition :
-            m="""exit condition met, enough trading for today,
-                good job Dolphik, ciao !!!! """
-            logging.info(m)
-            sys.exit()
+        logging.info('portforlio balance: {}'.format(self.profitBalance))       
 
             
         
+    def updateTradingHour(self):
         
+        fmt = "%d.%m.%Y %H:%M:%S"
+        moscowTimeZone = pytz.timezone('Europe/Moscow')                    
+        moscowTime = datetime.datetime.now(moscowTimeZone)
+        currentHour = moscowTime.hour
         
-        
+        if self.currentTradingHour != currentHour :
+            self.currentTradingHour = currentHour
+            self.profitBalance = 0
+            logging.info('hour changed ... profitBalance has been reset ')
+            
+    def getProfitBalance(self):
+        return self.profitBalance
         
         
