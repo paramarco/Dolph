@@ -183,18 +183,30 @@ class Predictions:
         self.training_set = training_set       
     
 class MLModel:
-    def __init__(self, df, params, period, mode):
+    def __init__(self, df, params, period, mode, currentHour):
         self.model = None
         self.period = period
         self.params = params        
-        self.mode = mode
-        samples = str(params['minNumPastSamples'])  +'Samples'
-        nameParts=[ __name__, self.period, samples]
+        self.mode = mode                
+        samples = str(params['minNumPastSamples'])  +'Samples'  
+        
+        self.TargetHours = None
+        if currentHour in range(9,14):
+            self.TargetHours = range(9,14)
+        else:
+            self.TargetHours = range(14,20)
+            
+        tb = self.TargetHours[0]
+        te = self.TargetHours[-1]
+        
+        interval = str(tb) + '_' + str(te) + 'Hour'        
+        nameParts = [ __name__, self.period, samples, interval]        
         self.fileName = '_'.join(nameParts)
         
         
         if ( self.mode == 'TRAIN_OFFLINE' and os.path.isdir( self.fileName ) ):
             log.info('pre-trainned model found! loading it ...')
+            log.info('training model again: ' + self.fileName )
             self.model = load_model( self.fileName )
             training_set, valid_set = self.loadData(df)
             self.trainAgain(training_set, valid_set)            
@@ -202,11 +214,22 @@ class MLModel:
         elif ( os.path.isdir( self.fileName ) ): 
             
             log.info('pre-trainned model found! loading it ...')
+            log.info('loading model: ' + self.fileName )
             self.model = load_model( self.fileName )  
         else:
             training_set, valid_set = self.loadData(df)
             self.fit(training_set, valid_set)
+    
+    def isSuitableForThisTime(self, hour):
+        answer = False
+        if hour in self.TargetHours:
+            answer = True
+        else:
+            answer = False
+        return answer
+                
         
+    
     def loadData(self, df):        
      
         all_mnemonics = df.Mnemonic.unique()
@@ -383,7 +406,7 @@ class MLModel:
             valid_X, valid_y = valid_set.X, valid_set.y
         
         # Change learning rate 
-        learningRate = 0.001
+        learningRate = 0.0005
         K.set_value(self.model.optimizer.learning_rate, learningRate)
         newRate = self.model.optimizer.learning_rate.numpy()
         print("Learning rate before second fit:", str(newRate))

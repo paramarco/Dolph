@@ -21,21 +21,27 @@ import NeuronalNet_v5 as nn_v5
 import NeuronalNet_v6 as nn_v6
 import NeuronalNet_v9 as nn_v9
 import NeuronalNet_v10 as nn_v10
-# array positive:[6, 6, 9]numPositiv:2
-# numNegative:3
-# array negative:[4, 5, 2]
+
 class Dolph:
     def __init__(self, securities):
     
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
 
-        self.MODE = 'OPERATIONAL' 
-
+        self.MODE = 'TRAIN_OFFLINE' 
 
         self.numTestSample = 1000
-        self.since = dt.date(year=2020 ,month=6,day=1)
-        self.between_time = ('10:00', '18:45')
-
+        self.since = dt.date(year=2021 ,month=2,day=1)
+        self.between_time = ('10:00', '20:00')
+        self.TrainingHour = 10
+    
+        if self.MODE == 'TRAIN_OFFLINE' or self.MODE == 'TEST_OFFLINE':
+            
+            if self.TrainingHour in range(9,14):
+                self.between_time = ('10:00', '14:00')
+            else:
+                self.between_time = ('14:00', '20:00')
+    
+               
 
         # self.periods = ['1Min','2Min','3Min']
         self.periods = ['1Min','2Min']
@@ -219,10 +225,11 @@ class Dolph:
             _.log.error('wrong running mode, check self.MODE')
 
 
-    def trainModel(self, period, params):
+    def trainModel(self, period, params, hour):
         
         msg = 'training&prediction params: '+ period +' '+ str(params)
         logging.info( msg )
+        
         df = self.data[period]
         def Remove_Outlier_Indices(df):
             Q1 = df.quantile(0.25)
@@ -233,11 +240,14 @@ class Dolph:
     
         indexOutliers = Remove_Outlier_Indices(df['EndPrice']) 
         filteredData = df[indexOutliers]
+
+        
         self.models[period] = self.getTrainingModel(
             filteredData, 
             params, 
             period,
-            self.MODE
+            self.MODE,
+            hour
         )
 
     
@@ -245,14 +255,31 @@ class Dolph:
 
         self.predictions[period].append(prediction)
    
+    def loadModel(self):
+        
+        params = self.ds.getSecurityAlgParams(self.securities[0] )
+        p = self.periods[-1]
+     
+        moscowTimeZone = pytz.timezone('Europe/Moscow')                    
+        moscowTime = dt.datetime.now(moscowTimeZone)
+        currentHour = moscowTime.hour
+    
+        if self.MODE == 'TRAIN_OFFLINE' or self.MODE == 'TEST_OFFLINE':
+            currentHour = self.TrainingHour
+
+        if p not in self.models:
+            self.trainModel(p, params,currentHour )
+        elif not self.models[p].isSuitableForThisTime(currentHour):
+            self.trainModel(p, params, currentHour)
+        else:
+            logging.info('model already loaded') 
+
 
     def predict( self ):
         
         params = self.ds.getSecurityAlgParams(self.securities[0] )
         p = self.periods[-1]
-        # for p in self.periods:    
-        if p not in self.models:
-            self.trainModel(p, params)                
+        self.loadModel()
         logging.info( 'calling the model ...') 
         pred = self.models[p].predict( self.data[p] )
         self.storePrediction( pred, p, params)
@@ -285,7 +312,7 @@ class Dolph:
         moscowHour = moscowTime.hour
         moscowMin= moscowTime.minute
 
-        nogoHours = [18]
+        nogoHours = [19,20,21,22,23]
         if moscowHour in nogoHours:
             logging.info('we are in a no-go hour ...')  
             return entryPrice, exitPrice, decision, printPrices        
@@ -501,7 +528,7 @@ if __name__== "__main__":
     # securities.append( {'board':'FUT', 'seccode':'GZH1'} )
 
 
-    securities.append( {'board':'FUT', 'seccode':'SRH1'} )
+    securities.append( {'board':'FUT', 'seccode':'SRM1'} )
     # securities.append( {'board':'FUT', 'seccode':'GDZ0'} ) 
     # securities.append( {'board':'FUT', 'seccode':'SiZ0'} )
     #securities.append( {'board':'FUT', 'seccode':'VBZ0'} )
