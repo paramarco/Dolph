@@ -30,14 +30,14 @@ class Dolph:
         self.MODE = 'TRAIN_OFFLINE' 
 
         self.numTestSample = 1000
-        self.since = dt.date(year=2021 ,month=2,day=1)
+        self.since = dt.date(year=2021,month=2,day=1)
         self.between_time = ('10:00', '20:00')
-        self.TrainingHour = 10
+        self.TrainingHour = 12
     
         if self.MODE == 'TRAIN_OFFLINE' or self.MODE == 'TEST_OFFLINE':
             
             if self.TrainingHour in range(9,14):
-                self.between_time = ('10:00', '14:00')
+                self.between_time = ('09:00', '14:00')
             else:
                 self.between_time = ('14:00', '20:00')
     

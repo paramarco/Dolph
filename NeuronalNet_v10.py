@@ -35,6 +35,19 @@ class NARemover:
         m = "{}: Dropped {:2.2f} % of records due to NA"
         print(m.format(self.name, 100.0*(before - after)/(0.0001 + before)))
         return single_stock
+    
+class ContinutityChecker:
+    def __init__(self, numPastSamples):
+        self.numPastSamples = numPastSamples
+    
+    def removeDaytransition (self, sec ):
+        # sec = sec.groupby(sec['CalcDateTime'].dt.day).tail(-int(self.numPastSamples))
+        sec = sec.groupby(['Date'],group_keys=False).apply(
+            lambda group: group.iloc[self.numPastSamples:, :]
+        )
+        return sec
+        
+    
 
 class Featurizer:
     
@@ -244,19 +257,26 @@ class MLModel:
             )
         )
 
-        percent_train = 80.0
-        percent_valid = 20.0
+        percent_train = 70.0
+        percent_valid = 30.0
         
         offset_train = int(len(unique_days)*percent_train/100.0)
         offset_test = offset_train + int(len(unique_days)*percent_valid/100.0)
         
         train_valid_days = list(set(unique_days[0:offset_test]))
-        
-        np.random.seed(484811945)
-        # np.random.shuffle(train_valid_days)
-        
         train_days = train_valid_days[0:offset_train]
-        valid_days = train_valid_days[offset_train:]
+        valid_days = train_valid_days[offset_train:]        
+        
+        
+        
+        # offset_train = int(len(unique_days)*percent_train/100.0)
+        # offset_test =  int(len(unique_days)*percent_valid/100.0)
+        
+        # train_days = (unique_days[0:offset_train])
+        # valid_days = (unique_days[offset_train::])
+        
+        
+       
         
         
         df['CalcDateTime'] = df.index
@@ -276,6 +296,10 @@ class MLModel:
                 "training", self.params['minNumPastSamples']
             ).transform(single_stock)
             single_stock = NARemover(mnemonic).transform(single_stock)
+            single_stock = ContinutityChecker(
+                self.params['minNumPastSamples']
+            ).removeDaytransition(single_stock)
+            
             combined_training_set.append(single_stock)
             log.info(single_stock.shape)
         
@@ -285,6 +309,10 @@ class MLModel:
                 "training", self.params['minNumPastSamples']
             ).transform(single_stock)
             single_stock = NARemover(mnemonic).transform(single_stock)
+            single_stock = ContinutityChecker(
+                self.params['minNumPastSamples']
+            ).removeDaytransition(single_stock)
+            
             combined_valid_set.append(single_stock)            
             
             
@@ -413,7 +441,7 @@ class MLModel:
         
         # fit network
         history = self.model.fit(
-            train_X, train_y, epochs=100, batch_size=32, 
+            train_X, train_y, epochs=500, batch_size=32, 
             validation_data=(valid_X, valid_y), verbose=2, shuffle=False
         )
        
