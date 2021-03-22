@@ -140,8 +140,8 @@ class TradingPlatform:
     
     def connect2TRANSAQ(self):
         log.info('connecting to TRANSAQ...')
-        # res = self.tc.connect("TRADER027", "111111", "tr1-demo5.finam.ru:3939")    
-        res = self.tc.connect("FZTC8927A", "Lovemoney2018", "tr1.finam.ru:3900")    
+        res = self.tc.connect("FZTC14861A", "pKhXgPb4", "tr1.finam.ru:3900")    
+        # res = self.tc.connect("FZTC8927A", "Lovemoney2018", "tr1.finam.ru:3900")    
         # res = self.tc.connect("FZTC8929A", "vereda", "tr1.finam.ru:3900")
         
 

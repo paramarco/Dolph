@@ -27,12 +27,12 @@ class Dolph:
     
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
 
-        self.MODE = 'TRAIN_OFFLINE' 
+        self.MODE = 'TEST_ONLINE' 
 
-        self.numTestSample = 1000
-        self.since = dt.date(year=2021,month=2,day=1)
+        self.numTestSample = 1300
+        self.since = dt.date(year=2017    ,month=2,day=1)
         self.between_time = ('10:00', '20:00')
-        self.TrainingHour = 12
+        self.TrainingHour = 14
     
         if self.MODE == 'TRAIN_OFFLINE' or self.MODE == 'TEST_OFFLINE':
             
@@ -231,16 +231,16 @@ class Dolph:
         logging.info( msg )
         
         df = self.data[period]
-        def Remove_Outlier_Indices(df):
-            Q1 = df.quantile(0.25)
-            Q3 = df.quantile(0.75)
-            IQR = Q3 - Q1
-            trueList = ~((df < (Q1 - 1.5 * IQR)) |(df > (Q3 + 1.5 * IQR)))
-            return trueList   
+        # def Remove_Outlier_Indices(df):
+        #     Q1 = df.quantile(0.25)
+        #     Q3 = df.quantile(0.75)
+        #     IQR = Q3 - Q1
+        #     trueList = ~((df < (Q1 - 1.5 * IQR)) |(df > (Q3 + 1.5 * IQR)))
+        #     return trueList   
     
-        indexOutliers = Remove_Outlier_Indices(df['EndPrice']) 
-        filteredData = df[indexOutliers]
-
+        # indexOutliers = Remove_Outlier_Indices(df['EndPrice']) 
+        # filteredData = df[indexOutliers]
+        filteredData = df
         
         self.models[period] = self.getTrainingModel(
             filteredData, 
@@ -312,7 +312,7 @@ class Dolph:
         moscowHour = moscowTime.hour
         moscowMin= moscowTime.minute
 
-        nogoHours = [19,20,21,22,23]
+        nogoHours = []
         if moscowHour in nogoHours:
             logging.info('we are in a no-go hour ...')  
             return entryPrice, exitPrice, decision, printPrices        

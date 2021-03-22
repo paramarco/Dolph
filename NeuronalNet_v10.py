@@ -61,7 +61,7 @@ class Featurizer:
         predictionWindow = 2
         
         # sec['x(DOW)'] = sec['CalcDateTime'].dt.dayofweek
-        sec['x(Hour)'] = sec['CalcDateTime'].dt.hour
+        #sec['x(Hour)'] = sec['CalcDateTime'].dt.hour
         end_price_fixed = sec['EndPrice'].shift(1)
         steps = 5
         stds = 0.000001 + 0.9 * end_price_fixed.rolling(steps).std() + 0.1*end_price_fixed.rolling(10).std()
@@ -109,6 +109,8 @@ class Featurizer:
         j = 'EMA2'
         sec[j] = expMovinAverage2 
         
+        sec['x(diffEMA)'] = sec['EMA1'] - sec['EMA2']
+        
         # plt.plot(sec['EndPrice'], label='AMD')
         # plt.plot(movinAverage1, label='AMD 20 Day SMA', color='orange')
         # plt.plot(movinAverage2, label='AMD 50 Day SMA', color='magenta')
@@ -146,11 +148,11 @@ class Featurizer:
             # j = 'x(mAv3(t-{})'.format(str(offset))
             # sec[j] =  (sec['mAv3'].shift(offset-1) - sec['mAv3'].shift(offset)) 
             
-            j = 'x(EMA1(t-{})'.format(str(offset))
-            sec[j] =  (sec['EMA1'].shift(offset-1) - sec['EMA1'].shift(offset)) 
+            # j = 'x(EMA1(t-{})'.format(str(offset))
+            # sec[j] =  (sec['EMA1'].shift(offset-1) - sec['EMA1'].shift(offset)) 
             
-            j = 'x(EMA2(t-{})'.format(str(offset))
-            sec[j] =  (sec['EMA2'].shift(offset-1) - sec['EMA2'].shift(offset)) 
+            # j = 'x(EMA2(t-{})'.format(str(offset))
+            # sec[j] =  (sec['EMA2'].shift(offset-1) - sec['EMA2'].shift(offset)) 
            
 
         if (self.target  == "training"):
@@ -165,6 +167,10 @@ class Featurizer:
                 
                 j = 'y(close(t+{})'.format(str(offset))
                 sec[j] = sec['EndPrice'].shift(-offset) - sec['EndPrice']
+
+                sec.loc[ sec[j] > 0 , j] = 1
+                sec.loc[ sec[j] <= 0, j] = -1
+                                
                 
                             
         return sec
@@ -295,11 +301,11 @@ class MLModel:
             single_stock = Featurizer(
                 "training", self.params['minNumPastSamples']
             ).transform(single_stock)
-            single_stock = NARemover(mnemonic).transform(single_stock)
             single_stock = ContinutityChecker(
                 self.params['minNumPastSamples']
             ).removeDaytransition(single_stock)
-            
+            single_stock = NARemover(mnemonic).transform(single_stock)
+
             combined_training_set.append(single_stock)
             log.info(single_stock.shape)
         
@@ -308,11 +314,11 @@ class MLModel:
             single_stock = Featurizer(
                 "training", self.params['minNumPastSamples']
             ).transform(single_stock)
-            single_stock = NARemover(mnemonic).transform(single_stock)
             single_stock = ContinutityChecker(
                 self.params['minNumPastSamples']
             ).removeDaytransition(single_stock)
-            
+            single_stock = NARemover(mnemonic).transform(single_stock)
+
             combined_valid_set.append(single_stock)            
             
             

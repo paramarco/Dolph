@@ -23,7 +23,35 @@ import datetime
 import datetime as dt
 
 # import NeuronalNet_v6 as nn_v6
+from scipy.signal import find_peaks
+import matplotlib.pyplot as plt
 
+def findPeaksValleys (data_test):
+    
+    data_test = data_test[['timeDate','StartPrice','MaxPrice','EndPrice'] ].values
+    
+    series = data_test[:,3]
+    numWindowSize = 25
+    series = series[-numWindowSize:]
+    print (series)    
+   
+    # Find indices of peaks
+    peak_idx, _ = find_peaks(series, distance=3)
+    
+    # Find indices of valleys (from inverting the signal)
+    valley_idx, _ = find_peaks(-series, distance=3)
+    
+    # Plot 
+    t = np.arange(start=0, stop=len(series), step=1, dtype=int)
+    plt.plot(t, series)   
+    
+    # Plot peaks (red) and valleys (blue)
+    plt.plot(t[peak_idx], series[peak_idx], 'g^')
+    plt.plot(t[valley_idx], series[valley_idx], 'rv')
+    
+    plt.gca().xaxis.set_minor_locator(plt.MultipleLocator(1))
+    
+    plt.show() 
 
 
 class TrendViewer:
@@ -739,3 +767,6 @@ class TrendViewer:
                 ha='center',  # horizontal alignment 
                 size=20)
         plt.show() 
+        
+        
+        findPeaksValleys(df)
