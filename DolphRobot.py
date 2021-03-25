@@ -27,12 +27,12 @@ class Dolph:
     
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
 
-        self.MODE = 'TEST_ONLINE' 
+        self.MODE = 'OPERATIONAL' 
 
         self.numTestSample = 1300
         self.since = dt.date(year=2017    ,month=2,day=1)
         self.between_time = ('10:00', '20:00')
-        self.TrainingHour = 14
+        self.TrainingHour = 22
     
         if self.MODE == 'TRAIN_OFFLINE' or self.MODE == 'TEST_OFFLINE':
             
