@@ -109,7 +109,7 @@ class Featurizer:
         j = 'EMA2'
         sec[j] = expMovinAverage2 
         
-        sec['x(diffEMA)'] = sec['EMA1'] - sec['EMA2']
+        # sec['x(diffEMA)'] = sec['EMA1'] - sec['EMA2']
         
         # plt.plot(sec['EndPrice'], label='AMD')
         # plt.plot(movinAverage1, label='AMD 20 Day SMA', color='orange')
@@ -403,7 +403,7 @@ class MLModel:
 
         # fit network
         history = model.fit(
-            train_X, train_y, epochs=100, batch_size=32, 
+            train_X, train_y, epochs=150, batch_size=32, 
             validation_data=(valid_X, valid_y), verbose=2, shuffle=False
         )
        
