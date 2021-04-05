@@ -21,13 +21,14 @@ import NeuronalNet_v5 as nn_v5
 import NeuronalNet_v6 as nn_v6
 import NeuronalNet_v9 as nn_v9
 import NeuronalNet_v10 as nn_v10
+import peaks_and_valleys as fluctuationModel
 
 class Dolph:
     def __init__(self, securities):
     
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
 
-        self.MODE = 'OPERATIONAL' 
+        self.MODE = 'TEST_OFFLINE' 
 
         self.numTestSample = 1300
         self.since = dt.date(year=2017    ,month=2,day=1)
@@ -111,6 +112,11 @@ class Dolph:
             self.getData = self.ds.searchData
             self.getTrainingModel = nn_v10.MLModel
             self.showPrediction = self.plotter.displayPrediction_v10
+        elif (alg == 'peaks_and_valleys' ):
+            self.getData = self.ds.searchData
+            self.getTrainingModel = fluctuationModel.Model
+            self.showPrediction = self.plotter.displayNothing    
+            
         else:
             raise RuntimeError('algorithm not found')
 
@@ -551,7 +557,7 @@ if __name__== "__main__":
         dolph.dataAcquisition()
         dolph.predict()
         dolph.displayPredictions()
-        dolph.takePosition( dolph.evaluatePosition() )
+        #dolph.takePosition( dolph.evaluatePosition() )
         
         
         

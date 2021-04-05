@@ -770,3 +770,8 @@ class TrendViewer:
         
         
         findPeaksValleys(df)
+        
+        
+    def displayNothing (self, predictions, period):
+        pass
+
