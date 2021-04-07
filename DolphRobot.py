@@ -468,8 +468,6 @@ class Dolph:
         marginsByHour =         self.params['positionMargin']
         correctionByHour =         self.params['correction']
         spreadByHour =         self.params['spread']
-        
-                        
         moscowTimeZone = pytz.timezone('Europe/Moscow')                    
         moscowTime = dt.datetime.now(moscowTimeZone)
         moscowHour = moscowTime.hour
@@ -477,15 +475,20 @@ class Dolph:
         spread = spreadByHour[str(moscowHour)]
         correction = correctionByHour[str(moscowHour)]        
         exitTime = moscowTime + dt.timedelta(seconds = exitTimeSeconds)
-        
         predictions = copy.deepcopy(self.predictions[longestPeriod])
-        candlePredList,lastCandle = self.getPositionAssessmentParams(predictions)
         stoploss = 0.0
-        exitPrice =  0.0
-        entryPrice = lastCandle['currentClose']
-        
-        entryPrice, exitPrice, takePosition, printPrices = \
-            self.positionAssestment(candlePredList,lastCandle)
+        exitPrice =  0.0        
+        model = self.models[longestPeriod]
+        if hasattr(model, 'id') and model.id == 'peaks_and_valleys':
+#TO-DO            
+            entryPrice =  0.0
+            exitPrice = 0.0
+            takePosition = 'long' # 'long' | 'short' | 'no-go' 
+        else:
+            candlePredList,lastCandle = self.getPositionAssessmentParams(predictions)
+            entryPrice = lastCandle['currentClose']            
+            entryPrice, exitPrice, takePosition, printPrices = \
+                self.positionAssestment(candlePredList,lastCandle)
 
         if takePosition == 'long':
             exitPrice = entryPrice  + deltaForExit
@@ -557,7 +560,7 @@ if __name__== "__main__":
         dolph.dataAcquisition()
         dolph.predict()
         dolph.displayPredictions()
-        #dolph.takePosition( dolph.evaluatePosition() )
+        # dolph.takePosition( dolph.evaluatePosition() )
         
         
         
