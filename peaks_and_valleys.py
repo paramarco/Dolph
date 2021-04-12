@@ -65,8 +65,8 @@ class Model:
         self.findBestfluctiation(df, params, period, mode, currentHour)        
         
     def findBestfluctiation(self, df, params, period, mode, currentHour):
-        self.bestDistanceValley = 5
-        self.bestDistancePeak = 5
+        self.bestDistanceValley = 8
+        self.bestDistancePeak = 8
         self.bestPositionMargin = 10       
         
         
@@ -79,62 +79,46 @@ class Model:
             answer = False
         return answer
     
-    def findPeaksValleys (self, data_test):
+    def findPeaksValleys (self, df):
         
-        data_test = data_test[['CalcDateTime','StartPrice','MaxPrice','EndPrice','MinPrice'] ].values
-        
-        series = data_test[:,3]
-        seriesMax = data_test[:,2]
-        seriesMin = data_test[:,4]
-
         numWindowSize = 25
-        series = series[-numWindowSize:]
-        seriesMax = seriesMax[-numWindowSize:]
-        seriesMin = seriesMin[-numWindowSize:]
+        df = df.tail(numWindowSize)
+        fluctuation = {}
+        fluctuation['samplingWindow'] = df[['CalcDateTime','StartPrice','MaxPrice','MinPrice','EndPrice',] ]
 
-       
-        # Find indices of peaks
-        # peak_idx, _ = find_peaks(series, distance=self.bestDistancePeak)
-        peak_idx, _ = find_peaks(seriesMax, distance=self.bestDistancePeak)
+        seriesEnd = df['EndPrice']
+        seriesMax = df['MaxPrice']
+        seriesMin = df['MinPrice']
+        times =     df['CalcDateTime']
         
+        log.info('from ' + str(times[0]) + ' to ' + str(times[-1]) )
+        # Find indices of peaks
+        peak_idx, _ = find_peaks(seriesMax, distance=self.bestDistancePeak)        
         # Find indices of valleys (from inverting the signal)
-        # valley_idx, _ = find_peaks(-series, distance=self.bestDistanceValley)
         valley_idx, _ = find_peaks(-seriesMin, distance=self.bestDistanceValley)
         
-        # Plot 
-        t = np.arange(start=0, stop=len(series), step=1, dtype=int)
+        fluctuation['peak_idx'] = peak_idx
+        fluctuation['valley_idx'] = valley_idx
+        
+        # Plot curves
+        t = np.arange(start=0, stop=len(seriesEnd), step=1, dtype=int)
         plt.plot(t, seriesMax)
-        plt.plot(t, series)
-        plt.plot(t, seriesMin)   
-
+        plt.plot(t, seriesEnd)
+        plt.plot(t, seriesMin)
         
         # Plot peaks (red) and valleys (blue)
         plt.plot(t[peak_idx], seriesMax[peak_idx], 'g^')
         plt.plot(t[valley_idx], seriesMin[valley_idx], 'rv')
         
-        plt.gca().xaxis.set_minor_locator(plt.MultipleLocator(1))
-        
+        plt.gca().xaxis.set_minor_locator(plt.MultipleLocator(1))        
         plt.show()
-        
-        status = 0
-        
-        indexLastPeak = peak_idx[-1]
-        indexLastValley = valley_idx[-1]
-        
-        if indexLastPeak == (numWindowSize - 2) :
-            status = 1
-        elif indexLastValley == (numWindowSize - 2) :
-            status = -1
-        else:
-            status = 0
-       
-        return status
+                
+        return fluctuation
         
     def predict(self, df ):        
       
         df['CalcDateTime'] = df.index
-        status = self.findPeaksValleys(df)
-        log.info('last change was = ' + str(status) )
+        fluctuation = self.findPeaksValleys(df)
         
-       
-        return status   
+               
+        return fluctuation

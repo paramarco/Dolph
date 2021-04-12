@@ -18,7 +18,8 @@ log = logging.getLogger("TradingPlatform")
 class Position:
     def __init__(self, takePosition, board, seccode, marketId, entryTimeSeconds,
                  quantity, entryPrice, exitPrice, stoploss, 
-                 decimals, exitTime, correction, spread, bymarket = False ):
+                 decimals, exitTime, correction, spread, automaticPositioning 
+                 ,bymarket = False ):
         
         # id:= transactionid of the first order, "your entry" of the Position
         # will be assigned once upon successful entry of the Position
@@ -45,12 +46,14 @@ class Position:
         self.stopOrderRequested = False
         # to be assigned when position is being proccessed by Tradingplatform
         self.buysell = None
-        # exitTime := time for a emergencuy exit, close current position at 
+        # exitTime := time for a emergency exit, close current position at 
         # this time by market if the planned exit is not executed yet
         self.exitTime = exitTime
         
         self.correction = correction
         self.spread = spread
+        # automaticPositioning := True | False 
+        self.automaticPositioning = automaticPositioning
                
         self.bymarket = bymarket
         
@@ -205,8 +208,14 @@ class TradingPlatform:
                 m ='already processed, deleting: {}'.format( repr(order))
                 logging.info( m )
                 if order in self.monitoredOrders:
-                    self.monitoredOrders.remove(order)                
-                                    
+                    self.monitoredOrders.remove(order)    
+                    
+            elif monitoredPosition.automaticPositioning == False:
+                m ='Non automatic positioning, removing:{}'.format( repr(order))
+                logging.info( m )
+                if order in self.monitoredOrders:
+                    self.monitoredOrders.remove(order) 
+                
             elif monitoredPosition.stopOrderRequested == False :
                 
                 board = order.board;    seccode = order.seccode;

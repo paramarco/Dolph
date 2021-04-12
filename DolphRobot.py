@@ -31,7 +31,7 @@ class Dolph:
         self.MODE = 'TEST_OFFLINE' 
 
         self.numTestSample = 1300
-        self.since = dt.date(year=2017    ,month=2,day=1)
+        self.since = dt.date(year=2020    ,month=2,day=1)
         self.between_time = ('10:00', '20:00')
         self.TrainingHour = 10
     
@@ -452,7 +452,8 @@ class Dolph:
         return candlePredList,lastCandle
 
     def evaluatePosition (self):        
-                
+           
+        automaticPositioning = False 
         longestPeriod = self.periods[-1]
         security = self.target
         board = security['board']
@@ -462,29 +463,55 @@ class Dolph:
         
         byMarket =              self.params['entryByMarket']
         entryTimeSeconds =      self.params['entryTimeSeconds']
-        exitTimeSeconds =       self.params['exitTimeSeconds']        
+        # exitTimeSeconds =       self.params['exitTimeSeconds'] 
+        exitTimeSeconds=1
         quantity =              self.params['positionQuantity']
         k =                     self.params['stopLossCoefficient']
-        marginsByHour =         self.params['positionMargin']
-        correctionByHour =         self.params['correction']
-        spreadByHour =         self.params['spread']
+        # marginsByHour =         self.params['positionMargin']
+        marginsByHour=1.0        
+        # correctionByHour =         self.params['correction']
+        correctionByHour=1.0
+        # spreadByHour =         self.params['spread']
+        spreadByHour=1.0
         moscowTimeZone = pytz.timezone('Europe/Moscow')                    
         moscowTime = dt.datetime.now(moscowTimeZone)
         moscowHour = moscowTime.hour
-        deltaForExit= marginsByHour[str(moscowHour)]
-        spread = spreadByHour[str(moscowHour)]
-        correction = correctionByHour[str(moscowHour)]        
+        # deltaForExit= marginsByHour[str(moscowHour)]
+        # spread = spreadByHour[str(moscowHour)]
+        # correction = correctionByHour[str(moscowHour)] 
+        deltaForExit= 1
+        spread = 1
+        correction =1
         exitTime = moscowTime + dt.timedelta(seconds = exitTimeSeconds)
         predictions = copy.deepcopy(self.predictions[longestPeriod])
         stoploss = 0.0
         exitPrice =  0.0        
         model = self.models[longestPeriod]
         if hasattr(model, 'id') and model.id == 'peaks_and_valleys':
-#TO-DO            
+            automaticPositioning = False
+            
+            fluctuation = predictions[-1]
+
+            numWindowSize = fluctuation['samplingWindow'].shape[0]
+            indexLastPeak = fluctuation['peak_idx'][-1]
+            indexLastValley = fluctuation['valley_idx'][-1]
+        
+            if indexLastPeak == (numWindowSize - 2) :
+                status = 1
+            elif indexLastValley == (numWindowSize - 2) :
+                 status = -1
+            elif indexLastPeak  == indexLastValley: 
+                 status = 0  
+            else:
+                 status = 0  
+                 
+            logging.info('last change was = ' + str(status) ) 
+            
             entryPrice =  0.0
             exitPrice = 0.0
-            takePosition = 'long' # 'long' | 'short' | 'no-go' 
+            takePosition = self.takeDecisionPeaksAndValleys(status, fluctuation )
         else:
+            automaticPositioning = True
             candlePredList,lastCandle = self.getPositionAssessmentParams(predictions)
             entryPrice = lastCandle['currentClose']            
             entryPrice, exitPrice, takePosition, printPrices = \
@@ -506,12 +533,45 @@ class Dolph:
         position = tp.Position(
             takePosition, board, seccode, marketId, entryTimeSeconds, 
             quantity, entryPrice, exitPrice , stoploss, decimals, exitTime,
-            correction, spread, byMarket
+            correction, spread, automaticPositioning, byMarket
         )
         logging.info( 'dolph decides: ' + str(position))    
             
         return position
-
+    
+    def takeDecisionPeaksAndValleys(self, status,fluctuation ):
+        
+        distanceBetweenPeekAndValley=2
+        numPosition = self.tp.reportCurrentOpenPositions()
+        openPosition = False
+        if numPosition > 1 :
+            openPosition = True
+            
+        indexLastPeak = fluctuation['peak_idx'][-1]
+        index2LastPeak = fluctuation['peak_idx'][-2]
+        indexLastValley = fluctuation['valley_idx'][-1]
+        index2LastValley = fluctuation['valley_idx'][-2]
+        takePosition = 'no-go'
+        
+        if status == 1:
+            if openPosition == True:
+                if (abs(indexLastPeak - index2LastPeak)<=distanceBetweenPeekAndValley ):
+                    takePosition = 'no-go'
+                else:
+                    takePosition = 'close'  # send order to  SELL, close existent long                
+            else:
+                takePosition= 'short' #send order SELL, open short
+        elif (status == -1):
+            if (openPosition == True):
+                if (abs(indexLastValley - index2LastValley)<=distanceBetweenPeekAndValley ):
+                    takePosition = 'no-go'
+                else: 
+                    takePosition = 'close' # send order BUY, close existent short
+            else:               
+                takePosition= 'long' #send order BUY, open long            
+        return takePosition
+        
+        
     def takePosition (self, position):
         
         if self.tp.getProfitBalance() >= self.goodLuckStreak :
@@ -537,7 +597,7 @@ if __name__== "__main__":
     # securities.append( {'board':'FUT', 'seccode':'GZH1'} )
 
 
-    securities.append( {'board':'FUT', 'seccode':'SRM1'} )
+    securities.append( {'board':'FUT', 'seccode':'SRZ0'} )
     # securities.append( {'board':'FUT', 'seccode':'GDZ0'} ) 
     # securities.append( {'board':'FUT', 'seccode':'SiZ0'} )
     #securities.append( {'board':'FUT', 'seccode':'VBZ0'} )
@@ -560,7 +620,7 @@ if __name__== "__main__":
         dolph.dataAcquisition()
         dolph.predict()
         dolph.displayPredictions()
-        # dolph.takePosition( dolph.evaluatePosition() )
+        dolph.takePosition( dolph.evaluatePosition() )
         
         
         
