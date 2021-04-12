@@ -28,11 +28,11 @@ class Dolph:
     
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
 
-        self.MODE = 'TEST_OFFLINE' 
+        self.MODE = 'OPERATIONAL' 
 
         self.numTestSample = 1300
         self.since = dt.date(year=2020    ,month=2,day=1)
-        self.between_time = ('10:00', '20:00')
+        self.between_time = ('10:00', '23:00')
         self.TrainingHour = 10
     
         if self.MODE == 'TRAIN_OFFLINE' or self.MODE == 'TEST_OFFLINE':
@@ -40,7 +40,7 @@ class Dolph:
             if self.TrainingHour in range(9,14):
                 self.between_time = ('09:00', '14:00')
             else:
-                self.between_time = ('14:00', '20:00')
+                self.between_time = ('14:00', '23:00')
     
                
 
@@ -463,25 +463,25 @@ class Dolph:
         
         byMarket =              self.params['entryByMarket']
         entryTimeSeconds =      self.params['entryTimeSeconds']
-        # exitTimeSeconds =       self.params['exitTimeSeconds'] 
-        exitTimeSeconds=1
+        exitTimeSeconds =       self.params['exitTimeSeconds'] 
+        # exitTimeSeconds=1
         quantity =              self.params['positionQuantity']
         k =                     self.params['stopLossCoefficient']
-        # marginsByHour =         self.params['positionMargin']
-        marginsByHour=1.0        
-        # correctionByHour =         self.params['correction']
-        correctionByHour=1.0
-        # spreadByHour =         self.params['spread']
-        spreadByHour=1.0
+        marginsByHour =         self.params['positionMargin']
+        # marginsByHour=1.0        
+        correctionByHour =         self.params['correction']
+        # correctionByHour=1.0
+        spreadByHour =         self.params['spread']
+        # spreadByHour=1.0
         moscowTimeZone = pytz.timezone('Europe/Moscow')                    
         moscowTime = dt.datetime.now(moscowTimeZone)
         moscowHour = moscowTime.hour
-        # deltaForExit= marginsByHour[str(moscowHour)]
-        # spread = spreadByHour[str(moscowHour)]
-        # correction = correctionByHour[str(moscowHour)] 
-        deltaForExit= 1
-        spread = 1
-        correction =1
+        deltaForExit= marginsByHour[str(moscowHour)]
+        spread = spreadByHour[str(moscowHour)]
+        correction = correctionByHour[str(moscowHour)] 
+        # deltaForExit= 1
+        # spread = 1
+        # correction =1
         exitTime = moscowTime + dt.timedelta(seconds = exitTimeSeconds)
         predictions = copy.deepcopy(self.predictions[longestPeriod])
         stoploss = 0.0
@@ -489,6 +489,7 @@ class Dolph:
         model = self.models[longestPeriod]
         if hasattr(model, 'id') and model.id == 'peaks_and_valleys':
             automaticPositioning = False
+            byMarket = True
             
             fluctuation = predictions[-1]
 
@@ -544,13 +545,27 @@ class Dolph:
         distanceBetweenPeekAndValley=2
         numPosition = self.tp.reportCurrentOpenPositions()
         openPosition = False
-        if numPosition > 1 :
+        if numPosition >= 1 :
             openPosition = True
+        if (fluctuation['peak_idx'].size  >= 2):    
+            indexLastPeak = fluctuation['peak_idx'][-1]
+            index2LastPeak = fluctuation['peak_idx'][-2]
+        elif(fluctuation['peak_idx'].size  == 1 ):
+            indexLastPeak = fluctuation['peak_idx'][-1]
+            index2LastPeak = 0
+        else:
+            indexLastPeak=0
+            index2LastPeak=0
+        if (fluctuation['valley_idx'].size  >= 2):   
+            indexLastValley = fluctuation['valley_idx'][-1]
+            index2LastValley = fluctuation['valley_idx'][-2]
+        elif(fluctuation['valley_idx'].size  == 1 ):
+            indexLastValley = fluctuation['valley_idx'][-1]
+            index2LastValley = 0
+        else:
+            indexLastValley=0
+            index2LastValley=0
             
-        indexLastPeak = fluctuation['peak_idx'][-1]
-        index2LastPeak = fluctuation['peak_idx'][-2]
-        indexLastValley = fluctuation['valley_idx'][-1]
-        index2LastValley = fluctuation['valley_idx'][-2]
         takePosition = 'no-go'
         
         if status == 1:
@@ -579,7 +594,7 @@ class Dolph:
             return
 
         action = position.takePosition
-        if ( action != 'long' and action != 'short' ):
+        if action not in ['long','short','close']  :
             logging.info( action + ' position, nothing to do')
             return
         
@@ -597,7 +612,7 @@ if __name__== "__main__":
     # securities.append( {'board':'FUT', 'seccode':'GZH1'} )
 
 
-    securities.append( {'board':'FUT', 'seccode':'SRZ0'} )
+    securities.append( {'board':'FUT', 'seccode':'SRM1'} )
     # securities.append( {'board':'FUT', 'seccode':'GDZ0'} ) 
     # securities.append( {'board':'FUT', 'seccode':'SiZ0'} )
     #securities.append( {'board':'FUT', 'seccode':'VBZ0'} )

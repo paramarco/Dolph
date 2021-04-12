@@ -203,6 +203,8 @@ class TradingPlatform:
             
             for m in self.monitoredPositions:
                 if m.entry_id == order.id: monitoredPosition = m; break;
+                if m.exit_id == order.id: monitoredPosition = m; break;
+                
                      
             if monitoredPosition is None :
                 m ='already processed, deleting: {}'.format( repr(order))
@@ -213,6 +215,10 @@ class TradingPlatform:
             elif monitoredPosition.automaticPositioning == False:
                 m ='Non automatic positioning, removing:{}'.format( repr(order))
                 logging.info( m )
+                if monitoredPosition.exit_id != None:
+                    self.monitoredPositions = [ p for p in self.monitoredPositions 
+                                             if p.exit_id != monitoredPosition.exit_id ]
+
                 if order in self.monitoredOrders:
                     self.monitoredOrders.remove(order) 
                 
@@ -357,7 +363,9 @@ class TradingPlatform:
         
         numCurrentOpenPosition = self.reportCurrentOpenPositions()
         
-        if numCurrentOpenPosition >= self.numMaxOpenPositions:
+        if (numCurrentOpenPosition >= self.numMaxOpenPositions and 
+           position.takePosition != "close"):
+            
             msg='limit of open positions exceed: {} of {}'.format(
                 numCurrentOpenPosition, self.numMaxOpenPositions 
             )            
@@ -381,9 +389,27 @@ class TradingPlatform:
                 logging.error( "there is a Position still open for long")
                 return  
             buysell = "S"
+        elif (position.takePosition == "close"):
+            #search for position by seccode in self.monitoredPositions
+            position.bymarket = True
+            monitoredPosition = None
+            for mp in self.monitoredPositions:
+                if mp.seccode == position.seccode:
+                    monitoredPosition = mp
+            if mp is None:
+                logging.error( "position Not found, recheck this case")
+                return
+            if mp.takePosition == "long":
+                buysell = "S"
+            elif mp.takePosition == "short":
+                 buysell = "B"
+            else:
+                logging.error( "state error, recheck this case")
+                return
         else:
             logging.error( "takePosition must be either long or short")
             raise Exception( position.takePosition )
+
         position.buysell = buysell
         
         fmt = "%d.%m.%Y %H:%M:%S"
@@ -407,8 +433,16 @@ class TradingPlatform:
         )
         log.debug(repr(res))
         if res.success == True:
-            position.entry_id = res.id
-            self.monitoredPositions.append(position)
+            if position.automaticPositioning == True:
+                position.entry_id = res.id
+                self.monitoredPositions.append(position)
+            else:
+                if position.entry_id == None:
+                    position.entry_id = res.id
+                    self.monitoredPositions.append(position)
+                else:
+                    position.exit_id = res.id
+                                
         else:
             logging.error( "position has not been processed by transaq")
         
