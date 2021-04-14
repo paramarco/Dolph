@@ -72,11 +72,12 @@ class Model:
         
     
     def isSuitableForThisTime(self, hour):
-        answer = False
-        if hour in self.TargetHours:
-            answer = True
-        else:
-            answer = False
+        answer = True
+        # answer = False
+        # if hour in self.TargetHours:
+        #     answer = True
+        # else:
+        #     answer = False
         return answer
     
     def findPeaksValleys (self, df):

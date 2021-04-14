@@ -326,6 +326,16 @@ class TradingPlatform:
             logging.info( m )
         
         self.reportCurrentOpenPositions()
+        
+    def isPositionOpen( self, seccode ):
+        flag = False
+        for mp in self.monitoredPositions:
+           if mp.seccode == seccode:
+               flag = True
+               break
+         
+        return flag
+             
             
     def reportCurrentOpenPositions(self):
         
@@ -437,11 +447,18 @@ class TradingPlatform:
                 position.entry_id = res.id
                 self.monitoredPositions.append(position)
             else:
-                if position.entry_id == None:
+                if position.takePosition == "close":
+                    for m in self.monitoredPositions:
+                        if position.seccode == m.seccode:  
+                            m.exit_id = res.id
+                            break;
+                    
+                elif position.entry_id == None:
                     position.entry_id = res.id
                     self.monitoredPositions.append(position)
                 else:
-                    position.exit_id = res.id
+                    logging.error( "unknown case, not contemplate")
+
                                 
         else:
             logging.error( "position has not been processed by transaq")

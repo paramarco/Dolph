@@ -32,7 +32,7 @@ class Dolph:
 
         self.numTestSample = 1300
         self.since = dt.date(year=2020    ,month=2,day=1)
-        self.between_time = ('10:00', '23:00')
+        self.between_time = ('09:00', '23:50')
         self.TrainingHour = 10
     
         if self.MODE == 'TRAIN_OFFLINE' or self.MODE == 'TEST_OFFLINE':
@@ -58,7 +58,7 @@ class Dolph:
         
         self.df_prediction = None
         self.models = {}
-        
+        self.lastPositionSaved = None
         logFormat = '%(asctime)s | %(levelname)s | %(funcName)s |%(message)s'
         logging.basicConfig(
             level = logging.INFO , 
@@ -497,11 +497,11 @@ class Dolph:
             indexLastPeak = fluctuation['peak_idx'][-1]
             indexLastValley = fluctuation['valley_idx'][-1]
         
-            if indexLastPeak == (numWindowSize - 2) :
+            if indexLastPeak == (numWindowSize - 2) and indexLastPeak  != indexLastValley :
                 status = 1
-            elif indexLastValley == (numWindowSize - 2) :
+            elif indexLastValley == (numWindowSize - 2) and indexLastPeak  != indexLastValley :
                  status = -1
-            elif indexLastPeak  == indexLastValley: 
+            elif indexLastPeak  == indexLastValley: #if in the same point thera peak and valley
                  status = 0  
             else:
                  status = 0  
@@ -543,10 +543,9 @@ class Dolph:
     def takeDecisionPeaksAndValleys(self, status,fluctuation ):
         
         distanceBetweenPeekAndValley=2
-        numPosition = self.tp.reportCurrentOpenPositions()
-        openPosition = False
-        if numPosition >= 1 :
-            openPosition = True
+
+        openPosition = self.tp.isPositionOpen( self.target['seccode'] )
+        
         if (fluctuation['peak_idx'].size  >= 2):    
             indexLastPeak = fluctuation['peak_idx'][-1]
             index2LastPeak = fluctuation['peak_idx'][-2]
@@ -570,20 +569,38 @@ class Dolph:
         
         if status == 1:
             if openPosition == True:
-                if (abs(indexLastPeak - index2LastPeak)<=distanceBetweenPeekAndValley ):
+                if  (self.lastPositionSaved  =='short' ):
+                    takePosition = 'no-go'
+                elif (abs(indexLastPeak-indexLastValley) <= distanceBetweenPeekAndValley):
+                    takePosition = 'no-go' 
+                else:
+                    takePosition = 'close'  # send order to  SELL, close existent long 
+                    self.lastPositionSaved = None
+            else:
+                #check if it is a real peak for selling or its a fake peak
+                if (abs(indexLastPeak-indexLastValley) <= distanceBetweenPeekAndValley):
                     takePosition = 'no-go'
                 else:
-                    takePosition = 'close'  # send order to  SELL, close existent long                
-            else:
-                takePosition= 'short' #send order SELL, open short
+                    takePosition= 'short' #send order SELL, open short
+                    self.lastPositionSaved = takePosition
+
         elif (status == -1):
-            if (openPosition == True):
-                if (abs(indexLastValley - index2LastValley)<=distanceBetweenPeekAndValley ):
+            if (openPosition == True ):
+                if (self.lastPositionSaved =='long' ):
                     takePosition = 'no-go'
+                elif (abs(indexLastValley-indexLastPeak) <= distanceBetweenPeekAndValley):
+                    # if disatnce between last peak and vally is small and we have open position, we will continue keeping open position
+                    takePosition = 'no-go' 
                 else: 
                     takePosition = 'close' # send order BUY, close existent short
-            else:               
-                takePosition= 'long' #send order BUY, open long            
+                    self.lastPositionSaved = None
+            else:
+                #check if it is a real valley for buyng or its a fake valley
+                if (abs(indexLastPeak-indexLastValley) <= distanceBetweenPeekAndValley):
+                    takePosition = 'no-go'
+                else:
+                    takePosition= 'long' #send order BUY, open long
+                    self.lastPositionSaved = takePosition
         return takePosition
         
         
