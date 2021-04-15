@@ -33,7 +33,7 @@ def findPeaksValleys (data_test):
     series = data_test[:,3]
     numWindowSize = 25
     series = series[-numWindowSize:]
-    print (series)    
+  
    
     # Find indices of peaks
     peak_idx, _ = find_peaks(series, distance=3)

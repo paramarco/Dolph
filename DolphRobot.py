@@ -28,7 +28,7 @@ class Dolph:
     
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
 
-        self.MODE = 'OPERATIONAL' 
+        self.MODE = 'TEST_ONLINE' 
 
         self.numTestSample = 1300
         self.since = dt.date(year=2020    ,month=2,day=1)
@@ -508,9 +508,11 @@ class Dolph:
                  
             logging.info('last change was = ' + str(status) ) 
             
-            entryPrice =  0.0
-            exitPrice = 0.0
+            
             takePosition = self.takeDecisionPeaksAndValleys(status, fluctuation )
+            entryPrice = self.getEntryPrice(fluctuation, takePosition)  
+            logging.info( 'entryPrice: ' + str(entryPrice))    
+
         else:
             automaticPositioning = True
             candlePredList,lastCandle = self.getPositionAssessmentParams(predictions)
@@ -602,7 +604,49 @@ class Dolph:
                     takePosition= 'long' #send order BUY, open long
                     self.lastPositionSaved = takePosition
         return takePosition
+    
+    
+    def getEntryPrice(self,fluctuation, takePosition):  
+        def checkCandleBlue(firstcandle):
+            blue = False 
+            if (firstcandle['Close']>firstcandle['Open']):
+                blue= True
+            return blue
+        def checkCandleBlack(firstcandle):
+            black = False 
+            if ((firstcandle['Close']<firstcandle['Open'])):
+                black= True
+            return black
         
+        dataInSamplinWindow = fluctuation['samplingWindow']
+        currentClose = dataInSamplinWindow.iloc[-1].EndPrice
+
+        lastCandle = { 
+            'Open' : dataInSamplinWindow.iloc[-1].StartPrice,
+            'High' : dataInSamplinWindow.iloc[-1].MaxPrice,
+            'Low' : dataInSamplinWindow.iloc[-1].MinPrice,
+            'Close' : dataInSamplinWindow.iloc[-1].EndPrice                      
+        }
+        
+        CandlesBlackcheck=checkCandleBlack(lastCandle)
+        CandlesBluecheck =checkCandleBlue(lastCandle)
+        smallDelta=3
+        if (CandlesBlackcheck ==True): #black candle
+            if (takePosition=="long"):
+                entryPrice = currentClose - smallDelta
+            elif(takePosition=="short"):
+                entryPrice = currentClose + smallDelta
+            else:
+                entryPrice=0.0
+        elif (CandlesBluecheck==True):
+            if (takePosition=="long"):
+                entryPrice = currentClose + smallDelta
+            elif(takePosition=="short"):
+                entryPrice = currentClose - smallDelta
+            else:
+                entryPrice=0.0
+            
+        return entryPrice
         
     def takePosition (self, position):
         
@@ -626,10 +670,10 @@ if __name__== "__main__":
 
     securities = [] 
 
-    # securities.append( {'board':'FUT', 'seccode':'GZH1'} )
+    securities.append( {'board':'FUT', 'seccode':'GZM1'} )
 
 
-    securities.append( {'board':'FUT', 'seccode':'SRM1'} )
+    # securities.append( {'board':'FUT', 'seccode':'SRM1'} )
     # securities.append( {'board':'FUT', 'seccode':'GDZ0'} ) 
     # securities.append( {'board':'FUT', 'seccode':'SiZ0'} )
     #securities.append( {'board':'FUT', 'seccode':'VBZ0'} )
