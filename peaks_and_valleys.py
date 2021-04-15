@@ -101,6 +101,13 @@ class Model:
         fluctuation['peak_idx'] = peak_idx
         fluctuation['valley_idx'] = valley_idx
         
+        self.plotPeaksAndValleys (seriesMax,seriesEnd, seriesMin,peak_idx,valley_idx, fluctuation )  
+              
+        return fluctuation
+    
+    
+    def plotPeaksAndValleys (self, seriesMax,seriesEnd, seriesMin,peak_idx,valley_idx,fluctuation ):  
+        
         # Plot curves
         t = np.arange(start=0, stop=len(seriesEnd), step=1, dtype=int)
         plt.plot(t, seriesMax)
@@ -112,9 +119,22 @@ class Model:
         plt.plot(t[valley_idx], seriesMin[valley_idx], 'rv')
         
         plt.gca().xaxis.set_minor_locator(plt.MultipleLocator(1))        
+
+        
+        #PLOT CLOSE PRICE WHICH IS ALMOST ENRTY+-
+        dataInSamplinWindow = fluctuation['samplingWindow']
+        currentClose = dataInSamplinWindow.iloc[-1].EndPrice
+        currentLow = dataInSamplinWindow.iloc[-1].MinPrice
+        currentHigh=dataInSamplinWindow.iloc[-1].MaxPrice
+        entryPrice=currentClose
+        exitPrice=entryPrice+20
+        
+        new_peak_ind=np.array(peak_idx)+1
+        plt.plot(t[new_peak_ind],seriesEnd[new_peak_ind], 'm^') 
+        new_valley_ind=np.array(valley_idx)+1
+        plt.plot(t[new_valley_ind],seriesEnd[new_valley_ind], 'm^') 
+        
         plt.show()
-                
-        return fluctuation
         
     def predict(self, df ):        
       

@@ -28,7 +28,7 @@ class Dolph:
     
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
 
-        self.MODE = 'TEST_ONLINE' 
+        self.MODE = 'TEST_OFFLINE' 
 
         self.numTestSample = 1300
         self.since = dt.date(year=2020    ,month=2,day=1)
@@ -631,22 +631,23 @@ class Dolph:
         CandlesBlackcheck=checkCandleBlack(lastCandle)
         CandlesBluecheck =checkCandleBlue(lastCandle)
         smallDelta=3
+        entryPricePV=0.0
         if (CandlesBlackcheck ==True): #black candle
             if (takePosition=="long"):
-                entryPrice = currentClose - smallDelta
+                entryPricePV = currentClose - smallDelta
             elif(takePosition=="short"):
-                entryPrice = currentClose + smallDelta
+                entryPricePV = currentClose + smallDelta
             else:
-                entryPrice=0.0
+                entryPricePV=0.0
         elif (CandlesBluecheck==True):
             if (takePosition=="long"):
-                entryPrice = currentClose + smallDelta
+                entryPricePV = currentClose + smallDelta
             elif(takePosition=="short"):
-                entryPrice = currentClose - smallDelta
+                entryPricePV = currentClose - smallDelta
             else:
-                entryPrice=0.0
+                entryPricePV=0.0
             
-        return entryPrice
+        return entryPricePV
         
     def takePosition (self, position):
         
@@ -670,10 +671,10 @@ if __name__== "__main__":
 
     securities = [] 
 
-    securities.append( {'board':'FUT', 'seccode':'GZM1'} )
+    # securities.append( {'board':'FUT', 'seccode':'GZM1'} )
 
 
-    # securities.append( {'board':'FUT', 'seccode':'SRM1'} )
+    securities.append( {'board':'FUT', 'seccode':'SRM1'} )
     # securities.append( {'board':'FUT', 'seccode':'GDZ0'} ) 
     # securities.append( {'board':'FUT', 'seccode':'SiZ0'} )
     #securities.append( {'board':'FUT', 'seccode':'VBZ0'} )
