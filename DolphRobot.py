@@ -138,7 +138,7 @@ class Dolph:
         
         signal.signal(signal.SIGINT, signalHandler)
         
-        self.goodLuckStreak  = 3
+        self.goodLuckStreak  = 100
 
     def onHistoryCandleRes(self, obj):
         logging.debug( repr(obj) )            
@@ -576,14 +576,14 @@ class Dolph:
                 elif (abs(indexLastPeak-indexLastValley) <= distanceBetweenPeekAndValley):
                     takePosition = 'no-go' 
                 else:
-                    takePosition = 'close'  # send order to  SELL, close existent long 
+                    takePosition = 'close'  
                     self.lastPositionSaved = None
+
             else:
-                #check if it is a real peak for selling or its a fake peak
                 if (abs(indexLastPeak-indexLastValley) <= distanceBetweenPeekAndValley):
                     takePosition = 'no-go'
                 else:
-                    takePosition= 'short' #send order SELL, open short
+                    takePosition= 'short' 
                     self.lastPositionSaved = takePosition
 
         elif (status == -1):
@@ -591,17 +591,17 @@ class Dolph:
                 if (self.lastPositionSaved =='long' ):
                     takePosition = 'no-go'
                 elif (abs(indexLastValley-indexLastPeak) <= distanceBetweenPeekAndValley):
-                    # if disatnce between last peak and vally is small and we have open position, we will continue keeping open position
-                    takePosition = 'no-go' 
+                    takePosition = 'no-go'
                 else: 
-                    takePosition = 'close' # send order BUY, close existent short
+                    takePosition = 'close' 
                     self.lastPositionSaved = None
+
             else:
                 #check if it is a real valley for buyng or its a fake valley
                 if (abs(indexLastPeak-indexLastValley) <= distanceBetweenPeekAndValley):
                     takePosition = 'no-go'
                 else:
-                    takePosition= 'long' #send order BUY, open long
+                    takePosition= 'long' #send order BUY, open long LONG
                     self.lastPositionSaved = takePosition
         return takePosition
     
@@ -630,8 +630,8 @@ class Dolph:
         
         CandlesBlackcheck=checkCandleBlack(lastCandle)
         CandlesBluecheck =checkCandleBlue(lastCandle)
-        smallDelta=0
-        entryPricePV=currentClose
+        smallDelta=3
+        entryPricePV=currentClose+smallDelta
         # if (CandlesBlackcheck ==True): #black candle
         #     if (takePosition=="long"):
         #         entryPricePV = currentClose - smallDelta

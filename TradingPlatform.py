@@ -409,11 +409,14 @@ class TradingPlatform:
                 logging.error( "position Not found, recheck this case")
                 return
             
+            list2cancel = []
+            
             for mso in self.monitoredStopOrders:
                 if mso.seccode == monitoredPosition.seccode :
                     res = self.tc.cancel_stoploss(mso.id)
                     log.debug(repr(res))
                     if res.success == True:
+                        list2cancel.append(mso)
                         res = self.tc.new_order(
                             mp.board,
                             mp.seccode,
@@ -430,13 +433,16 @@ class TradingPlatform:
                         log.debug(repr(res))
                         if res.success == True:
                             log.info( 'emergency exit requested successfuly' )
-                            self.monitoredStopOrders.remove(mso)
-                            self.monitoredPositions = [ p for p in self.monitoredPositions 
-                                             if p.exit_id != mso.id ] 
-                        
+                       
                     else:
                         logging.error( "cancel stop order error by transaq")
-                   
+            
+                
+            for mso in list2cancel:
+                if mso in self.monitoredStopOrders:
+                    self.monitoredStopOrders.remove(mso)
+                self.monitoredPositions = [ p for p in self.monitoredPositions 
+                                             if p.exit_id != mso.id ]      
             
         else:
             logging.error( "takePosition must be either long,short or close")
@@ -573,7 +579,8 @@ class TradingPlatform:
 
         
         for mso in list2cancel:
-            self.monitoredStopOrders.remove(mso)
+            if mso in self.monitoredStopOrders:
+                self.monitoredStopOrders.remove(mso)
             self.monitoredPositions = [ p for p in self.monitoredPositions 
                                              if p.exit_id != mso.id ]    
                
