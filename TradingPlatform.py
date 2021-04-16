@@ -399,25 +399,47 @@ class TradingPlatform:
                 logging.error( "there is a Position still open for long")
                 return  
             buysell = "S"
-        elif (position.takePosition == "close"):
-            #search for position by seccode in self.monitoredPositions
-            position.bymarket = True
+        elif position.takePosition == "close":
+            
             monitoredPosition = None
             for mp in self.monitoredPositions:
                 if mp.seccode == position.seccode:
                     monitoredPosition = mp
-            if mp is None:
+            if monitoredPosition is None:
                 logging.error( "position Not found, recheck this case")
                 return
-            if mp.takePosition == "long":
-                buysell = "S"
-            elif mp.takePosition == "short":
-                 buysell = "B"
-            else:
-                logging.error( "state error, recheck this case")
-                return
+            
+            for mso in self.monitoredStopOrders:
+                if mso.seccode == monitoredPosition.seccode :
+                    res = self.tc.cancel_stoploss(mso.id)
+                    log.debug(repr(res))
+                    if res.success == True:
+                        res = self.tc.new_order(
+                            mp.board,
+                            mp.seccode,
+                            mp.client,
+                            mp.union,
+                            mso.buysell,
+                            mp.expdate,
+                            mp.union,
+                            mp.quantity,
+                            price=0,
+                            bymarket = True,
+                            usecredit = False
+                        )
+                        log.debug(repr(res))
+                        if res.success == True:
+                            log.info( 'emergency exit requested successfuly' )
+                            self.monitoredStopOrders.remove(mso)
+                            self.monitoredPositions = [ p for p in self.monitoredPositions 
+                                             if p.exit_id != mso.id ] 
+                        
+                    else:
+                        logging.error( "cancel stop order error by transaq")
+                   
+            
         else:
-            logging.error( "takePosition must be either long or short")
+            logging.error( "takePosition must be either long,short or close")
             raise Exception( position.takePosition )
 
         position.buysell = buysell
@@ -443,21 +465,23 @@ class TradingPlatform:
         )
         log.debug(repr(res))
         if res.success == True:
-            if position.automaticPositioning == True:
-                position.entry_id = res.id
-                self.monitoredPositions.append(position)
-            else:
-                if position.takePosition == "close":
-                    for m in self.monitoredPositions:
-                        if position.seccode == m.seccode:  
-                            m.exit_id = res.id
-                            break;
+            # if position.automaticPositioning == True:
+            #     position.entry_id = res.id
+            #     self.monitoredPositions.append(position)
+            # else:
+            #     if position.takePosition == "close":
+            #         for m in self.monitoredPositions:
+            #             if position.seccode == m.seccode:  
+            #                 m.exit_id = res.id
+            #                 break;
                     
-                elif position.entry_id == None:
-                    position.entry_id = res.id
-                    self.monitoredPositions.append(position)
-                else:
-                    logging.error( "unknown case, not contemplate")
+            #     elif position.entry_id == None:
+            #         position.entry_id = res.id
+            #         self.monitoredPositions.append(position)
+            #     else:
+            #         logging.error( "unknown case, not contemplate")
+            position.entry_id = res.id
+            self.monitoredPositions.append(position)
 
                                 
         else:

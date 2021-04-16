@@ -28,17 +28,17 @@ class Dolph:
     
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
 
-        self.MODE = 'TEST_OFFLINE' 
+        self.MODE = 'OPERATIONAL' 
 
         self.numTestSample = 1300
         self.since = dt.date(year=2020    ,month=2,day=1)
-        self.between_time = ('09:00', '23:50')
+        self.between_time = ('07:00', '23:50')
         self.TrainingHour = 10
     
         if self.MODE == 'TRAIN_OFFLINE' or self.MODE == 'TEST_OFFLINE':
             
             if self.TrainingHour in range(9,14):
-                self.between_time = ('09:00', '14:00')
+                self.between_time = ('07:00', '14:00')
             else:
                 self.between_time = ('14:00', '23:00')
     
@@ -488,8 +488,8 @@ class Dolph:
         exitPrice =  0.0        
         model = self.models[longestPeriod]
         if hasattr(model, 'id') and model.id == 'peaks_and_valleys':
-            automaticPositioning = False
-            byMarket = True
+            automaticPositioning = True
+            byMarket = False
             
             fluctuation = predictions[-1]
 
@@ -630,23 +630,24 @@ class Dolph:
         
         CandlesBlackcheck=checkCandleBlack(lastCandle)
         CandlesBluecheck =checkCandleBlue(lastCandle)
-        smallDelta=3
-        entryPricePV=0.0
-        if (CandlesBlackcheck ==True): #black candle
-            if (takePosition=="long"):
-                entryPricePV = currentClose - smallDelta
-            elif(takePosition=="short"):
-                entryPricePV = currentClose + smallDelta
-            else:
-                entryPricePV=0.0
-        elif (CandlesBluecheck==True):
-            if (takePosition=="long"):
-                entryPricePV = currentClose + smallDelta
-            elif(takePosition=="short"):
-                entryPricePV = currentClose - smallDelta
-            else:
-                entryPricePV=0.0
-            
+        smallDelta=0
+        entryPricePV=currentClose
+        # if (CandlesBlackcheck ==True): #black candle
+        #     if (takePosition=="long"):
+        #         entryPricePV = currentClose - smallDelta
+        #     elif(takePosition=="short"):
+        #         entryPricePV = currentClose + smallDelta
+        #     else:
+        #         entryPricePV=0.0
+        # elif (CandlesBluecheck==True):
+        #     if (takePosition=="long"):
+        #         entryPricePV = currentClose + smallDelta
+        #     elif(takePosition=="short"):
+        #         entryPricePV = currentClose - smallDelta
+        #     else:
+        #         entryPricePV=0.0
+        # else:
+        #    entryPricePV=currentClose
         return entryPricePV
         
     def takePosition (self, position):

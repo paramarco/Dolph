@@ -124,10 +124,8 @@ class Model:
         #PLOT CLOSE PRICE WHICH IS ALMOST ENRTY+-
         dataInSamplinWindow = fluctuation['samplingWindow']
         currentClose = dataInSamplinWindow.iloc[-1].EndPrice
-        currentLow = dataInSamplinWindow.iloc[-1].MinPrice
-        currentHigh=dataInSamplinWindow.iloc[-1].MaxPrice
+
         entryPrice=currentClose
-        exitPrice=entryPrice+20
         
         new_peak_ind=np.array(peak_idx)+1
         plt.plot(t[new_peak_ind],seriesEnd[new_peak_ind], 'm^') 
