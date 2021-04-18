@@ -7,6 +7,7 @@ import signal
 import gc; gc.collect()
 import datetime as dt
 import pytz
+import time
 
 import copy
 import pandas as pd
@@ -25,10 +26,11 @@ import peaks_and_valleys as fluctuationModel
 
 class Dolph:
     def __init__(self, securities):
-    
+        
+        self.securities = securities
+        
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
-
-        self.MODE = 'OPERATIONAL' 
+        self.MODE = 'TEST_OFFLINE' 
 
         self.numTestSample = 1300
         self.since = dt.date(year=2020    ,month=2,day=1)
@@ -41,10 +43,8 @@ class Dolph:
                 self.between_time = ('07:00', '14:00')
             else:
                 self.between_time = ('14:00', '23:00')
-    
+   
                
-
-        # self.periods = ['1Min','2Min','3Min']
         self.periods = ['1Min','2Min']
 
         self.data = {}
@@ -52,17 +52,19 @@ class Dolph:
         self.lastUpdate = None
         self.currentTestIndex = 0  
 
-        self.predictions = {}
-        for p in self.periods:
-            self.predictions[p] = []
+        for sec in self.securities: 
+            sec['models'] = {}
+            sec['predictions'] = {}
+            sec['lastPositionTaken'] = None
+            for p in self.periods:
+                sec['predictions'][p] = []             
         
-        self.df_prediction = None
-        self.models = {}
-        self.lastPositionSaved = None
+        
+        
         logFormat = '%(asctime)s | %(levelname)s | %(funcName)s |%(message)s'
         logging.basicConfig(
-            level = logging.INFO , 
-            # level = logging.DEBUG , 
+            # level = logging.INFO , 
+            level = logging.DEBUG , 
             format = logFormat,
             handlers=[  
                 logging.FileHandler("./log/Dolph.log"),
@@ -73,7 +75,6 @@ class Dolph:
         
         self.ds = ds.DataServer()
         self.plotter = tv.TrendViewer(self.periods, self.positionAssestment)
-        self.securities = securities
         self.getData = None
         self.getTrainingModel = None
         self.showPrediction = None      
@@ -145,50 +146,65 @@ class Dolph:
         self.ds.storeCandles(obj)
            
     def isSufficientData (self, dataFrame):
-    
+        
+        periods = self.periods
+        longestPeriod = periods[-1]
+        dataFrame = dataFrame[longestPeriod]    
         msg = 'there is only %s samples now, you need at least %s samples for '
         msg+= 'the model to be able to predict'
         sufficient = True
-        
-        numSamplesNow = len(dataFrame.index)
-        if ( numSamplesNow < self.minNumPastSamples ):
-            logging.warning(msg, numSamplesNow,self.minNumPastSamples)            
-            sufficient = False
+        for sec in self.securities:
+            seccode = sec['seccode']
+            df = dataFrame[ dataFrame['Mnemonic'] == seccode ]
+            numSamplesNow = len(df.index)
+            if ( numSamplesNow < self.minNumPastSamples ):
+                logging.warning(msg, numSamplesNow,self.minNumPastSamples)            
+                sufficient = False
+                break
             
         return sufficient
      
-    def isPeriodSynced(self, dfs, period):
+    def isPeriodSynced(self, dfs):
         # moscowTimeZone = pytz.timezone('Europe/Moscow')
-        synced = False        
-        numPeriod = int(period[0])        
+        synced = False
+        periods = self.periods
+        period = periods[-1]        
+        numPeriod = int(period[0])
+        dataFrame = dfs[period]
+        dataFrame_1min = dfs['1Min']
         
-        timelastPeriod = dfs[period].tail(1).index
-        timelastPeriod = timelastPeriod.to_pydatetime()
- 
-        timelast1Min = dfs['1Min'].tail(1).index
-        timelast1Min = timelast1Min.to_pydatetime()
+        for sec in self.securities:
+            seccode = sec['seccode']
+            df = dataFrame[ dataFrame['Mnemonic'] == seccode ]
+            df_1min = dataFrame_1min[ dataFrame_1min['Mnemonic'] == seccode ]
         
-        nMin = -numPeriod + 1
-        timeAux = timelast1Min + dt.timedelta(minutes = nMin)
         
-        if (timeAux >= timelastPeriod and self.lastUpdate != timelastPeriod):
-            synced = True
-            self.lastUpdate = timelastPeriod
+            timelastPeriod = df.tail(1).index
+            timelastPeriod = timelastPeriod.to_pydatetime()
+     
+            timelast1Min = df_1min.tail(1).index
+            timelast1Min = timelast1Min.to_pydatetime()
+            
+            nMin = -numPeriod + 1
+            timeAux = timelast1Min + dt.timedelta(minutes = nMin)
+            
+            if (timeAux >= timelastPeriod and self.lastUpdate != timelastPeriod):
+                synced = True
+                self.lastUpdate = timelastPeriod
         
-        logging.debug(' timelastPeriod: '  + str(timelastPeriod) )
-        logging.debug(' timelast1Min: '     + str(timelast1Min) )
-        logging.debug(' timeAux: '     + str(timeAux) )
-        logging.debug(' period synced: ' + str(synced) )
+            logging.debug(' timelastPeriod: '  + str(timelastPeriod) )
+            logging.debug(' timelast1Min: '     + str(timelast1Min) )
+            logging.debug(' timeAux: '     + str(timeAux) )
+            logging.debug(' period synced: ' + str(synced) )
 
         
         return synced
 
     def dataAcquisition(_):
         
-        num = _.numTestSample
+        # num = _.numTestSample
         since = _.since
         periods = _.periods
-        longestPeriod = periods[-1]
         securities = _.securities
         target = securities[0]
         dfs = {}
@@ -201,55 +217,58 @@ class Dolph:
 
         elif (_.MODE == 'TEST_OFFLINE'):
             
-            if( _.data == {} ):                
-                dfs = _.getData(securities, periods, since, target, _.between_time )                    
-                for p in periods:
-                    _.inputDataTest[p] = dfs[p].iloc[ -num :]
-                    _.data[p] =  dfs[p].iloc[ : -num ] 
-            
+            if( _.data == {} ):             
+                _.inputDataTest = \
+                _.getData(securities, periods, since, None, _.between_time )
+   
             for p in periods:
-                row = _.inputDataTest[p].iloc[0]       
-                _.inputDataTest[p] = _.inputDataTest[p].iloc[1:]
-                _.data[p] = _.data[p].append(row, ignore_index=False)              
+                df = _.inputDataTest[p].copy()
+                for s in securities:
+                    seccode = s['seccode']
+                    indexes = df[ df['Mnemonic'] == seccode ].index
+                    indexes = indexes[-_.numTestSample :]
+                    df.drop(indexes, inplace = True)                    
+                _.data[p] = df
             
-        elif ( _.MODE == 'TEST_ONLINE' or _.MODE == 'OPERATIONAL'):    
+            _.numTestSample = _.numTestSample - 1
+
+
+            # if( _.data == {} ):                
+            #     dfs = _.getData(securities, periods, since, None, _.between_time )                    
+            #     for p in periods:
+            #         _.inputDataTest[p] = dfs[p].iloc[ -num :]
+            #         _.data[p] =  dfs[p].iloc[ : -num ] 
             
-            while True:
-                logging.debug( 'requesting data to the Trading  Platform ...')
-                _.tp.HistoryCandleReq(securities, longestPeriod)                
-                since = dt.date.today() - dt.timedelta(days=1)
-                dfs = _.getData(securities, periods, since, target, _.between_time )
-                if not _.isSufficientData(dfs[longestPeriod]) :
+            # for p in periods:
+            #     row = _.inputDataTest[p].iloc[0]       
+            #     _.inputDataTest[p] = _.inputDataTest[p].iloc[1:]
+            #     _.data[p] = _.data[p].append(row, ignore_index=False)              
+            
+        elif ( _.MODE == 'TEST_ONLINE' or _.MODE == 'OPERATIONAL'):   
+            
+            since = dt.date.today() - dt.timedelta(days=3)            
+            while True:    
+                dfs = _.getData(securities, periods, since, None, _.between_time )
+                if not _.isSufficientData(dfs) :
                     continue
-                if _.isPeriodSynced(dfs, longestPeriod):
+                if _.isPeriodSynced(dfs):
                     break
+                time.sleep(1.5) 
                 
             for p in periods:
-                _.data[p] =  dfs[p]            
+                _.data[p] = dfs[p]            
         
         else:
             _.log.error('wrong running mode, check self.MODE')
 
 
-    def trainModel(self, period, params, hour):
+    def trainModel(self, sec, period, params, hour):
         
         msg = 'training&prediction params: '+ period +' '+ str(params)
-        logging.info( msg )
+        logging.info( msg )        
         
-        df = self.data[period]
-        # def Remove_Outlier_Indices(df):
-        #     Q1 = df.quantile(0.25)
-        #     Q3 = df.quantile(0.75)
-        #     IQR = Q3 - Q1
-        #     trueList = ~((df < (Q1 - 1.5 * IQR)) |(df > (Q3 + 1.5 * IQR)))
-        #     return trueList   
-    
-        # indexOutliers = Remove_Outlier_Indices(df['EndPrice']) 
-        # filteredData = df[indexOutliers]
-        filteredData = df
-        
-        self.models[period] = self.getTrainingModel(
-            filteredData, 
+        sec['models'][period] = self.getTrainingModel(
+            self.data[period], 
             params, 
             period,
             self.MODE,
@@ -257,14 +276,11 @@ class Dolph:
         )
 
     
-    def storePrediction(self, prediction, period, params):
+    def storePrediction(self, sec, prediction, period, params):
 
-        self.predictions[period].append(prediction)
+        sec['predictions'][period].append(prediction)
    
-    def loadModel(self):
-        
-        params = self.ds.getSecurityAlgParams(self.securities[0] )
-        p = self.periods[-1]
+    def loadModel(self, sec, p , params):        
      
         moscowTimeZone = pytz.timezone('Europe/Moscow')                    
         moscowTime = dt.datetime.now(moscowTimeZone)
@@ -273,34 +289,40 @@ class Dolph:
         if self.MODE == 'TRAIN_OFFLINE' or self.MODE == 'TEST_OFFLINE':
             currentHour = self.TrainingHour
 
-        if p not in self.models:
-            self.trainModel(p, params,currentHour )
-        elif not self.models[p].isSuitableForThisTime(currentHour):
-            self.trainModel(p, params, currentHour)
+        if p not in sec['models']:
+            self.trainModel(sec, p, params, currentHour )
+        elif not sec['models'][p].isSuitableForThisTime(currentHour):
+            self.trainModel(sec, p, params, currentHour)
         else:
-            logging.info('model already loaded') 
+            logging.debug('model already loaded') 
 
 
     def predict( self ):
         
-        params = self.ds.getSecurityAlgParams(self.securities[0] )
         p = self.periods[-1]
-        self.loadModel()
-        logging.info( 'calling the model ...') 
-        pred = self.models[p].predict( self.data[p] )
-        self.storePrediction( pred, p, params)
+        
+        for sec in self.securities:
+            params = self.ds.getSecurityAlgParams( sec )
+            self.loadModel(sec, p, params)            
+            logging.debug( 'calling the model ...')
+            seccode = sec['seccode']
+            dataframe = self.data[p]
+            df = dataframe[ dataframe['Mnemonic'] == seccode ]
+            pred = sec['models'][p].predict( df )            
+            self.storePrediction( sec, pred, p, params)
         
    
     def displayPredictions (self):
         
         logging.info( 'plotting a graph ...') 
-
         p = self.periods[-1]
-        preds = copy.deepcopy(self.predictions[p])
-        self.showPrediction( preds , p)    
-  
         
-    def positionAssestment (self, candlePredList,lastCandle ):        
+        for sec in self.securities:
+            preds = copy.deepcopy(sec['predictions'][p])
+            self.showPrediction( preds , p)    
+      
+        
+    def positionAssestment (self, security, candlePredList,lastCandle ):        
 
         printPrices = False
         exitPrice = 0.0
@@ -323,7 +345,8 @@ class Dolph:
             logging.info('we are in a no-go hour ...')  
             return entryPrice, exitPrice, decision, printPrices        
           
-        marginsByHour = self.params['positionMargin']
+        params = self.ds.getSecurityAlgParams( security )
+        marginsByHour = params['positionMargin']
         deltaForExit= marginsByHour[str(moscowHour)]
 #TODO koschmar....
         firstcandle  = candlePredList[0]
@@ -451,48 +474,44 @@ class Dolph:
         
         return candlePredList,lastCandle
 
-    def evaluatePosition (self):        
+    def evaluatePosition (self, security):        
            
         automaticPositioning = False 
         longestPeriod = self.periods[-1]
-        security = self.target
         board = security['board']
         seccode = security['seccode']
         decimals, marketId =    self.ds.getSecurityInfo (security)
         decimals = int(decimals)
+        params = self.ds.getSecurityAlgParams( security )       
+        byMarket =              params['entryByMarket']
+        entryTimeSeconds =      params['entryTimeSeconds']
+        exitTimeSeconds =       params['exitTimeSeconds'] 
+        quantity =              params['positionQuantity']
+        k =                     params['stopLossCoefficient']
+        marginsByHour =         params['positionMargin']
+        correctionByHour =      params['correction']
+        spreadByHour =          params['spread']
         
-        byMarket =              self.params['entryByMarket']
-        entryTimeSeconds =      self.params['entryTimeSeconds']
-        exitTimeSeconds =       self.params['exitTimeSeconds'] 
-        # exitTimeSeconds=1
-        quantity =              self.params['positionQuantity']
-        k =                     self.params['stopLossCoefficient']
-        marginsByHour =         self.params['positionMargin']
-        # marginsByHour=1.0        
-        correctionByHour =         self.params['correction']
-        # correctionByHour=1.0
-        spreadByHour =         self.params['spread']
-        # spreadByHour=1.0
         moscowTimeZone = pytz.timezone('Europe/Moscow')                    
         moscowTime = dt.datetime.now(moscowTimeZone)
         moscowHour = moscowTime.hour
-        deltaForExit= marginsByHour[str(moscowHour)]
-        spread = spreadByHour[str(moscowHour)]
-        correction = correctionByHour[str(moscowHour)] 
-        # deltaForExit= 1
-        # spread = 1
-        # correction =1
+        
+        spread =        spreadByHour[str(moscowHour)]
+        correction =    correctionByHour[str(moscowHour)]
+        deltaForExit =  marginsByHour[str(moscowHour)]
+
         exitTime = moscowTime + dt.timedelta(seconds = exitTimeSeconds)
-        predictions = copy.deepcopy(self.predictions[longestPeriod])
         stoploss = 0.0
         exitPrice =  0.0        
-        model = self.models[longestPeriod]
+        
+        predictions = copy.deepcopy(security['predictions'][longestPeriod])
+        model = security['models'][longestPeriod]
+
         if hasattr(model, 'id') and model.id == 'peaks_and_valleys':
             automaticPositioning = True
             byMarket = False
             
             fluctuation = predictions[-1]
-
             numWindowSize = fluctuation['samplingWindow'].shape[0]
             indexLastPeak = fluctuation['peak_idx'][-1]
             indexLastValley = fluctuation['valley_idx'][-1]
@@ -507,9 +526,8 @@ class Dolph:
                  status = 0  
                  
             logging.info('last change was = ' + str(status) ) 
-            
-            
-            takePosition = self.takeDecisionPeaksAndValleys(status, fluctuation )
+           
+            takePosition = self.takeDecisionPeaksAndValleys(security, status, fluctuation )
             entryPrice = self.getEntryPrice(fluctuation, takePosition)  
             logging.info( 'entryPrice: ' + str(entryPrice))    
 
@@ -518,7 +536,7 @@ class Dolph:
             candlePredList,lastCandle = self.getPositionAssessmentParams(predictions)
             entryPrice = lastCandle['currentClose']            
             entryPrice, exitPrice, takePosition, printPrices = \
-                self.positionAssestment(candlePredList,lastCandle)
+                self.positionAssestment(security,candlePredList,lastCandle)
 
         if takePosition == 'long':
             exitPrice = entryPrice  + deltaForExit
@@ -542,11 +560,11 @@ class Dolph:
             
         return position
     
-    def takeDecisionPeaksAndValleys(self, status,fluctuation ):
+    def takeDecisionPeaksAndValleys(self, security, status,fluctuation ):
         
         distanceBetweenPeekAndValley=2
 
-        openPosition = self.tp.isPositionOpen( self.target['seccode'] )
+        openPosition = self.tp.isPositionOpen( security )
         
         if (fluctuation['peak_idx'].size  >= 2):    
             indexLastPeak = fluctuation['peak_idx'][-1]
@@ -571,30 +589,30 @@ class Dolph:
         
         if status == 1:
             if openPosition == True:
-                if  (self.lastPositionSaved  =='short' ):
+                if  (security['lastPositionTaken']  =='short' ):
                     takePosition = 'no-go'
                 elif (abs(indexLastPeak-indexLastValley) <= distanceBetweenPeekAndValley):
                     takePosition = 'no-go' 
                 else:
                     takePosition = 'close'  
-                    self.lastPositionSaved = None
+                    security['lastPositionTaken'] = None
 
             else:
                 if (abs(indexLastPeak-indexLastValley) <= distanceBetweenPeekAndValley):
                     takePosition = 'no-go'
                 else:
                     takePosition= 'short' 
-                    self.lastPositionSaved = takePosition
+                    security['lastPositionTaken'] = takePosition
 
         elif (status == -1):
             if (openPosition == True ):
-                if (self.lastPositionSaved =='long' ):
+                if (security['lastPositionTaken'] =='long' ):
                     takePosition = 'no-go'
                 elif (abs(indexLastValley-indexLastPeak) <= distanceBetweenPeekAndValley):
                     takePosition = 'no-go'
                 else: 
                     takePosition = 'close' 
-                    self.lastPositionSaved = None
+                    security['lastPositionTaken'] = None
 
             else:
                 #check if it is a real valley for buyng or its a fake valley
@@ -602,7 +620,7 @@ class Dolph:
                     takePosition = 'no-go'
                 else:
                     takePosition= 'long' #send order BUY, open long LONG
-                    self.lastPositionSaved = takePosition
+                    security['lastPositionTaken'] = takePosition
         return takePosition
     
     
@@ -650,55 +668,32 @@ class Dolph:
         #    entryPricePV=currentClose
         return entryPricePV
         
-    def takePosition (self, position):
+    def takePosition (self):
         
-        if self.tp.getProfitBalance() >= self.goodLuckStreak :
-            logging.info( 'it went too well this hour, stop until next hour')
-            return
-
-        action = position.takePosition
-        if action not in ['long','short','close']  :
-            logging.info( action + ' position, nothing to do')
-            return
-        
-        if self.MODE == 'OPERATIONAL' :
-            logging.info('sending a "' + action +'" to Trading platform ...')
-            self.tp.processPosition(position)
-            
+        for sec in self.securities:            
+            position = self.evaluatePosition(sec)            
+            action = position.takePosition
+            if action not in ['long','short','close']  :
+                logging.info( action + ' position, nothing to do')
+                return            
+            if self.MODE == 'OPERATIONAL' :
+                logging.info('sending a "' + action +'" to Trading platform ...')
+                self.tp.processPosition(position)              
         
            
     
 if __name__== "__main__":
 
     securities = [] 
-
-    # securities.append( {'board':'FUT', 'seccode':'GZM1'} )
-
-
     securities.append( {'board':'FUT', 'seccode':'SRM1'} )
-    # securities.append( {'board':'FUT', 'seccode':'GDZ0'} ) 
-    # securities.append( {'board':'FUT', 'seccode':'SiZ0'} )
-    #securities.append( {'board':'FUT', 'seccode':'VBZ0'} )
-
-    # securities.append( {'board':'FUT', 'seccode':'RIZ0'} )
-    # # securities.append( {'board':'FUT', 'seccode':'EuZ0'} ) 
-    # securities.append( {'board':'FUT', 'seccode':'GMZ0'} )
-    # # securities.append( {'board':'FUT', 'seccode':'VBZ0'} )
-
-    # securities.append( {'board':'FUT', 'seccode':'EuZ0'} )
-    # securities.append( {'board':'FUT', 'seccode':'BRX0'} )
-
+    securities.append( {'board':'FUT', 'seccode':'GZM1'} ) 
+    
     dolph = Dolph( securities )
 
     while True:
-
-        # dolph.tp.cancellAllOrders()
-        # dolph.tp.cancellAllStopOrders()
-
         dolph.dataAcquisition()
         dolph.predict()
         dolph.displayPredictions()
-        dolph.takePosition( dolph.evaluatePosition() )
-        
+        dolph.takePosition()         
         
         

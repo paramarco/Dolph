@@ -80,11 +80,13 @@ class Model:
         #     answer = False
         return answer
     
-    def findPeaksValleys (self, df):
+    def findPeaksValleys (self, dataframe):
         
         numWindowSize = 25
-        df = df.tail(numWindowSize)
+        dataframe = dataframe.tail(numWindowSize)
         fluctuation = {}
+        df = dataframe.copy()
+        df['CalcDateTime'] = dataframe.index
         fluctuation['samplingWindow'] = df[['CalcDateTime','StartPrice','MaxPrice','MinPrice','EndPrice',] ]
 
         seriesEnd = df['EndPrice']
@@ -136,7 +138,6 @@ class Model:
         
     def predict(self, df ):        
       
-        df['CalcDateTime'] = df.index
         fluctuation = self.findPeaksValleys(df)
         
                

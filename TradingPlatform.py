@@ -9,6 +9,7 @@ import time
 import datetime
 import pytz
 import sys
+from threading import Thread
 
 import lib.transaq_connector.commands as tc
 import lib.transaq_connector.structures as ts
@@ -81,7 +82,32 @@ class Position:
 
         
         return msg
-                
+    
+class candleUpdateTask:
+      
+    def __init__(self, tc):
+        self._running = True
+        self.tc = tc
+      
+    def terminate(self):
+        self._running = False
+          
+    def run(self, securities):
+        
+        while self._running :            
+            for s in securities:                                
+                if self.tc.connected == True:
+                    res = self.tc.get_history(
+                        s['board'], 
+                        s['seccode'], 
+                        1, 
+                        2, 
+                        True
+                    )
+                    log.debug(repr(res))
+                else:
+                    log.warning('wait!, not connected to TRANSAQ yet...')            
+            time.sleep(1)    
 
 class TradingPlatform:
     def __init__(self, target, securities, onHistoryCandleCall, connectOnInit):
@@ -101,6 +127,8 @@ class TradingPlatform:
         self.profitBalance = 0
         self.currentTradingHour = 0
         
+        self.candlesUpdateThread = None
+        self.candlesUpdateTask = None
 
         
         if connectOnInit:
@@ -152,6 +180,10 @@ class TradingPlatform:
         log.debug(repr(res))
    
     def disconnect(self):
+        
+        log.info('stopping candlesUpdateTask ...')
+        self.candlesUpdateTask.terminate()
+        
         if self.tc.connected:
             log.info('disconnecting from TRANSAQ...')
             self.tc.disconnect()
@@ -163,6 +195,14 @@ class TradingPlatform:
         self.HistoryCandleReq( self.securities, 1, 300)
         self.cancellAllOrders()
         self.cancellAllStopOrders()
+        log.info('starting candlesUpdateThread ...')
+        self.candlesUpdateTask = candleUpdateTask(self.tc)
+        t = Thread(
+            target = self.candlesUpdateTask.run, 
+            args = ( self.securities, )
+        )
+        t.start() 
+        
         
     def get_history(self, board, seccode, period, count, reset=True):
         if self.tc.connected == True:
@@ -175,7 +215,7 @@ class TradingPlatform:
         for s in securities:
             self.get_history(s['board'], s['seccode'], 1 , count) 
             
-        time.sleep(2)
+        time.sleep(2)        
         
     def addClientAccount(self, clientAccount):
         self.clientAccounts.append(clientAccount)
@@ -327,7 +367,8 @@ class TradingPlatform:
         
         self.reportCurrentOpenPositions()
         
-    def isPositionOpen( self, seccode ):
+    def isPositionOpen( self, security ):
+        seccode = security['seccode']
         flag = False
         for mp in self.monitoredPositions:
            if mp.seccode == seccode:
@@ -602,7 +643,6 @@ class TradingPlatform:
         
     def updateTradingHour(self):
         
-        fmt = "%d.%m.%Y %H:%M:%S"
         moscowTimeZone = pytz.timezone('Europe/Moscow')                    
         moscowTime = datetime.datetime.now(moscowTimeZone)
         currentHour = moscowTime.hour
@@ -610,7 +650,7 @@ class TradingPlatform:
         if self.currentTradingHour != currentHour :
             self.currentTradingHour = currentHour
             self.profitBalance = 0
-            logging.info('hour changed ... profitBalance has been reset ')
+            logging.debug('hour changed ... profitBalance has been reset ')
             
     def getProfitBalance(self):
         return self.profitBalance

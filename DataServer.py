@@ -563,7 +563,7 @@ class DataServer:
             for p in periods:
                 list_df = []
                 for sec in securities:
-                    log.debug( "building dataframe for: " + str(sec) )
+                    # log.debug( "building dataframe for: " + str(sec) )
                     query = self.__querySearchSec( sec, since )
                     
                     sqliteConnection = sqlite3.connect('bimbi.sqlite')
