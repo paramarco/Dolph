@@ -473,7 +473,7 @@ class TradingPlatform:
                         )
                         log.debug(repr(res))
                         if res.success == True:
-                            log.info( 'emergency exit requested successfuly' )
+                            log.info( 'emergency close successfuly done' )
                        
                     else:
                         logging.error( "cancel stop order error by transaq")
@@ -613,7 +613,7 @@ class TradingPlatform:
                         )
                         log.debug(repr(res))
                         if res.success == True:
-                            log.info( 'emergency exit requested successfuly' )
+                            log.info( 'time-out exit requested successfuly' )
                         
                     else:
                         logging.error( "cancel stop order error by transaq")

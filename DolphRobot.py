@@ -30,7 +30,7 @@ class Dolph:
         self.securities = securities
         
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
-        self.MODE = 'TEST_OFFLINE' 
+        self.MODE = 'OPERATIONAL' 
 
         self.numTestSample = 1300
         self.since = dt.date(year=2020    ,month=2,day=1)
@@ -63,8 +63,8 @@ class Dolph:
         
         logFormat = '%(asctime)s | %(levelname)s | %(funcName)s |%(message)s'
         logging.basicConfig(
-            # level = logging.INFO , 
-            level = logging.DEBUG , 
+            level = logging.INFO , 
+            # level = logging.DEBUG , 
             format = logFormat,
             handlers=[  
                 logging.FileHandler("./log/Dolph.log"),
@@ -650,22 +650,16 @@ class Dolph:
         CandlesBluecheck =checkCandleBlue(lastCandle)
         smallDelta=3
         entryPricePV=currentClose+smallDelta
-        # if (CandlesBlackcheck ==True): #black candle
-        #     if (takePosition=="long"):
-        #         entryPricePV = currentClose - smallDelta
-        #     elif(takePosition=="short"):
-        #         entryPricePV = currentClose + smallDelta
-        #     else:
-        #         entryPricePV=0.0
-        # elif (CandlesBluecheck==True):
-        #     if (takePosition=="long"):
-        #         entryPricePV = currentClose + smallDelta
-        #     elif(takePosition=="short"):
-        #         entryPricePV = currentClose - smallDelta
-        #     else:
-        #         entryPricePV=0.0
-        # else:
-        #    entryPricePV=currentClose
+
+        if (takePosition=="long"):
+           entryPricePVTEST = currentClose + smallDelta
+             print("entryPricePVTEST" +str(entryPricePVTEST) )
+        elif(takePosition=="short"):
+            entryPricePVTEST = currentClose - smallDelta
+               print("entryPricePVTEST" +str(entryPricePVTEST) )
+        else:
+            entryPricePVTEST=currentClose
+            
         return entryPricePV
         
     def takePosition (self):
@@ -686,8 +680,9 @@ if __name__== "__main__":
 
     securities = [] 
     securities.append( {'board':'FUT', 'seccode':'SRM1'} )
-    securities.append( {'board':'FUT', 'seccode':'GZM1'} ) 
-    
+    # securities.append( {'board':'FUT', 'seccode':'GZM1'} ) 
+    # securities.append( {'board':'FUT', 'seccode':'SiM1'} ) 
+
     dolph = Dolph( securities )
 
     while True:
