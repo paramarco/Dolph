@@ -340,7 +340,7 @@ class Dolph:
         moscowHour = moscowTime.hour
         moscowMin= moscowTime.minute
 
-        nogoHours = []
+        nogoHours = [16]
         if moscowHour in nogoHours:
             logging.info('we are in a no-go hour ...')  
             return entryPrice, exitPrice, decision, printPrices        
@@ -529,7 +529,17 @@ class Dolph:
            
             takePosition = self.takeDecisionPeaksAndValleys(security, status, fluctuation )
             entryPrice = self.getEntryPrice(fluctuation, takePosition)  
-            logging.info( 'entryPrice: ' + str(entryPrice))    
+            
+            moscowTimeZone = pytz.timezone('Europe/Moscow')                    
+            moscowTime = dt.datetime.now(moscowTimeZone)
+            moscowHour = moscowTime.hour
+            moscowMin= moscowTime.minute
+
+            nogoHours = [16]
+            if moscowHour in nogoHours:
+                logging.info('we are in a no-go hour ...')  
+                takePosition = 'no-go' 
+                entryPrice = 0.0
 
         else:
             automaticPositioning = True
@@ -653,10 +663,10 @@ class Dolph:
 
         if (takePosition=="long"):
            entryPricePVTEST = currentClose + smallDelta
-             print("entryPricePVTEST" +str(entryPricePVTEST) )
+           print("entryPricePVTEST" +str(entryPricePVTEST) )
         elif(takePosition=="short"):
             entryPricePVTEST = currentClose - smallDelta
-               print("entryPricePVTEST" +str(entryPricePVTEST) )
+            print("entryPricePVTEST" +str(entryPricePVTEST) )
         else:
             entryPricePVTEST=currentClose
             
