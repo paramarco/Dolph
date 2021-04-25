@@ -13,6 +13,8 @@ import pandas as pd
 from pandas import DataFrame
 import numpy as np
 from matplotlib import pyplot
+import matplotlib.dates as mdates
+
 import tensorflow as tf
 import matplotlib.pyplot as plt
 from tensorflow.keras.models import Sequential
@@ -103,12 +105,16 @@ class Model:
         fluctuation['peak_idx'] = peak_idx
         fluctuation['valley_idx'] = valley_idx
         
-        self.plotPeaksAndValleys (seriesMax,seriesEnd, seriesMin,peak_idx,valley_idx, fluctuation,sec )  
+        self.plotPeaksAndValleys (
+            seriesMax,seriesEnd, seriesMin,peak_idx,valley_idx, 
+            fluctuation, sec, times
+        )  
               
         return fluctuation
     
     
-    def plotPeaksAndValleys (self, seriesMax,seriesEnd, seriesMin,peak_idx,valley_idx,fluctuation,sec ):  
+    def plotPeaksAndValleys (self, seriesMax,seriesEnd, seriesMin, 
+                             peak_idx,valley_idx,fluctuation,sec, times ):  
         
         seseccode = sec['seccode']
         if (seseccode == 'GZM1'):
@@ -117,7 +123,8 @@ class Model:
              lable= 'SBERBANK'
         
         # Plot curves
-        t = np.arange(start=0, stop=len(seriesEnd), step=1, dtype=int)
+        # t = np.arange(start=0, stop=len(seriesEnd), step=1, dtype=int)
+        t = times
         plt.plot(t, seriesMax)
         plt.plot(t, seriesEnd)
         plt.plot(t, seriesMin)
@@ -126,7 +133,11 @@ class Model:
         plt.plot(t[peak_idx], seriesMax[peak_idx], 'g^')
         plt.plot(t[valley_idx], seriesMin[valley_idx], 'rv')
         
-        plt.gca().xaxis.set_minor_locator(plt.MultipleLocator(1))        
+        # plt.gca().xaxis.set_minor_locator(plt.MultipleLocator(1))          
+        # plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+        # xlocator = mdates.MinuteLocator(byminute=range(60))
+        # plt.gca().xaxis.set_major_locator(xlocator)  
+
 
         
         #PLOT CLOSE PRICE WHICH IS ALMOST ENRTY+-
@@ -140,6 +151,12 @@ class Model:
         new_valley_ind=np.array(valley_idx)+1
         plt.plot(t[new_valley_ind],seriesEnd[new_valley_ind], 'm^') 
         plt.title('Prediction for ' + lable)
+        
+        # axes1 = plt.gca()
+        # axes2 = axes1.twiny()
+        # indices = np.arange(start=0, stop=len(seriesEnd), step=1, dtype=int)
+        # axes2.set_xticks(indices)
+        
         plt.show()
         
     def predict(self, df, sec ):        

@@ -476,7 +476,6 @@ class Dolph:
 
     def evaluatePosition (self, security):        
            
-        automaticPositioning = False 
         longestPeriod = self.periods[-1]
         board = security['board']
         seccode = security['seccode']
@@ -508,9 +507,7 @@ class Dolph:
         model = security['models'][longestPeriod]
 
         if hasattr(model, 'id') and model.id == 'peaks_and_valleys':
-            automaticPositioning = True
-            byMarket = False
-            
+            byMarket = False            
             fluctuation = predictions[-1]
             numWindowSize = fluctuation['samplingWindow'].shape[0]
             indexLastPeak = fluctuation['peak_idx'][-1]
@@ -529,11 +526,6 @@ class Dolph:
            
             takePosition = self.takeDecisionPeaksAndValleys(security, status, fluctuation )
             entryPrice = self.getEntryPrice(fluctuation, takePosition)  
-            
-            moscowTimeZone = pytz.timezone('Europe/Moscow')                    
-            moscowTime = dt.datetime.now(moscowTimeZone)
-            moscowHour = moscowTime.hour
-            moscowMin= moscowTime.minute
 
             nogoHours = [16]
             if moscowHour in nogoHours:
@@ -542,7 +534,6 @@ class Dolph:
                 entryPrice = 0.0
 
         else:
-            automaticPositioning = True
             candlePredList,lastCandle = self.getPositionAssessmentParams(predictions)
             entryPrice = lastCandle['currentClose']            
             entryPrice, exitPrice, takePosition, printPrices = \
@@ -564,7 +555,7 @@ class Dolph:
         position = tp.Position(
             takePosition, board, seccode, marketId, entryTimeSeconds, 
             quantity, entryPrice, exitPrice , stoploss, decimals, exitTime,
-            correction, spread, automaticPositioning, byMarket
+            correction, spread, byMarket
         )
         logging.info( 'dolph decides: ' + str(position))    
             
@@ -574,7 +565,7 @@ class Dolph:
         
         distanceBetweenPeekAndValley=2
 
-        openPosition = self.tp.isPositionOpen( security )
+        openPosition = self.tp.isPositionOpen( security['seccode'] )
         
         if (fluctuation['peak_idx'].size  >= 2):    
             indexLastPeak = fluctuation['peak_idx'][-1]

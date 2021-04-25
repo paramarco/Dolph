@@ -19,8 +19,7 @@ log = logging.getLogger("TradingPlatform")
 class Position:
     def __init__(self, takePosition, board, seccode, marketId, entryTimeSeconds,
                  quantity, entryPrice, exitPrice, stoploss, 
-                 decimals, exitTime, correction, spread, automaticPositioning 
-                 ,bymarket = False ):
+                 decimals, exitTime, correction, spread, bymarket = False ):
         
         # id:= transactionid of the first order, "your entry" of the Position
         # will be assigned once upon successful entry of the Position
@@ -52,10 +51,7 @@ class Position:
         self.exitTime = exitTime
         
         self.correction = correction
-        self.spread = spread
-        # automaticPositioning := True | False 
-        self.automaticPositioning = automaticPositioning
-               
+        self.spread = spread               
         self.bymarket = bymarket
         
         self.client = None
@@ -120,7 +116,6 @@ class TradingPlatform:
         self.monitoredPositions = []
         self.monitoredOrders = []
         self.monitoredStopOrders = []
-        self.numMaxOpenPositions = 1
         
         self.tc = tc.TransaqConnector()
         self.tc.connected = False
@@ -129,7 +124,8 @@ class TradingPlatform:
         
         self.candlesUpdateThread = None
         self.candlesUpdateTask = None
-
+        
+        self.fmt = "%d.%m.%Y %H:%M:%S"
         
         if connectOnInit:
             self.tc.initialize("log", 3, self.handle_txml_message)   
@@ -232,42 +228,26 @@ class TradingPlatform:
         
     def processOrderStatus(self, order):
         
-        logging.info( repr(order) )
-        
+        logging.info( repr(order) )        
         s = order.status
         monitoredPosition = None
 
         if s == 'matched':
-            
             for m in self.monitoredPositions:
                 if m.entry_id == order.id: monitoredPosition = m; break;
                 if m.exit_id == order.id: monitoredPosition = m; break;
-                
-                     
+                    
             if monitoredPosition is None :
                 m ='already processed, deleting: {}'.format( repr(order))
                 logging.info( m )
                 if order in self.monitoredOrders:
-                    self.monitoredOrders.remove(order)    
-                    
-            elif monitoredPosition.automaticPositioning == False:
-                m ='Non automatic positioning, removing:{}'.format( repr(order))
-                logging.info( m )
-                if monitoredPosition.exit_id != None:
-                    self.monitoredPositions = [ p for p in self.monitoredPositions 
-                                             if p.exit_id != monitoredPosition.exit_id ]
-
-                if order in self.monitoredOrders:
                     self.monitoredOrders.remove(order) 
                 
             elif monitoredPosition.stopOrderRequested == False :
-                
-                board = order.board;    seccode = order.seccode;
-                client = order.client;  buysell = ""
+                buysell = ""
                 if      monitoredPosition.buysell == "B":   buysell = "S";
                 elif    monitoredPosition.buysell == "S":   buysell = "B";
                 else:   raise Exception("what? " + monitoredPosition.buysell);
-                quantity = monitoredPosition.quantity                
                 trigger_price_tp = "{0:0.{prec}f}".format(
                     round(monitoredPosition.exitPrice, monitoredPosition.decimals),
                     prec = monitoredPosition.decimals
@@ -275,14 +255,12 @@ class TradingPlatform:
                 trigger_price_sl = "{0:0.{prec}f}".format(
                     round(monitoredPosition.stoploss, monitoredPosition.decimals),
                     prec = monitoredPosition.decimals
-                ) 
-                correction = monitoredPosition.correction
-                bymarket = monitoredPosition.bymarket
-                spread = monitoredPosition.spread
-                usecredit = False    
+                )                 
                 res = self.tc.new_stoporder(
-                    board, seccode, client, buysell, quantity, trigger_price_sl,
-                    trigger_price_tp, correction, spread, bymarket, usecredit 
+                    order.board, order.seccode, order.client, buysell, 
+                    monitoredPosition.quantity,trigger_price_sl,trigger_price_tp,
+                    monitoredPosition.correction, monitoredPosition.spread, 
+                    monitoredPosition.bymarket, False 
                 )    
                 log.info(repr(res))
                 if res.success :
@@ -308,6 +286,8 @@ class TradingPlatform:
         elif s in ['watching','active','forwarding']:
             
             if order not in self.monitoredOrders:
+                if order.time is None:
+                    order.time = self.getMoscowTime()
                 self.monitoredOrders.append(order)
                 m = 'order {} with status: {} added to monitoredOrders'.format( order.id, s)
                 logging.info( m )                
@@ -365,14 +345,23 @@ class TradingPlatform:
         
         self.reportCurrentOpenPositions()
         
-    def isPositionOpen( self, security ):
-        seccode = security['seccode']
+    def isPositionOpen( self, seccode ):
         flag = False
+        inMP = False
+        inMSP = False
+
         for mp in self.monitoredPositions:
            if mp.seccode == seccode:
-               flag = True
+               inMP = True
                break
-         
+        
+        for msp in self.monitoredStopOrders:
+           if msp.seccode == seccode:
+               inMSP = True
+               break
+      
+        flag = True if inMP and inMSP else False 
+        
         return flag
              
             
@@ -395,35 +384,22 @@ class TradingPlatform:
         for mso in self.monitoredStopOrders:
             msg +=  repr(mso) + '\n'
         
-        logging.info( msg )
-        
-        # total = numMonPosition + numMonOrder + numMonStopOrder     
-        # total = numMonPosition 
-
+        logging.info( msg )        
         total = numMonOrder + numMonStopOrder        
 
         return total
 
     def processPosition ( self, position):
         
+        self.reportCurrentOpenPositions()        
         if self.tc.connected == False:
             log.warning('wait!, not connected to TRANSAQ yet...')
             return
-        
-        numCurrentOpenPosition = self.reportCurrentOpenPositions()
-        
-        if (numCurrentOpenPosition >= self.numMaxOpenPositions and 
-           position.takePosition != "close"):
-            
-            msg='limit of open positions exceed: {} of {}'.format(
-                numCurrentOpenPosition, self.numMaxOpenPositions 
-            )            
-            logging.info( msg )
-            return
-        
+        if self.isPositionOpen(position.seccode) and position.takePosition != "close":            
+            msg='there is a position opened for {}'.format(position.seccode)            
+            logging.warning( msg )
+            return        
 
-        board = position.board
-        seccode = position.seccode
         position.client = self.getClientIdByMarket(position.marketId)
         position.union =  self.getUnionIdByMarket(position.marketId)        
         buysell = ""
@@ -438,97 +414,39 @@ class TradingPlatform:
                 logging.error( "there is a Position still open for long")
                 return  
             buysell = "S"
-        elif position.takePosition == "close":
-            
+        elif position.takePosition == "close":            
             monitoredPosition = None
             for mp in self.monitoredPositions:
                 if mp.seccode == position.seccode:
                     monitoredPosition = mp
             if monitoredPosition is None:
                 logging.error( "position Not found, recheck this case")
-                return
-            
-            list2cancel = []
-            
+                return                        
             for mso in self.monitoredStopOrders:
                 if mso.seccode == monitoredPosition.seccode :
-                    res = self.tc.cancel_stoploss(mso.id)
-                    log.debug(repr(res))
-                    if res.success == True:
-                        list2cancel.append(mso)
-                        res = self.tc.new_order(
-                            mp.board,
-                            mp.seccode,
-                            mp.client,
-                            mp.union,
-                            mso.buysell,
-                            mp.expdate,
-                            mp.union,
-                            mp.quantity,
-                            price=0,
-                            bymarket = True,
-                            usecredit = False
-                        )
-                        log.debug(repr(res))
-                        if res.success == True:
-                            log.info( 'emergency close successfuly done' )
-                       
-                    else:
-                        logging.error( "cancel stop order error by transaq")
-            
-                
-            for mso in list2cancel:
-                if mso in self.monitoredStopOrders:
-                    self.monitoredStopOrders.remove(mso)
-                self.monitoredPositions = [ p for p in self.monitoredPositions 
-                                             if p.exit_id != mso.id ]      
-            
+                    log.info('close action received, closing position...')
+                    self.closeExit( monitoredPosition, mso)            
         else:
             logging.error( "takePosition must be either long,short or close")
             raise Exception( position.takePosition )
 
-        position.buysell = buysell
-        
-        fmt = "%d.%m.%Y %H:%M:%S"
-        moscowTimeZone = pytz.timezone('Europe/Moscow')                    
-        moscowTime = datetime.datetime.now(moscowTimeZone)
+                
+        moscowTime = self.getMoscowTime()
         nSec = position.entryTimeSeconds
         moscowTime_plusNsec = moscowTime + datetime.timedelta(seconds = nSec)
-        position.expdate = moscowTime_plusNsec.strftime(fmt) 
-        brokerref = position.union
-        quantity = position.quantity
-        bymarket = position.bymarket 
+        position.expdate = moscowTime_plusNsec.strftime(self.fmt) 
         price = round(position.entryPrice , position.decimals)
-        price = "{0:0.{prec}f}".format(price,prec=position.decimals)
-        
-        usecredit = False
+        price = "{0:0.{prec}f}".format(price,prec=position.decimals)        
         
         res = self.tc.new_order(
-            board,seccode,position.client,position.union,buysell,
-            position.expdate, brokerref, quantity,price,
-            bymarket,usecredit
+            position.board,position.seccode,position.client,position.union,
+            buysell, position.expdate, position.union, position.quantity,price,
+            position.bymarket,False
         )
         log.debug(repr(res))
         if res.success == True:
-            # if position.automaticPositioning == True:
-            #     position.entry_id = res.id
-            #     self.monitoredPositions.append(position)
-            # else:
-            #     if position.takePosition == "close":
-            #         for m in self.monitoredPositions:
-            #             if position.seccode == m.seccode:  
-            #                 m.exit_id = res.id
-            #                 break;
-                    
-            #     elif position.entry_id == None:
-            #         position.entry_id = res.id
-            #         self.monitoredPositions.append(position)
-            #     else:
-            #         logging.error( "unknown case, not contemplate")
             position.entry_id = res.id
-            self.monitoredPositions.append(position)
-
-                                
+            self.monitoredPositions.append(position)                                
         else:
             logging.error( "position has not been processed by transaq")
         
@@ -554,7 +472,6 @@ class TradingPlatform:
         
     def cancelTimedoutEntries(self):
         
-        fmt = "%d.%m.%Y %H:%M:%S"
         moscowTimeZone = pytz.timezone('Europe/Moscow')                    
         moscowTime = datetime.datetime.now(moscowTimeZone) 
         list2cancel = []
@@ -568,8 +485,8 @@ class TradingPlatform:
                     res = self.tc.cancel_order(mo.id)
                     log.debug(repr(res))
                     list2cancel.append(mo)
-                    moscow = moscowTime.strftime(fmt)
-                    expTime = orderTime_plusNsec.strftime(fmt)
+                    moscow = moscowTime.strftime(self.fmt)
+                    expTime = orderTime_plusNsec.strftime(self.fmt)
                     msg = 'moscow: '+ moscow + ' entry timedouts at: '+ expTime
                     log.info(msg)
                    
@@ -580,48 +497,14 @@ class TradingPlatform:
                                              if p.entry_id != mo.id ]
 
     def cancelTimedoutExits(self):
-        fmt = "%d.%m.%Y %H:%M:%S"
-        moscowTimeZone = pytz.timezone('Europe/Moscow')                    
-        moscowTime = datetime.datetime.now(moscowTimeZone) 
-        list2cancel = []
+        
+        moscowTime = self.getMoscowTime()        
         
         for mp in self.monitoredPositions:
             for mso in self.monitoredStopOrders:
                 if ( moscowTime > mp.exitTime ):
-                    res = self.tc.cancel_stoploss(mso.id)
-                    log.debug(repr(res))
-                    if res.success == True:
-                        list2cancel.append(mso)
-                        moscow = moscowTime.strftime(fmt)
-                        exitTime = mp.exitTime.strftime(fmt)
-                        msg = 'moscow: '+moscow+' exit timedouts at: '+ exitTime
-                        log.info( msg )
-                        res = self.tc.new_order(
-                            mp.board,
-                            mp.seccode,
-                            mp.client,
-                            mp.union,
-                            mso.buysell,
-                            mp.expdate,
-                            mp.union,
-                            mp.quantity,
-                            price=0,
-                            bymarket = True,
-                            usecredit = False
-                        )
-                        log.debug(repr(res))
-                        if res.success == True:
-                            log.info( 'time-out exit requested successfuly' )
-                        
-                    else:
-                        logging.error( "cancel stop order error by transaq")
-
-        
-        for mso in list2cancel:
-            if mso in self.monitoredStopOrders:
-                self.monitoredStopOrders.remove(mso)
-            self.monitoredPositions = [ p for p in self.monitoredPositions 
-                                             if p.exit_id != mso.id ]    
+                    log.info( 'time-out exit detected, closing exit' )
+                    self.closeExit(mp,mso)
                
         
     def updatePortfolioPerformance(self, status):
@@ -641,8 +524,7 @@ class TradingPlatform:
         
     def updateTradingHour(self):
         
-        moscowTimeZone = pytz.timezone('Europe/Moscow')                    
-        moscowTime = datetime.datetime.now(moscowTimeZone)
+        moscowTime = self.getMoscowTime()
         currentHour = moscowTime.hour
         
         if self.currentTradingHour != currentHour :
@@ -652,5 +534,60 @@ class TradingPlatform:
             
     def getProfitBalance(self):
         return self.profitBalance
+    
+    def getMoscowTime(self):
+        moscowTimeZone = pytz.timezone('Europe/Moscow')                    
+        moscowTime = datetime.datetime.now(moscowTimeZone)
+        
+        return moscowTime
+    
+    def closeExit(self, mp, mso):       
+        
+        moscowTime = self.getMoscowTime()        
+        list2cancel = []
+
+        res = self.tc.cancel_stoploss(mso.id)
+        log.debug(repr(res))
+        if res.success == True:
+            list2cancel.append(mso)
+            moscow = moscowTime.strftime(self.fmt)
+            exitTime = mp.exitTime.strftime(self.fmt)
+            msg = 'moscow: '+moscow+' exit timedouts at: '+ exitTime
+            log.info( msg )
+            res = self.tc.new_order(
+                mp.board,
+                mp.seccode,
+                mp.client,
+                mp.union,
+                mso.buysell,
+                mp.expdate,
+                mp.union,
+                mp.quantity,
+                price=0,
+                bymarket = True,
+                usecredit = False
+            )
+            log.debug(repr(res))
+            if res.success == True:
+                log.info( ' exit request was successfuly processed' )
+            else:
+                log.error( 'exit request was erroneously processed' )
+            
+        else:
+            logging.error( "cancel stop-order error by transaq")
+
+
+        for mso in list2cancel:
+            if mso in self.monitoredStopOrders:
+                self.monitoredStopOrders.remove(mso)
+            self.monitoredPositions = [ p for p in self.monitoredPositions 
+                                             if p.exit_id != mso.id ] 
+        
+        
+        
+        
+        
+        
+        
         
         
