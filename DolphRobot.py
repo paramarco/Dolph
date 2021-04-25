@@ -30,11 +30,11 @@ class Dolph:
         self.securities = securities
         
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
-        self.MODE = 'OPERATIONAL' 
+        self.MODE = 'TEST_OFFLINE' 
 
         self.numTestSample = 1300
         self.since = dt.date(year=2020    ,month=2,day=1)
-        self.between_time = ('07:00', '23:50')
+        self.between_time = ('10:00', '18:50')
         self.TrainingHour = 10
     
         if self.MODE == 'TRAIN_OFFLINE' or self.MODE == 'TEST_OFFLINE':
@@ -308,7 +308,7 @@ class Dolph:
             seccode = sec['seccode']
             dataframe = self.data[p]
             df = dataframe[ dataframe['Mnemonic'] == seccode ]
-            pred = sec['models'][p].predict( df )            
+            pred = sec['models'][p].predict( df, sec )            
             self.storePrediction( sec, pred, p, params)
         
    
@@ -690,7 +690,7 @@ if __name__== "__main__":
 
     securities = [] 
     securities.append( {'board':'FUT', 'seccode':'SRM1'} )
-    # securities.append( {'board':'FUT', 'seccode':'GZM1'} ) 
+    securities.append( {'board':'FUT', 'seccode':'GZM1'} ) 
     # securities.append( {'board':'FUT', 'seccode':'SiM1'} ) 
 
     dolph = Dolph( securities )

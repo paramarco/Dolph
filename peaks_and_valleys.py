@@ -80,7 +80,7 @@ class Model:
         #     answer = False
         return answer
     
-    def findPeaksValleys (self, dataframe):
+    def findPeaksValleys (self, dataframe, sec):
         
         numWindowSize = 25
         dataframe = dataframe.tail(numWindowSize)
@@ -103,12 +103,18 @@ class Model:
         fluctuation['peak_idx'] = peak_idx
         fluctuation['valley_idx'] = valley_idx
         
-        self.plotPeaksAndValleys (seriesMax,seriesEnd, seriesMin,peak_idx,valley_idx, fluctuation )  
+        self.plotPeaksAndValleys (seriesMax,seriesEnd, seriesMin,peak_idx,valley_idx, fluctuation,sec )  
               
         return fluctuation
     
     
-    def plotPeaksAndValleys (self, seriesMax,seriesEnd, seriesMin,peak_idx,valley_idx,fluctuation ):  
+    def plotPeaksAndValleys (self, seriesMax,seriesEnd, seriesMin,peak_idx,valley_idx,fluctuation,sec ):  
+        
+        seseccode = sec['seccode']
+        if (seseccode == 'GZM1'):
+            lable= 'GAZPROM'
+        elif(seseccode == 'SRM1'):
+             lable= 'SBERBANK'
         
         # Plot curves
         t = np.arange(start=0, stop=len(seriesEnd), step=1, dtype=int)
@@ -133,12 +139,12 @@ class Model:
         plt.plot(t[new_peak_ind],seriesEnd[new_peak_ind], 'm^') 
         new_valley_ind=np.array(valley_idx)+1
         plt.plot(t[new_valley_ind],seriesEnd[new_valley_ind], 'm^') 
-        
+        plt.title('Prediction for ' + lable)
         plt.show()
         
-    def predict(self, df ):        
+    def predict(self, df, sec ):        
       
-        fluctuation = self.findPeaksValleys(df)
+        fluctuation = self.findPeaksValleys(df, sec)
         
                
         return fluctuation
