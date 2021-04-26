@@ -30,11 +30,11 @@ class Dolph:
         self.securities = securities
         
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
-        self.MODE = 'TEST_OFFLINE' 
+        self.MODE = 'OPERATIONAL' 
 
         self.numTestSample = 1300
         self.since = dt.date(year=2020    ,month=2,day=1)
-        self.between_time = ('10:00', '18:50')
+        self.between_time = ('10:00', '23:50')
         self.TrainingHour = 10
     
         if self.MODE == 'TRAIN_OFFLINE' or self.MODE == 'TEST_OFFLINE':
@@ -649,7 +649,7 @@ class Dolph:
         
         CandlesBlackcheck=checkCandleBlack(lastCandle)
         CandlesBluecheck =checkCandleBlue(lastCandle)
-        smallDelta=3
+        smallDelta=0
         entryPricePV=currentClose+smallDelta
 
         if (takePosition=="long"):
@@ -670,7 +670,7 @@ class Dolph:
             action = position.takePosition
             if action not in ['long','short','close']  :
                 logging.info( action + ' position, nothing to do')
-                return            
+                continue            
             if self.MODE == 'OPERATIONAL' :
                 logging.info('sending a "' + action +'" to Trading platform ...')
                 self.tp.processPosition(position)              

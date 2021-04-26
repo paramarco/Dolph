@@ -402,18 +402,17 @@ class TradingPlatform:
 
         position.client = self.getClientIdByMarket(position.marketId)
         position.union =  self.getUnionIdByMarket(position.marketId)        
-        buysell = ""
         
         if (position.takePosition == "long"):
             if any( mso.buysell != 'S' for mso in self.monitoredStopOrders):
                 logging.error( "there is a Position still open for short")
                 return            
-            buysell = "B"
+            position.buysell = "B"
         elif (position.takePosition  == "short"):
             if any( mso.buysell != 'B' for mso in self.monitoredStopOrders):
                 logging.error( "there is a Position still open for long")
                 return  
-            buysell = "S"
+            position.buysell = "S"
         elif position.takePosition == "close":            
             monitoredPosition = None
             for mp in self.monitoredPositions:
@@ -425,7 +424,8 @@ class TradingPlatform:
             for mso in self.monitoredStopOrders:
                 if mso.seccode == monitoredPosition.seccode :
                     log.info('close action received, closing position...')
-                    self.closeExit( monitoredPosition, mso)            
+                    self.closeExit( monitoredPosition, mso)
+                    return
         else:
             logging.error( "takePosition must be either long,short or close")
             raise Exception( position.takePosition )
@@ -440,8 +440,8 @@ class TradingPlatform:
         
         res = self.tc.new_order(
             position.board,position.seccode,position.client,position.union,
-            buysell, position.expdate, position.union, position.quantity,price,
-            position.bymarket,False
+            position.buysell, position.expdate, position.union, 
+            position.quantity,price, position.bymarket,False
         )
         log.debug(repr(res))
         if res.success == True:
@@ -492,8 +492,9 @@ class TradingPlatform:
                    
                     
         for mo in list2cancel:
-            self.monitoredOrders.remove(mo)
-            self.monitoredPositions = [ p for p in self.monitoredPositions 
+            if mo in self.monitoredOrders:
+                self.monitoredOrders.remove(mo)
+                self.monitoredPositions = [ p for p in self.monitoredPositions 
                                              if p.entry_id != mo.id ]
 
     def cancelTimedoutExits(self):
