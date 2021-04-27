@@ -34,7 +34,7 @@ class Dolph:
 
         self.numTestSample = 1300
         self.since = dt.date(year=2020    ,month=2,day=1)
-        self.between_time = ('10:00', '23:50')
+        self.between_time = ('07:00', '23:50')
         self.TrainingHour = 10
     
         if self.MODE == 'TRAIN_OFFLINE' or self.MODE == 'TEST_OFFLINE':
