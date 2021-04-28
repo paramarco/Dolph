@@ -403,15 +403,9 @@ class TradingPlatform:
         position.client = self.getClientIdByMarket(position.marketId)
         position.union =  self.getUnionIdByMarket(position.marketId)        
         
-        if (position.takePosition == "long"):
-            if any( mso.buysell != 'S' for mso in self.monitoredStopOrders):
-                logging.error( "there is a Position still open for short")
-                return            
+        if (position.takePosition == "long"):           
             position.buysell = "B"
-        elif (position.takePosition  == "short"):
-            if any( mso.buysell != 'B' for mso in self.monitoredStopOrders):
-                logging.error( "there is a Position still open for long")
-                return  
+        elif (position.takePosition  == "short"): 
             position.buysell = "S"
         elif position.takePosition == "close":            
             monitoredPosition = None
@@ -477,18 +471,22 @@ class TradingPlatform:
         list2cancel = []
         
         for mp in self.monitoredPositions:
-            nSec = mp.entryTimeSeconds
             for mo in self.monitoredOrders:
-                orderTime_plusNsec = mo.time + datetime.timedelta(seconds = nSec)
-                orderTime_plusNsec = moscowTimeZone.localize(orderTime_plusNsec)
-                if ( moscowTime > orderTime_plusNsec ):
-                    res = self.tc.cancel_order(mo.id)
-                    log.debug(repr(res))
-                    list2cancel.append(mo)
-                    moscow = moscowTime.strftime(self.fmt)
-                    expTime = orderTime_plusNsec.strftime(self.fmt)
-                    msg = 'moscow: '+ moscow + ' entry timedouts at: '+ expTime
-                    log.info(msg)
+                if mp.entry_id == mo.id:
+                    nSec = mp.entryTimeSeconds
+                    orderTime_plusNsec = mo.time + datetime.timedelta(seconds = nSec)
+                    orderTime_plusNsec = moscowTimeZone.localize(orderTime_plusNsec)
+                    if ( moscowTime > orderTime_plusNsec ):
+                        res = self.tc.cancel_order(mo.id)
+                        log.debug(repr(res))
+                        list2cancel.append(mo)
+                        moscow = moscowTime.strftime(self.fmt)
+                        expTime = orderTime_plusNsec.strftime(self.fmt)
+                        msg = 'moscow: '+ moscow + ' entry timedouts at: '
+                        msg += expTime + ' '+ repr(mo)
+                        log.info(msg)
+                        
+                    break
                    
                     
         for mo in list2cancel:
@@ -503,10 +501,12 @@ class TradingPlatform:
         
         for mp in self.monitoredPositions:
             for mso in self.monitoredStopOrders:
-                if ( moscowTime > mp.exitTime ):
-                    log.info( 'time-out exit detected, closing exit' )
-                    self.closeExit(mp,mso)
-               
+                if mp.exit_id == mso.id:
+                    if ( moscowTime > mp.exitTime ):
+                        log.info( 'time-out exit detected, closing exit' )
+                        self.closeExit(mp,mso)
+                    break
+                   
         
     def updatePortfolioPerformance(self, status):
         
@@ -554,6 +554,7 @@ class TradingPlatform:
             moscow = moscowTime.strftime(self.fmt)
             exitTime = mp.exitTime.strftime(self.fmt)
             msg = 'moscow: '+moscow+' exit timedouts at: '+ exitTime
+            msg += ' ' + repr(mso)
             log.info( msg )
             res = self.tc.new_order(
                 mp.board,
