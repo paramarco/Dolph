@@ -8,6 +8,7 @@ import logging
 import time
 import datetime
 import pytz
+import copy
 import sys
 from threading import Thread
 
@@ -106,16 +107,19 @@ class candleUpdateTask:
             time.sleep(1)    
 
 class TradingPlatform:
-    def __init__(self, target, securities, onHistoryCandleCall, connectOnInit):
+    def __init__(self, target, securities, onHistoryCandleCall, 
+                 connectOnInit, onCounterPosition):
         
         log.info('TradingPlatform starting  ...')
         
         self.securities = securities
         self.onHistoryCandleCall = onHistoryCandleCall
+        self.onCounterPosition = onCounterPosition
         self.clientAccounts = []
         self.monitoredPositions = []
         self.monitoredOrders = []
         self.monitoredStopOrders = []
+        self.counterPositions = []
         
         self.tc = tc.TransaqConnector()
         self.tc.connected = False
@@ -147,6 +151,7 @@ class TradingPlatform:
             self.onHistoryCandleCall(obj)
             self.cancelTimedoutEntries()
             self.cancelTimedoutExits()
+            self.cancelHangingOrders()
             self.updateTradingHour()
             
         elif isinstance(obj, ts.MarketPacket):
@@ -164,6 +169,7 @@ class TradingPlatform:
             elif isinstance(o, ts.StopOrder):
                 self.processStopOrderStatus(o)
 
+ 
     
     def connect2TRANSAQ(self):
         log.info('connecting to TRANSAQ...')
@@ -224,7 +230,52 @@ class TradingPlatform:
         for c in self.clientAccounts:
             if c.market == marketId:
                 return c.union
-        raise Exception("market "+marketId+" not found")  
+        raise Exception("market "+marketId+" not found") 
+        
+    def triggerStopOrder(self, order, monitoredPosition):
+        
+        buysell = ""
+        if      monitoredPosition.buysell == "B":   buysell = "S";
+        elif    monitoredPosition.buysell == "S":   buysell = "B";
+        else:   raise Exception("what? " + monitoredPosition.buysell);
+        
+        trigger_price_tp = "{0:0.{prec}f}".format(
+            round(monitoredPosition.exitPrice, monitoredPosition.decimals),
+            prec = monitoredPosition.decimals
+        )
+        trigger_price_sl = "{0:0.{prec}f}".format(
+            round(monitoredPosition.stoploss, monitoredPosition.decimals),
+            prec = monitoredPosition.decimals
+        )                 
+        res = self.tc.new_stoporder(
+            order.board, order.seccode, order.client, buysell, 
+            monitoredPosition.quantity,trigger_price_sl,trigger_price_tp,
+            monitoredPosition.correction, monitoredPosition.spread, 
+            monitoredPosition.bymarket, False 
+        )    
+        log.info(repr(res))
+        if res.success :
+            monitoredPosition.stopOrderRequested = True;
+            monitoredPosition.exit_id = res.id                
+            if order in self.monitoredOrders:
+                self.monitoredOrders.remove(order)
+            
+            m="stopOrder of order {} succesfully requested".format(order.id)
+            m+=", deleted from monitored Orders"""
+            logging.info( m )                
+        else:
+            monitoredPosition.stopOrderRequested = False
+            logging.error("takeprofit hasn't been processed by transaq")      
+        
+    def triggerWhenMatched(self, order):
+        
+        for cp in self.counterPositions:
+            transactionId, position = cp
+            if order.id == transactionId:
+                m = "trigering onCounterPosition for {}".format( str(position) )
+                logging.info( m )                
+                self.onCounterPosition(position)
+                
         
     def processOrderStatus(self, order):
         
@@ -233,6 +284,8 @@ class TradingPlatform:
         monitoredPosition = None
 
         if s == 'matched':
+            
+            self.triggerWhenMatched(order)
             for m in self.monitoredPositions:
                 if m.entry_id == order.id: monitoredPosition = m; break;
                 if m.exit_id == order.id: monitoredPosition = m; break;
@@ -244,43 +297,11 @@ class TradingPlatform:
                     self.monitoredOrders.remove(order) 
                 
             elif monitoredPosition.stopOrderRequested == False :
-                buysell = ""
-                if      monitoredPosition.buysell == "B":   buysell = "S";
-                elif    monitoredPosition.buysell == "S":   buysell = "B";
-                else:   raise Exception("what? " + monitoredPosition.buysell);
-                trigger_price_tp = "{0:0.{prec}f}".format(
-                    round(monitoredPosition.exitPrice, monitoredPosition.decimals),
-                    prec = monitoredPosition.decimals
-                )
-                trigger_price_sl = "{0:0.{prec}f}".format(
-                    round(monitoredPosition.stoploss, monitoredPosition.decimals),
-                    prec = monitoredPosition.decimals
-                )                 
-                res = self.tc.new_stoporder(
-                    order.board, order.seccode, order.client, buysell, 
-                    monitoredPosition.quantity,trigger_price_sl,trigger_price_tp,
-                    monitoredPosition.correction, monitoredPosition.spread, 
-                    monitoredPosition.bymarket, False 
-                )    
-                log.info(repr(res))
-                if res.success :
-                    monitoredPosition.stopOrderRequested = True;
-                    monitoredPosition.exit_id = res.id                
-                    if order in self.monitoredOrders:
-                        self.monitoredOrders.remove(order)
-                    
-                    m="stopOrder of order {} succesfully requested".format(order.id)
-                    m+=", deleted from monitored Orders"""
-                    logging.info( m )                
-                else:
-                    monitoredPosition.stopOrderRequested = False
-                    logging.error("takeprofit hasn't been processed by transaq")
-            else:
-                
+                self.triggerStopOrder(order, monitoredPosition)                
+            else:                
                 if order in self.monitoredOrders:
                     self.monitoredOrders.remove(order)
-                m="stopOrder of order {} already requested before, ".format(order.id)
-                m+="deleted from monitored Orders"
+                m = "{} already requested before, deleted".format(order.id)                
                 logging.info( m )                
             
         elif s in ['watching','active','forwarding']:
@@ -346,9 +367,19 @@ class TradingPlatform:
         self.reportCurrentOpenPositions()
         
     def isPositionOpen( self, seccode ):
+        """ 
+            isExitOrderNotTriggered is True when there is a position which 
+            takeProfit/stoploss was not yet triggered.
+            
+            isExitOrderActive is True when there isn't any MonitoredPosition
+            and the exit order is still active hanging, not executed yet.
+            
+            isPositionOpen = isExitOrderNotTriggered or isExitOrderActive                
+        """
         flag = False
         inMP = False
         inMSP = False
+        isOrderActive = False
 
         for mp in self.monitoredPositions:
            if mp.seccode == seccode:
@@ -360,7 +391,16 @@ class TradingPlatform:
                inMSP = True
                break
       
-        flag = True if inMP and inMSP else False 
+        isExitOrderNotTriggered = inMP and inMSP
+        
+        for mo in self.monitoredOrders:
+            if mo.seccode == seccode:
+                isOrderActive = True
+                break
+        
+        isExitOrderActive = not inMP and isOrderActive
+      
+        flag = isExitOrderNotTriggered or isExitOrderActive 
         
         return flag
              
@@ -388,43 +428,9 @@ class TradingPlatform:
         total = numMonOrder + numMonStopOrder        
 
         return total
-
-    def processPosition ( self, position):
+    
+    def openPosition ( self, position):
         
-        self.reportCurrentOpenPositions()        
-        if self.tc.connected == False:
-            log.warning('wait!, not connected to TRANSAQ yet...')
-            return
-        if self.isPositionOpen(position.seccode) and position.takePosition != "close":            
-            msg='there is a position opened for {}'.format(position.seccode)            
-            logging.warning( msg )
-            return        
-
-        position.client = self.getClientIdByMarket(position.marketId)
-        position.union =  self.getUnionIdByMarket(position.marketId)        
-        
-        if (position.takePosition == "long"):           
-            position.buysell = "B"
-        elif (position.takePosition  == "short"): 
-            position.buysell = "S"
-        elif position.takePosition == "close":            
-            monitoredPosition = None
-            for mp in self.monitoredPositions:
-                if mp.seccode == position.seccode:
-                    monitoredPosition = mp
-            if monitoredPosition is None:
-                logging.error( "position Not found, recheck this case")
-                return                        
-            for mso in self.monitoredStopOrders:
-                if mso.seccode == monitoredPosition.seccode :
-                    log.info('close action received, closing position...')
-                    self.closeExit( monitoredPosition, mso)
-                    return
-        else:
-            logging.error( "takePosition must be either long,short or close")
-            raise Exception( position.takePosition )
-
-                
         moscowTime = self.getMoscowTime()
         nSec = position.entryTimeSeconds
         moscowTime_plusNsec = moscowTime + datetime.timedelta(seconds = nSec)
@@ -443,8 +449,81 @@ class TradingPlatform:
             self.monitoredPositions.append(position)                                
         else:
             logging.error( "position has not been processed by transaq")
+       
+    def getMonitoredPositionBySeccode(self, seccode):
         
-        self.reportCurrentOpenPositions()
+        monitoredPosition = None
+        for mp in self.monitoredPositions:
+            if mp.seccode == seccode:
+                monitoredPosition = mp
+                break
+        if monitoredPosition is None:
+            logging.error( "monitoredPosition Not found, recheck this case")
+            
+        return monitoredPosition
+    
+    def getMonitoredStopOrderBySeccode(self, seccode):
+        
+        monitoredStopOrder = None        
+        for mso in self.monitoredStopOrders:
+            if mso.seccode == seccode :
+                monitoredStopOrder = mso
+                break
+            
+        if monitoredStopOrder is None:
+            logging.error( "monitoredStopOrder Not found, recheck this case")
+        
+        return monitoredStopOrder
+    
+    def closePosition( self, position, withCounterPosition = False):
+        
+        code = position.seccode        
+        monitoredPosition = self.getMonitoredPositionBySeccode(code)
+        monitoredStopOrder = self.getMonitoredStopOrderBySeccode(code)        
+        
+        if monitoredPosition is None or monitoredStopOrder is None:
+            logging.error("position Not found, recheck this case")
+        else:
+            log.info('close action received, closing position...')
+            cloneMP = copy.deepcopy(monitoredPosition)
+            tid = self.closeExit( monitoredPosition, monitoredStopOrder )
+            if withCounterPosition == True:
+                log.info('adding position to counterPositions ...')                
+                cp = ( tid, cloneMP )
+                self.counterPositions.append(cp)            
+   
+
+    def processPosition ( self, position):
+        
+        self.reportCurrentOpenPositions()        
+        if self.tc.connected == False:
+            log.warning('wait!, not connected to TRANSAQ yet...')
+            return
+        if self.isPositionOpen(position.seccode) and position.takePosition != "close":            
+            msg='there is a position opened for {}'.format(position.seccode)            
+            logging.warning( msg )
+            return        
+
+        position.client = self.getClientIdByMarket(position.marketId)
+        position.union =  self.getUnionIdByMarket(position.marketId)        
+        
+        if (position.takePosition == "long"):           
+            position.buysell = "B"
+            self.openPosition( position )
+        elif (position.takePosition  == "short"): 
+            position.buysell = "S"
+            self.openPosition( position )
+        elif position.takePosition == "close":            
+            self.closePosition( position )
+        elif position.takePosition == "close-counterPosition":
+            self.closePosition( position, withCounterPosition = True )
+        else:
+            logging.error( "takePosition must be either long,short or close")
+            raise Exception( position.takePosition )
+        
+        self.reportCurrentOpenPositions()        
+        
+        
         
     def cancellAllStopOrders(self):
         if self.tc.connected == True:
@@ -546,6 +625,7 @@ class TradingPlatform:
         
         moscowTime = self.getMoscowTime()        
         list2cancel = []
+        tid = None
 
         res = self.tc.cancel_stoploss(mso.id)
         log.debug(repr(res))
@@ -572,6 +652,7 @@ class TradingPlatform:
             log.debug(repr(res))
             if res.success == True:
                 log.info( ' exit request was successfuly processed' )
+                tid = res.id
             else:
                 log.error( 'exit request was erroneously processed' )
             
@@ -585,10 +666,55 @@ class TradingPlatform:
             self.monitoredPositions = [ p for p in self.monitoredPositions 
                                              if p.exit_id != mso.id ] 
         
+        return tid
         
+    def cancelHangingOrders(self):        
         
+        moscowTimeZone = pytz.timezone('Europe/Moscow')                    
+        moscowTime = datetime.datetime.now(moscowTimeZone)   
+        list2cancel = []      
         
-        
+        for mo in self.monitoredOrders:
+            nSec = 0
+            for sec in self.securities :
+                if mo.seccode == sec['seccode']:
+                    nSec = sec['params']['ActiveTimeSeconds']
+            
+            if nSec == 0 : log.error('this shouldnt happen'); return;
+                    
+            orderTime_plusNsec = mo.time + datetime.timedelta(seconds = nSec)
+            orderTime_plusNsec = moscowTimeZone.localize(orderTime_plusNsec)
+            if ( moscowTime > orderTime_plusNsec ):
+                list2cancel.append(mo)
+                msg = 'Order hanging since: ' + mo.time.strftime(self.fmt)
+                log.info(msg)                
+                   
+                    
+        for mo in list2cancel:
+            if mo in self.monitoredOrders:
+                clone = copy.deepcopy(mo)
+                self.monitoredOrders.remove(mo)
+                res = self.tc.cancel_order(clone.id)
+                if res.success == True:
+                    res = self.tc.new_order(
+                        clone.board,
+                        clone.seccode,
+                        clone.client,
+                        clone.union,
+                        clone.buysell,
+                        clone.exp_date.strftime(self.fmt),
+                        clone.union,
+                        clone.quantity,
+                        price=0,
+                        bymarket = True,
+                        usecredit = False
+                    )
+                    if res.success == True:
+                        log.info('exit was successfuly processed'+repr(clone))
+                    else:
+                        log.error('exit was erroneously processed')
+                else:
+                    logging.error("cancel active-order error by transaq")   
         
         
         

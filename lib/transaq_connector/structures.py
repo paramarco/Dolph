@@ -534,6 +534,8 @@ class BaseOrder(Entity):
     order_no = IntegerField('orderno')
     # идентификатор бумаги
     secid = IntegerField('secid')
+    # added on May 2nd 2021
+    union = StringField('union')
     # Идентификатор борда
     board = StringField('board')
     # Код инструмента

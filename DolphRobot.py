@@ -51,14 +51,6 @@ class Dolph:
         self.inputDataTest = {}
         self.lastUpdate = None
         self.currentTestIndex = 0  
-
-        for sec in self.securities: 
-            sec['models'] = {}
-            sec['predictions'] = {}
-            sec['lastPositionTaken'] = None
-            for p in self.periods:
-                sec['predictions'][p] = []             
-        
         
         
         logFormat = '%(asctime)s | %(levelname)s | %(funcName)s |%(message)s'
@@ -72,12 +64,21 @@ class Dolph:
             ]
         )
         logging.info('running on mode: ' + self.MODE)
-        
+
         self.ds = ds.DataServer()
         self.plotter = tv.TrendViewer(self.periods, self.positionAssestment)
         self.getData = None
         self.getTrainingModel = None
         self.showPrediction = None      
+
+        
+        for sec in self.securities: 
+            sec['params'] = self.ds.getSecurityAlgParams( sec )
+            sec['models'] = {}
+            sec['predictions'] = {}
+            sec['lastPositionTaken'] = None
+            for p in self.periods:
+                sec['predictions'][p] = []         
                
         self.target = securities[0]
         self.params = self.ds.getSecurityAlgParams(self.target)
@@ -129,7 +130,8 @@ class Dolph:
             self.target, 
             self.securities, 
             self.onHistoryCandleRes,
-            connectOnInit
+            connectOnInit,
+            self.onCounterPosition
         )
         
         def signalHandler(signum, frame):
@@ -144,6 +146,80 @@ class Dolph:
     def onHistoryCandleRes(self, obj):
         logging.debug( repr(obj) )            
         self.ds.storeCandles(obj)
+     
+        
+    def getSecurityBySeccode(self, seccode):
+        sec = None
+        for s in self.securities: 
+            if seccode == s['seccode']:
+                sec = s
+                break
+        return sec
+        
+    def getLastClosePrice(seccode):
+        
+        sec = self.getSecurityBySeccode( seccode )
+        since = dt.date.today()
+        dfs = self.getData(
+            self.securities, periods, since, sec, self.between_time
+        )
+        dataFrame_1min = dfs['1Min']
+        df_1min = dataFrame_1min[ dataFrame_1min['Mnemonic'] == seccode ]
+        timelast1Min = df_1min.tail(1).index
+        timelast1Min = timelast1Min.to_pydatetime()
+        LastClosePrice = df_1min['EndPrice'].iloc[-1]
+        logging.info(' time last 1Min: ' + str(timelast1Min) )
+        logging.info(' Close last 1Min: ' + str(LastClosePrice) )
+
+        return LastClosePrice
+        
+    def onCounterPosition(self, position2invert ):
+        
+        position = copy.deepcopy(position2invert)
+        if (position2invert.takePosition == "long"):           
+            position.takePosition = "short"
+        elif (position2invert.takePosition  == "short"):
+            position.takePosition = "long"
+        else:
+            logging.error( "takePosition must be either long or short")
+            raise Exception( position.takePosition )
+        
+        
+        sec = self.getSecurityBySeccode( position.seccode )
+        if sec is None: logging.error('sec not found... '); return;
+        
+        lastClosePrice = self.getLastClosePrice(position.seccode)
+        if lastClosePrice is None :  logging.error('for seccode...'); return;
+        
+        # TODO
+        # do like in evaluatePosition()  .....
+        # position.exitPrice =
+        # position.stoploss =
+        # position.entryPrice = 
+        
+        params = self.ds.getSecurityAlgParams( sec )       
+        entryTimeSeconds =      params['entryTimeSeconds']
+        exitTimeSeconds =       params['exitTimeSeconds'] 
+        k =                     params['stopLossCoefficient']
+        marginsByHour =         params['positionMargin']
+        correctionByHour =      params['correction']
+        spreadByHour =          params['spread']
+        
+        moscowTimeZone = pytz.timezone('Europe/Moscow')                    
+        moscowTime = dt.datetime.now(moscowTimeZone)
+        moscowHour = moscowTime.hour        
+        
+        spread =        spreadByHour[str(moscowHour)]
+        correction =    correctionByHour[str(moscowHour)]
+        deltaForExit =  marginsByHour[str(moscowHour)]
+
+        position.exitTime = moscowTime + dt.timedelta(seconds = exitTimeSeconds)
+
+        
+        logging.info('sending '+position.takePosition+' to Trading platform')
+        self.tp.processPosition(position)     
+       
+    
            
     def isSufficientData (self, dataFrame):
         
@@ -165,7 +241,7 @@ class Dolph:
         return sufficient
      
     def isPeriodSynced(self, dfs):
-        # moscowTimeZone = pytz.timezone('Europe/Moscow')
+        
         synced = False
         periods = self.periods
         period = periods[-1]        
@@ -202,11 +278,9 @@ class Dolph:
 
     def dataAcquisition(_):
         
-        # num = _.numTestSample
         since = _.since
         periods = _.periods
         securities = _.securities
-        target = securities[0]
         dfs = {}
         
         if (_.MODE == 'TRAIN_OFFLINE'):
@@ -231,18 +305,7 @@ class Dolph:
                 _.data[p] = df
             
             _.numTestSample = _.numTestSample - 1
-
-
-            # if( _.data == {} ):                
-            #     dfs = _.getData(securities, periods, since, None, _.between_time )                    
-            #     for p in periods:
-            #         _.inputDataTest[p] = dfs[p].iloc[ -num :]
-            #         _.data[p] =  dfs[p].iloc[ : -num ] 
-            
-            # for p in periods:
-            #     row = _.inputDataTest[p].iloc[0]       
-            #     _.inputDataTest[p] = _.inputDataTest[p].iloc[1:]
-            #     _.data[p] = _.data[p].append(row, ignore_index=False)              
+             
             
         elif ( _.MODE == 'TEST_ONLINE' or _.MODE == 'OPERATIONAL'):   
             
