@@ -385,157 +385,7 @@ class Dolph:
             self.showPrediction( preds , p)    
       
         
-    def positionAssestment (self, security, candlePredList,lastCandle ):        
 
-        printPrices = False
-        exitPrice = 0.0
-        entryPrice = 0.0
-        decision = 'no-go'
-        currentOpen = lastCandle['currentOpen']
-        currentHigh = lastCandle['currentHigh']
-        currentLow = lastCandle['currentLow']
-        currentClose = lastCandle['currentClose']
-        
-        self.printPrices = False
-        
-        moscowTimeZone = pytz.timezone('Europe/Moscow')                    
-        moscowTime = dt.datetime.now(moscowTimeZone)
-        moscowHour = moscowTime.hour
-        moscowMin= moscowTime.minute
-
-        nogoHours = [16]
-        if moscowHour in nogoHours:
-            logging.info('we are in a no-go hour ...')  
-            return entryPrice, exitPrice, decision, printPrices        
-          
-        params = self.ds.getSecurityAlgParams( security )
-        marginsByHour = params['positionMargin']
-        deltaForExit= marginsByHour[str(moscowHour)]
-#TODO koschmar....
-        firstcandle  = candlePredList[0]
-          
-       
-
-        def checkCandleBlue(firstcandle):
-            blue = False 
-            if (firstcandle['Close']>firstcandle['Open']):
-                blue= True
-            return blue
-        def checkCandleBlack(firstcandle):
-            black = False 
-            if ((firstcandle['Close']<firstcandle['Open'])):
-                black= True
-            return black
-
-        margin=2
-        if moscowHour>9:
-            #check the color of the current candle
-            if (currentClose>=currentOpen): #if this current blue?
-                 CandlesBlackcheck=checkCandleBlack(firstcandle)
-                 CandlesBluecheck =checkCandleBlue(firstcandle)
-                 if (CandlesBlackcheck == True):
-                        logging.info('It seems the market will go down..')  
-                        entryPrice=currentClose-margin
-                        exitPrice = entryPrice - deltaForExit
-                        decision='short'
-                        printPrices = True
-                 if (CandlesBluecheck == True):
-                        logging.info('It seems the market will grow up:')                
-                        entryPrice = currentClose+margin
-                        exitPrice = entryPrice+deltaForExit
-                        decision='long'
-                        printPrices = True   
-                        
-            if (currentClose<currentOpen): #if this current black?
-                CandlesBlackcheck=checkCandleBlack(firstcandle)
-                CandlesBluecheck =checkCandleBlue(firstcandle)
-                if (CandlesBlackcheck == True):
-                        logging.info('It seems the market will go down..')  
-                        entryPrice=currentClose-margin
-                        exitPrice = entryPrice - deltaForExit
-                        decision='short'
-                        printPrices = True
-                if (CandlesBluecheck == True):
-                        logging.info('It seems the market will grow up:')                
-                        entryPrice = currentClose+margin
-                        exitPrice = entryPrice+deltaForExit
-                        decision='long'
-                        printPrices = True
-                        
-        else:
-            if (moscowHour == 9):
-                if (moscowMin > 2 and moscowMin <20):
-            #first three-four candles we will repeat the the first one until 10:20
-                    if (currentClose>currentOpen): #if this current blue?
-                        logging.info('It seems the market will grow up:')                
-                        entryPrice = currentClose+margin
-                        exitPrice = entryPrice+deltaForExit
-                        decision='long'
-                        printPrices = True
-                    if (currentClose<currentOpen): #if this current black?
-                        logging.info('It seems the market will go down..')  
-                        entryPrice = currentClose+margin
-                        exitPrice = entryPrice+deltaForExit
-                        decision='long'
-                        printPrices = True
-
-
-                                                                    
-        return entryPrice, exitPrice, decision, printPrices
-    
-    def getPositionAssessmentParams(self,predictions):
-        
-        myCols = ['predictions','time','Mnemonic','EndPrice' ]
-        df_in = pd.DataFrame(columns=myCols)
-        
-        for p in predictions:
-            row = pd.DataFrame({
-                'time':         p.training_set.original_df['CalcDateTime'],
-                'Mnemonic':     p.training_set.original_df['Mnemonic'],
-                'StartPrice':   p.training_set.original_df['StartPrice'],
-                'EndPrice':     p.training_set.original_df['EndPrice'],
-                'MinPrice':     p.training_set.original_df['MinPrice'],
-                'MaxPrice':     p.training_set.original_df['MaxPrice'] ,
-                  
-                'close_t+1':            p.predictions[0][0] #,  
-                
-
-                }
-            )
-            df_in = df_in.append(row)
-        df_in['timeDate'] = df_in['time']  
-        df_in = df_in.set_index('time')
-        df = df_in        
-        times = sorted(list(df.index.unique()))
-        lastTime = times[-1]    
-        
-        t1 = lastTime + dt.timedelta(minutes = 1)
-        t2 = lastTime + dt.timedelta(minutes = 2)
-        t3 = lastTime + dt.timedelta(minutes = 3)
-        t4 = lastTime + dt.timedelta(minutes = 4)
-
-        currentOpen = df.iloc[-1].StartPrice
-        currentHigh = df.iloc[-1].MaxPrice
-        currentLow = df.iloc[-1].MinPrice
-        currentClose = df.iloc[-1].EndPrice
-
-        p = df.loc[lastTime]
-        candlePredList = [
-            # {'Date': t1, 'Open': currentClose, 'High': currentHigh + p['high_t+1'], 'Low': currentLow + p['low_t+1'], 'Close': currentClose + p['close_t+1']}   #,
-            {'Date': t1, 'Open': currentClose, 'High': currentClose  + 1, 'Low': currentClose  - 1, 'Close': currentClose + p['close_t+1']}   #,
-            # {'Date': t2, 'Open': currentClose + p['close_t+1'], 'High': currentHigh + p['high_t+2'], 'Low': currentLow + p['low_t+2'], 'Close': currentClose + p['close_t+1'] + p['close_t+2']},
-            # {'Date': t3, 'Open': currentClose + p['close_t+1'] + p['close_t+2'], 'High': currentHigh + p['high_t+3'], 'Low': currentLow + p['low_t+3'], 'Close': currentClose + p['close_t+1'] + p['close_t+2'] + p['close_t+3']},
-            # {'Date': t4, 'Open': currentClose + p['close_t+1'] + p['close_t+2'] + p['close_t+3'], 'High': currentHigh + p['high_t+4'], 'Low': currentLow +p['low_t+4'], 'Close':  currentClose + p['close_t+1'] + p['close_t+2'] + p['close_t+3'] + p['close_t+4']}
-        ] 
-        
-        lastCandle = { 
-            'currentOpen' : currentOpen,
-            'currentHigh' : currentHigh,
-            'currentLow' : currentLow,
-            'currentClose' : currentClose                      
-        }
-        
-        return candlePredList,lastCandle
 
     def evaluatePosition (self, security):        
            
@@ -677,15 +527,26 @@ class Dolph:
                 else: 
                     takePosition = 'close' 
                     security['lastPositionTaken'] = None
-
             else:
-                #check if it is a real valley for buyng or its a fake valley
                 if (abs(indexLastPeak-indexLastValley) <= distanceBetweenPeekAndValley):
                     takePosition = 'no-go'
                 else:
-                    takePosition= 'long' #send order BUY, open long LONG
+                    takePosition= 'long' 
                     security['lastPositionTaken'] = takePosition
+        else:
+            if openPosition == True: 
+                lastClosePrice = getLastClosePrice(fluctuation)
+                   
+                    
+                    
         return takePosition
+    
+    
+    
+    def getLastClosePrice (self,fluctuation):
+        dataInSamplinWindow = fluctuation['samplingWindow']
+        currentClose = dataInSamplinWindow.iloc[-1].EndPrice
+        return currentClose
     
     
     def getEntryPrice(self,fluctuation, takePosition):  
