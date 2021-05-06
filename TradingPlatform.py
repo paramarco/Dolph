@@ -146,7 +146,15 @@ class TradingPlatform:
         elif isinstance(obj, ts.ServerStatus):
             if obj.connected == 'true':
                 self.setConnected2Transaq()
-                logging.info('connected to TRANSAQ' )
+            else:   
+                self.tc.connected = False
+                while self.tc.connected == False:
+                    self.disconnect()                    
+                    log.info('waiting 60 seconds to establish a connection...')
+                    time.sleep(60)
+                    self.tc.initialize("log", 3, self.handle_txml_message) 
+                    self.connect2TRANSAQ()
+                    
         elif isinstance(obj, ts.HistoryCandlePacket):
             self.onHistoryCandleCall(obj)
             self.cancelTimedoutEntries()
@@ -192,9 +200,19 @@ class TradingPlatform:
             self.tc.uninitialize()
         
     def setConnected2Transaq(self):
+        
+        logging.info('connected to TRANSAQ' )
+        
+        if self.candlesUpdateTask is not None:
+            log.info('candlesUpdateTask was running before ...')
+            self.candlesUpdateTask.terminate()
+            log.info('stopping candlesUpdateTask ...')
+            time.sleep(2)   
+
         self.tc.connected = True
         log.info('requesting last 300 entries of the securities ...')
-        self.HistoryCandleReq( self.securities, 1, 300)
+        self.HistoryCandleReq( self.securities, 1, 300)                 
+        
         log.info('starting candlesUpdateThread ...')
         self.candlesUpdateTask = candleUpdateTask(self.tc)
         t = Thread(
@@ -269,13 +287,28 @@ class TradingPlatform:
         
     def triggerWhenMatched(self, order):
         
+        trigger = False
+        transactionId = None
+        position = None
+        
         for cp in self.counterPositions:
             transactionId, position = cp
             if order.id == transactionId:
-                m = "trigering onCounterPosition for {}".format( str(position) )
-                logging.info( m )                
-                self.onCounterPosition(position)
-                
+                trigger = True
+                break
+
+        
+        if trigger == True:
+            m = "trigering onCounterPosition for {}".format( str(position) )
+            logging.info( m )
+            position2invert = copy.deepcopy(position)
+            self.counterPositions = \
+            list(filter(lambda x: x[0] != transactionId, self.counterPositions))            
+            
+            self.onCounterPosition(position2invert)
+            
+            
+            
         
     def processOrderStatus(self, order):
         
@@ -285,7 +318,7 @@ class TradingPlatform:
 
         if s == 'matched':
             
-            self.triggerWhenMatched(order)
+            clone = copy.deepcopy(order)            
             for m in self.monitoredPositions:
                 if m.entry_id == order.id: monitoredPosition = m; break;
                 if m.exit_id == order.id: monitoredPosition = m; break;
@@ -302,7 +335,9 @@ class TradingPlatform:
                 if order in self.monitoredOrders:
                     self.monitoredOrders.remove(order)
                 m = "{} already requested before, deleted".format(order.id)                
-                logging.info( m )                
+                logging.info( m ) 
+                
+            self.triggerWhenMatched(clone)            
             
         elif s in ['watching','active','forwarding']:
             
@@ -390,13 +425,13 @@ class TradingPlatform:
            if msp.seccode == seccode:
                inMSP = True
                break
-      
-        isExitOrderNotTriggered = inMP and inMSP
-        
+              
         for mo in self.monitoredOrders:
             if mo.seccode == seccode:
                 isOrderActive = True
                 break
+            
+        isExitOrderNotTriggered = inMP and ( inMSP or isOrderActive )
         
         isExitOrderActive = not inMP and isOrderActive
       
@@ -429,12 +464,27 @@ class TradingPlatform:
 
         return total
     
-    def openPosition ( self, position):
+    def getExpDate(self, seccode):
+
+        nSec = 0
+        for sec in self.securities :
+            if seccode == sec['seccode']:
+                nSec = sec['params']['ActiveTimeSeconds']
         
+        if nSec == 0 : log.error('this shouldnt happen'); return;                
+                
         moscowTime = self.getMoscowTime()
-        nSec = position.entryTimeSeconds
         moscowTime_plusNsec = moscowTime + datetime.timedelta(seconds = nSec)
-        position.expdate = moscowTime_plusNsec.strftime(self.fmt) 
+        expdate = moscowTime_plusNsec.strftime(self.fmt) 
+        
+        
+        return expdate
+
+        
+    
+    def openPosition ( self, position):        
+
+        position.expdate = self.getExpDate(position.seccode)
         price = round(position.entryPrice , position.decimals)
         price = "{0:0.{prec}f}".format(price,prec=position.decimals)        
         
@@ -488,7 +538,10 @@ class TradingPlatform:
             cloneMP = copy.deepcopy(monitoredPosition)
             tid = self.closeExit( monitoredPosition, monitoredStopOrder )
             if withCounterPosition == True:
-                log.info('adding position to counterPositions ...')                
+                log.info('adding position to counterPositions ...') 
+                cloneMP.stopOrderRequested = False
+                cloneMP.entry_id = None
+                cloneMP.exit_id = None
                 cp = ( tid, cloneMP )
                 self.counterPositions.append(cp)            
    
@@ -499,7 +552,8 @@ class TradingPlatform:
         if self.tc.connected == False:
             log.warning('wait!, not connected to TRANSAQ yet...')
             return
-        if self.isPositionOpen(position.seccode) and position.takePosition != "close":            
+        if self.isPositionOpen(position.seccode) and \
+           position.takePosition not in ['close','close-counterPosition']:
             msg='there is a position opened for {}'.format(position.seccode)            
             logging.warning( msg )
             return        
@@ -702,7 +756,7 @@ class TradingPlatform:
                         clone.client,
                         clone.union,
                         clone.buysell,
-                        clone.exp_date.strftime(self.fmt),
+                        self.getExpDate(clone.seccode),
                         clone.union,
                         clone.quantity,
                         price=0,
@@ -714,7 +768,7 @@ class TradingPlatform:
                     else:
                         log.error('exit was erroneously processed')
                 else:
-                    logging.error("cancel active-order error by transaq")   
+                    log.error("cancel active-order error by transaq")   
         
         
         
