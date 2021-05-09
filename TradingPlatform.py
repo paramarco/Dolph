@@ -146,10 +146,10 @@ class TradingPlatform:
         elif isinstance(obj, ts.ServerStatus):
             if obj.connected == 'true':
                 self.setConnected2Transaq()
-            else:   
+            else:
+                self.disconnect()
                 self.tc.connected = False
                 while self.tc.connected == False:
-                    self.disconnect()                    
                     log.info('waiting 60 seconds to establish a connection...')
                     time.sleep(60)
                     self.tc.initialize("log", 3, self.handle_txml_message) 
