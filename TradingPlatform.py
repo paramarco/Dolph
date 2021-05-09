@@ -264,7 +264,10 @@ class TradingPlatform:
         trigger_price_sl = "{0:0.{prec}f}".format(
             round(monitoredPosition.stoploss, monitoredPosition.decimals),
             prec = monitoredPosition.decimals
-        )                 
+        )
+        
+        monitoredPosition.quantity = abs( order.quantity - order.balance )
+                 
         res = self.tc.new_stoporder(
             order.board, order.seccode, order.client, buysell, 
             monitoredPosition.quantity,trigger_price_sl,trigger_price_tp,

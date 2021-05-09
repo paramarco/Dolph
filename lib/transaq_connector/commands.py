@@ -217,6 +217,7 @@ class TransaqConnector:
         root.append(self.__elem("buysell", buysell.upper()))
         root.append(self.__elem("expdate", expdate))
         root.append(self.__elem("brokerref", brokerref))
+        root.append(self.__elem("unfilled", "IOC".encode('utf-8') ) )        
         root.append(self.__elem("quantity", str(quantity)))
         if not bymarket:
             root.append(self.__elem("price", str(price)))

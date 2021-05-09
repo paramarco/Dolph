@@ -606,6 +606,11 @@ class Order(BaseOrder):
     valid_after = DateTimeField('valid_after', timeformat)
     # Максимальная комиссия по сделкам заявки
     max_commission = FloatField('maxcomission')
+    
+    def __repr__(self):
+        text = ', balance={}'
+        text = super().__repr__() + text.format(str(self.balance)) 
+        return text
 
 
 class StopOrder(BaseOrder):
