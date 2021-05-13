@@ -30,22 +30,22 @@ class Dolph:
         self.securities = securities
         
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
-        self.MODE = 'OPERATIONAL' 
+        self.MODE = 'TEST_OFFLINE' 
 
-        self.numTestSample = 1300
-        self.since = dt.date(year=2020    ,month=2,day=1)
-        self.between_time = ('07:00', '23:50')
+        self.numTestSample = 20
+        self.since = dt.date(year=2021,month=5,day=12)
+        self.between_time = ('07:00', '23:00')
         self.TrainingHour = 10
     
-        if self.MODE == 'TRAIN_OFFLINE' or self.MODE == 'TEST_OFFLINE':
+        # if self.MODE == 'TRAIN_OFFLINE' or self.MODE == 'TEST_OFFLINE':
             
-            if self.TrainingHour in range(9,14):
-                self.between_time = ('07:00', '14:00')
-            else:
-                self.between_time = ('14:00', '23:00')
+        #     if self.TrainingHour in range(9,14):
+        #         self.between_time = ('07:00', '17:00')
+        #     else:
+        #         self.between_time = ('14:00', '23:00')
    
                
-        self.periods = ['1Min','2Min']
+        self.periods = ['1Min','5Min']
 
         self.data = {}
         self.inputDataTest = {}
@@ -411,7 +411,7 @@ class Dolph:
         moscowHour = moscowTime.hour
         moscowMin= moscowTime.minute
 
-        nogoHours = [16]
+        nogoHours = []
         if moscowHour in nogoHours:
             logging.info('we are in a no-go hour ...')  
             return entryPrice, exitPrice, decision, printPrices        
@@ -753,8 +753,8 @@ if __name__== "__main__":
 
     securities = [] 
     # securities.append( {'board':'FUT', 'seccode':'SRM1'} )
-    securities.append( {'board':'FUT', 'seccode':'GZM1'} ) 
-    # securities.append( {'board':'FUT', 'seccode':'SiM1'} ) 
+    # securities.append( {'board':'FUT', 'seccode':'GZM1'} ) 
+    securities.append( {'board':'FUT', 'seccode':'SiM1'} ) 
 
     dolph = Dolph( securities )
 

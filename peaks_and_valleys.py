@@ -94,13 +94,15 @@ class Model:
         seriesEnd = df['EndPrice']
         seriesMax = df['MaxPrice']
         seriesMin = df['MinPrice']
+        seriesStart = df['StartPrice']
+        seriesAvg = (seriesEnd + seriesMax + seriesMin + seriesStart)/4
         times =     df['CalcDateTime']
         
         log.info('from ' + str(times[0]) + ' to ' + str(times[-1]) )
         # Find indices of peaks
-        peak_idx, _ = find_peaks(seriesMax, distance=self.bestDistancePeak)        
+        peak_idx, _ = find_peaks(seriesAvg, distance=self.bestDistancePeak)        
         # Find indices of valleys (from inverting the signal)
-        valley_idx, _ = find_peaks(-seriesMin, distance=self.bestDistanceValley)
+        valley_idx, _ = find_peaks(-seriesAvg, distance=self.bestDistanceValley)
         
         fluctuation['peak_idx'] = peak_idx
         fluctuation['valley_idx'] = valley_idx
@@ -121,6 +123,8 @@ class Model:
             lable= 'GAZPROM'
         elif(seseccode == 'SRM1'):
              lable= 'SBERBANK'
+        elif(seseccode == 'SiM1'):
+             lable= 'SIH'
         
         # Plot curves
         # t = np.arange(start=0, stop=len(seriesEnd), step=1, dtype=int)
