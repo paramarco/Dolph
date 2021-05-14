@@ -30,7 +30,7 @@ class Dolph:
         self.securities = securities
         
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
-        self.MODE = 'TEST_OFFLINE' 
+        self.MODE = 'OPERATIONAL' 
 
         self.numTestSample = 20
         self.since = dt.date(year=2021,month=5,day=12)
@@ -45,7 +45,7 @@ class Dolph:
         #         self.between_time = ('14:00', '23:00')
    
                
-        self.periods = ['1Min','5Min']
+        self.periods = ['1Min','2Min']
 
         self.data = {}
         self.inputDataTest = {}
@@ -753,8 +753,8 @@ if __name__== "__main__":
 
     securities = [] 
     # securities.append( {'board':'FUT', 'seccode':'SRM1'} )
-    # securities.append( {'board':'FUT', 'seccode':'GZM1'} ) 
-    securities.append( {'board':'FUT', 'seccode':'SiM1'} ) 
+    securities.append( {'board':'FUT', 'seccode':'GZM1'} ) 
+    # securities.append( {'board':'FUT', 'seccode':'SiM1'} ) 
 
     dolph = Dolph( securities )
 

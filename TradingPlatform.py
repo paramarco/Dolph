@@ -58,8 +58,12 @@ class Position:
         self.client = None
         self.union = None
         self.expdate = None
+        # exit_order_no := it's the number Transaq gives to the order which is 
+        # automatically triggered by a tp_executed or sl_executed 
+        self.exit_order_no = None
 
     def __str__(self):
+        fmt = "%d.%m.%Y %H:%M:%S"
         msg = ' takePosition='+ self.takePosition 
         msg += ' board=' + self.board 
         msg += ' seccode=' + self.seccode
@@ -73,7 +77,7 @@ class Position:
         msg += ' bymarket=' + str(self.bymarket)
         msg += ' entry_id=' + str(self.entry_id)
         msg += ' exit_id=' + str(self.exit_id)
-        fmt = "%d.%m.%Y %H:%M:%S"
+        msg += ' exit_order_no=' + str(self.exit_order_no)
         msg += ' exitTime=' + self.exitTime.strftime(fmt)
         
 
@@ -315,16 +319,18 @@ class TradingPlatform:
         
     def processOrderStatus(self, order):
         
-        logging.info( repr(order) )        
+        logging.info( repr(order) ) 
+        clone = copy.deepcopy(order)
         s = order.status
         monitoredPosition = None
 
-        if s == 'matched':
-            
-            clone = copy.deepcopy(order)            
+        if s == 'matched':          
+
             for m in self.monitoredPositions:
-                if m.entry_id == order.id: monitoredPosition = m; break;
-                if m.exit_id == order.id: monitoredPosition = m; break;
+                if m.entry_id == order.id or m.exit_id == order.id or \
+                   m.exit_order_no == order.order_no :
+                   monitoredPosition = m;
+                   break
                     
             if monitoredPosition is None :
                 m ='already processed, deleting: {}'.format( repr(order))
@@ -332,12 +338,14 @@ class TradingPlatform:
                 if order in self.monitoredOrders:
                     self.monitoredOrders.remove(order) 
                 
-            elif monitoredPosition.stopOrderRequested == False :
+            elif not monitoredPosition.stopOrderRequested:
                 self.triggerStopOrder(order, monitoredPosition)                
-            else:                
+            else:
+                self.monitoredPositions = [ p for p in self.monitoredPositions 
+                                         if p.exit_order_no != order.order_no ]                
                 if order in self.monitoredOrders:
                     self.monitoredOrders.remove(order)
-                m = "{} already requested before, deleted".format(order.id)                
+                m = "exit complete: {}".format(str(monitoredPosition))                
                 logging.info( m ) 
                 
             self.triggerWhenMatched(clone)            
@@ -371,9 +379,9 @@ class TradingPlatform:
 
     def processStopOrderStatus(self, stopOrder):
         
-        logging.info( repr(stopOrder) )
-        
+        logging.info( repr(stopOrder) )       
         s = stopOrder.status
+        m = ''
         
         if s in ['tp_guardtime','tp_forwarding','watching',
                  "sl_forwarding","sl_guardtime"] :
@@ -382,26 +390,37 @@ class TradingPlatform:
                 self.monitoredStopOrders.append(stopOrder)
                 m = 'stopOrder {} with status: {} added to monitoredStopOrders'
                 m = m.format( stopOrder.id, s)
-                logging.info( m )                
 
-
-        elif s in ['tp_executed','sl_executed','cancelled','denied','disabled',
-                   'expired','failed','rejected']:
+        elif s in ['tp_executed','sl_executed']:
+            
+            for mp in self.monitoredPositions:
+                if mp.exit_id == stopOrder.id and stopOrder.order_no is not None: 
+                    mp.exit_order_no = stopOrder.order_no; break;
+                            
+            
             if stopOrder in self.monitoredStopOrders:
                 self.monitoredStopOrders.remove(stopOrder)
             
-                m='id: {} with status: {} deleted from monitoredStopOrders'
-                m = m.format( stopOrder.id, s )
-                logging.info( m )
-                self.monitoredPositions = [ p for p in self.monitoredPositions 
-                                             if p.exit_id != stopOrder.id ] 
-                self.updatePortfolioPerformance(s)
+            m='id: {} with status: {} deleted from monitoredStopOrders'
+            m = m.format( stopOrder.id, s )      
+            self.updatePortfolioPerformance(s)            
+            
+        elif s in ['cancelled','denied','disabled','expired','failed','rejected']:
+            
+            self.monitoredPositions = [ p for p in self.monitoredPositions
+                                       if p.exit_id != stopOrder.id ] 
+            
+            if stopOrder in self.monitoredStopOrders:
+                self.monitoredStopOrders.remove(stopOrder)
+            
+            m='id: {} with status: {} deleted from monitoredStopOrders,'
+            m = m.format( stopOrder.id, s )
            
         else:            
             others = '"linkwait","tp_correction","tp_correction_guardtime"'
             m = 'status: {} skipped, belongs to: {}'.format( s, others)
-            logging.info( m )
         
+        logging.info( m )        
         self.reportCurrentOpenPositions()
         
     def isPositionOpen( self, seccode ):
@@ -450,15 +469,15 @@ class TradingPlatform:
         numMonStopOrder = len(self.monitoredStopOrders)
         
         msg = "\n"
-        msg += 'monitored Positions: '+str(numMonPosition)+'\n'
+        msg += 'monitored Positions : '+str(numMonPosition)+'\n'
         for mp in self.monitoredPositions:
             msg += str(mp) + '\n'
             
-        msg += 'monitored Orders   (entries): '+str(numMonOrder)+'\n'
+        msg += 'monitored Orders    : '+str(numMonOrder)+'\n'
         for mo in self.monitoredOrders:
             msg += repr(mo) + '\n'
             
-        msg += 'monitored StopOrders (exits): '+str(numMonStopOrder)+'\n'
+        msg += 'monitored StopOrders: '+str(numMonStopOrder)+'\n'
         for mso in self.monitoredStopOrders:
             msg +=  repr(mso) + '\n'
         
