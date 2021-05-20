@@ -6,26 +6,17 @@ Created on Mon Apr  5 13:31:56 2021
 """
 
 
-import os
-import math
+
 import logging
 import pandas as pd
 from pandas import DataFrame
 import numpy as np
-from matplotlib import pyplot
-import matplotlib.dates as mdates
 
-import tensorflow as tf
 import matplotlib.pyplot as plt
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense
-from tensorflow.keras import regularizers
-from tensorflow.keras.models import load_model
-from tensorflow.keras import optimizers
-log = logging.getLogger("TradingPlatform")
-from keras.callbacks import LearningRateScheduler
-from keras import backend as K
 
+log = logging.getLogger("TradingPlatform")
+
+import scipy.signal as signal
 
 # import NeuronalNet_v6 as nn_v6
 from scipy.signal import find_peaks
@@ -51,11 +42,11 @@ class Model:
         self.mode = mode                
         samples = str(params['minNumPastSamples'])  +'Samples'  
         
-        self.TargetHours = None
-        if currentHour in range(9,14):
-            self.TargetHours = range(9,14)
-        else:
-            self.TargetHours = range(14,20)
+        # self.TargetHours = None
+        # if currentHour in range(7,23):
+        self.TargetHours = range(7,23)
+        # else:
+        #     self.TargetHours = range(14,20)
             
         tb = self.TargetHours[0]
         te = self.TargetHours[-1]
@@ -87,9 +78,11 @@ class Model:
         numWindowSize = 25
         dataframe = dataframe.tail(numWindowSize)
         fluctuation = {}
+        fluctuation_filtered = {}
         df = dataframe.copy()
         df['CalcDateTime'] = dataframe.index
         fluctuation['samplingWindow'] = df[['CalcDateTime','StartPrice','MaxPrice','MinPrice','EndPrice',] ]
+        fluctuation_filtered['samplingWindow'] = df[['CalcDateTime','StartPrice','MaxPrice','MinPrice','EndPrice',] ]
 
         seriesEnd = df['EndPrice']
         seriesMax = df['MaxPrice']
@@ -98,9 +91,37 @@ class Model:
         seriesAvg = (seriesEnd + seriesMax + seriesMin + seriesStart)/4
         times =     df['CalcDateTime']
         
+        
+        
+        b, a = signal.butter(2, 0.2)
+        zi = signal.lfilter_zi(b, a)
+
+        filtered, _ = signal.lfilter(b, a, seriesAvg, zi=zi*seriesAvg[0])
+        filtered2, _ = signal.lfilter(b, a, filtered, zi=zi*filtered[0])
+        y = signal.filtfilt(b, a, seriesAvg)
+        plt.plot(y ,'g')
+        plt.plot(seriesAvg.to_numpy(), 'r')
+        plt.show()
+
         log.info('from ' + str(times[0]) + ' to ' + str(times[-1]) )
+        
         # Find indices of peaks
-        peak_idx, _ = find_peaks(seriesAvg, distance=self.bestDistancePeak)        
+        peak_idx_filtered, _ = find_peaks(y, distance=self.bestDistancePeak)        
+        # Find indices of valleys (from inverting the signal)
+        valley_idx_filtered, _ = find_peaks(-y, distance=self.bestDistanceValley)
+        
+        
+        fluctuation_filtered['peak_idx'] = peak_idx_filtered
+        fluctuation_filtered['valley_idx'] = valley_idx_filtered
+        
+        self.plotPeaksAndValleys (
+            y,y, y,peak_idx_filtered,valley_idx_filtered, 
+            fluctuation_filtered, sec, times
+        )  
+        
+        
+        # Find indices of peaks
+        peak_idx, _ = find_peaks(seriesAvg, distance=self.bestDistancePeak )        
         # Find indices of valleys (from inverting the signal)
         valley_idx, _ = find_peaks(-seriesAvg, distance=self.bestDistanceValley)
         
@@ -112,7 +133,7 @@ class Model:
             fluctuation, sec, times
         )  
               
-        return fluctuation
+        return fluctuation_filtered
     
     
     def plotPeaksAndValleys (self, seriesMax,seriesEnd, seriesMin, 
@@ -144,22 +165,13 @@ class Model:
 
 
         
-        #PLOT CLOSE PRICE WHICH IS ALMOST ENRTY+-
-        dataInSamplinWindow = fluctuation['samplingWindow']
-        currentClose = dataInSamplinWindow.iloc[-1].EndPrice
-
-        entryPrice=currentClose
-        
         new_peak_ind=np.array(peak_idx)+1
         plt.plot(t[new_peak_ind],seriesEnd[new_peak_ind], 'm^') 
         new_valley_ind=np.array(valley_idx)+1
         plt.plot(t[new_valley_ind],seriesEnd[new_valley_ind], 'm^') 
         plt.title('Prediction for ' + lable)
         
-        # axes1 = plt.gca()
-        # axes2 = axes1.twiny()
-        # indices = np.arange(start=0, stop=len(seriesEnd), step=1, dtype=int)
-        # axes2.set_xticks(indices)
+
         
         plt.show()
         

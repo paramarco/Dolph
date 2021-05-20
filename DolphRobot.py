@@ -32,9 +32,9 @@ class Dolph:
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
         self.MODE = 'OPERATIONAL' 
 
-        self.numTestSample = 20
-        self.since = dt.date(year=2021,month=5,day=12)
-        self.between_time = ('07:00', '23:00')
+        self.numTestSample =100
+        self.since = dt.date(year=2021,month=5,day=18)
+        self.between_time = ('07:00', '23:40')
         self.TrainingHour = 10
     
         # if self.MODE == 'TRAIN_OFFLINE' or self.MODE == 'TEST_OFFLINE':
@@ -45,7 +45,7 @@ class Dolph:
         #         self.between_time = ('14:00', '23:00')
    
                
-        self.periods = ['1Min','2Min']
+        self.periods = ['1Min','1Min']
 
         self.data = {}
         self.inputDataTest = {}
@@ -219,7 +219,7 @@ class Dolph:
             
         elif position.takePosition == 'short':
             position.entryPrice = lastClosePrice - smallDeltaExtreamCase
-            position.exitPrice =position.entryPrice+deltaForExit
+            position.exitPrice =position.entryPrice-deltaForExit
             position.stoploss = position.entryPrice  + k * deltaForExit
             
         
@@ -583,15 +583,27 @@ class Dolph:
             byMarket = False            
             fluctuation = predictions[-1]
             numWindowSize = fluctuation['samplingWindow'].shape[0]
-            indexLastPeak = fluctuation['peak_idx'][-1]
-            indexLastValley = fluctuation['valley_idx'][-1]
-        
+            
+            if fluctuation['peak_idx'].any() :
+                indexLastPeak = fluctuation['peak_idx'][-1]
+            else:
+                indexLastPeak = 0
+                
+            if fluctuation['valley_idx'].any() :
+                indexLastValley = fluctuation['valley_idx'][-1]
+            else:
+                indexLastValley = 0    
+            
             if indexLastPeak == (numWindowSize - 2) and indexLastPeak  != indexLastValley :
                 status = 1
             elif indexLastValley == (numWindowSize - 2) and indexLastPeak  != indexLastValley :
                  status = -1
             elif indexLastPeak  == indexLastValley: #if in the same point thera peak and valley
                  status = 0  
+            elif indexLastPeak == (numWindowSize - 3) and indexLastPeak  != indexLastValley :
+                status = 1  
+            elif indexLastValley == (numWindowSize - 3) and indexLastPeak  != indexLastValley :
+                 status = -1    
             else:
                  status = 0  
                  
@@ -604,7 +616,7 @@ class Dolph:
             
                 
             
-            nogoHours = [16]
+            nogoHours = [19, 20,21]
             if moscowHour in nogoHours:
                 logging.info('we are in a no-go hour ...')  
                 takePosition = 'no-go' 
@@ -640,64 +652,53 @@ class Dolph:
     
     def takeDecisionPeaksAndValleys(self, security, status,fluctuation, limitToAcceptFallingOfPrice ):
         
-        distanceBetweenPeekAndValley=2
+        # distanceBetweenPeekAndValley=2
 
         openPosition = self.tp.isPositionOpen( security['seccode'] )
         
-        if (fluctuation['peak_idx'].size  >= 2):    
-            indexLastPeak = fluctuation['peak_idx'][-1]
-            index2LastPeak = fluctuation['peak_idx'][-2]
-        elif(fluctuation['peak_idx'].size  == 1 ):
-            indexLastPeak = fluctuation['peak_idx'][-1]
-            index2LastPeak = 0
-        else:
-            indexLastPeak=0
-            index2LastPeak=0
-        if (fluctuation['valley_idx'].size  >= 2):   
-            indexLastValley = fluctuation['valley_idx'][-1]
-            index2LastValley = fluctuation['valley_idx'][-2]
-        elif(fluctuation['valley_idx'].size  == 1 ):
-            indexLastValley = fluctuation['valley_idx'][-1]
-            index2LastValley = 0
-        else:
-            indexLastValley=0
-            index2LastValley=0
+        # if (fluctuation['peak_idx'].size  >= 2):    
+        #     indexLastPeak = fluctuation['peak_idx'][-1]
+        #     index2LastPeak = fluctuation['peak_idx'][-2]
+        # elif(fluctuation['peak_idx'].size  == 1 ):
+        #     indexLastPeak = fluctuation['peak_idx'][-1]
+        #     index2LastPeak = 0
+        # else:
+        #     indexLastPeak=0
+        #     index2LastPeak=0
+        # if (fluctuation['valley_idx'].size  >= 2):   
+        #     indexLastValley = fluctuation['valley_idx'][-1]
+        #     index2LastValley = fluctuation['valley_idx'][-2]
+        # elif(fluctuation['valley_idx'].size  == 1 ):
+        #     indexLastValley = fluctuation['valley_idx'][-1]
+        #     index2LastValley = 0
+        # else:
+        #     indexLastValley=0
+        #     index2LastValley=0
             
         takePosition = 'no-go'
         
         if status == 1:
             if openPosition == True:
-                if  (security['lastPositionTaken']  =='short' ):
+                if (security['lastPositionTaken'] ==  'short'):
                     takePosition = 'no-go'
-                elif (abs(indexLastPeak-indexLastValley) <= distanceBetweenPeekAndValley):
-                    takePosition = 'no-go' 
                 else:
-                    takePosition = 'close'  
+                    takePosition = 'close-counterPosition'  
                     security['lastPositionTaken'] = None
                     security['savedEntryPrice'] = 0
             else:
-                if (abs(indexLastPeak-indexLastValley) <= distanceBetweenPeekAndValley):
-                    takePosition = 'no-go'
-                else:
                     takePosition= 'short' 
                     security['lastPositionTaken'] = takePosition
                     security['savedEntryPrice'] = 0
 
         elif (status == -1):
-            if (openPosition == True ):
-                if (security['lastPositionTaken'] =='long' ):
-                    takePosition = 'no-go'
-                elif (abs(indexLastValley-indexLastPeak) <= distanceBetweenPeekAndValley):
-                    takePosition = 'no-go'
-                else: 
-                    takePosition = 'close' 
-                    security['lastPositionTaken'] = None
-                    security['savedEntryPrice'] = 0
-
-            else:
-                if (abs(indexLastPeak-indexLastValley) <= distanceBetweenPeekAndValley):
+            if openPosition == True:
+                if (security['lastPositionTaken'] ==  'long'):
                     takePosition = 'no-go'
                 else:
+                    takePosition = 'close-counterPosition' 
+                    security['lastPositionTaken'] = None
+                    security['savedEntryPrice'] = 0
+            else:             
                     takePosition= 'long' 
                     security['lastPositionTaken'] = takePosition
                     security['savedEntryPrice'] = 0
@@ -753,8 +754,8 @@ if __name__== "__main__":
 
     securities = [] 
     # securities.append( {'board':'FUT', 'seccode':'SRM1'} )
-    securities.append( {'board':'FUT', 'seccode':'GZM1'} ) 
-    # securities.append( {'board':'FUT', 'seccode':'SiM1'} ) 
+    # securities.append( {'board':'FUT', 'seccode':'GZM1'} ) 
+    securities.append( {'board':'FUT', 'seccode':'SiM1'} ) 
 
     dolph = Dolph( securities )
 
