@@ -115,7 +115,7 @@ class Model:
         fluctuation_filtered['valley_idx'] = valley_idx_filtered
         
         self.plotPeaksAndValleys (
-            y,y, y,peak_idx_filtered,valley_idx_filtered, 
+            y,y, y,y, peak_idx_filtered,valley_idx_filtered, 
             fluctuation_filtered, sec, times
         )  
         
@@ -129,14 +129,14 @@ class Model:
         fluctuation['valley_idx'] = valley_idx
         
         self.plotPeaksAndValleys (
-            seriesMax,seriesEnd, seriesMin,peak_idx,valley_idx, 
+            seriesMax,seriesEnd, seriesMin, y, peak_idx,valley_idx, 
             fluctuation, sec, times
         )  
               
         return fluctuation_filtered
     
     
-    def plotPeaksAndValleys (self, seriesMax,seriesEnd, seriesMin, 
+    def plotPeaksAndValleys (self, seriesMax,seriesEnd, seriesMin, filteredDataLine,
                              peak_idx,valley_idx,fluctuation,sec, times ):  
         
         seseccode = sec['seccode']
@@ -153,7 +153,8 @@ class Model:
         plt.plot(t, seriesMax)
         plt.plot(t, seriesEnd)
         plt.plot(t, seriesMin)
-        
+        plt.plot(t , filteredDataLine, 'b')
+
         # Plot peaks (red) and valleys (blue)
         plt.plot(t[peak_idx], seriesMax[peak_idx], 'g^')
         plt.plot(t[valley_idx], seriesMin[valley_idx], 'rv')
