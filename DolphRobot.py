@@ -546,109 +546,104 @@ class Dolph:
 
 
     def evaluatePosition (self, security):        
-        for p in self.periods:
 
-        # longestPeriod = self.periods[-1]
-            longestPeriod = p
-            board = security['board']
-            seccode = security['seccode']
-            decimals, marketId =    self.ds.getSecurityInfo (security)
-            decimals = int(decimals)
-            params = self.ds.getSecurityAlgParams( security )       
-            byMarket =              params['entryByMarket']
-            entryTimeSeconds =      params['entryTimeSeconds']
-            exitTimeSeconds =       params['exitTimeSeconds'] 
-            quantity =              params['positionQuantity']
-            k =                     params['stopLossCoefficient']
-            marginsByHour =         params['positionMargin']
-            correctionByHour =      params['correction']
-            spreadByHour =          params['spread']
-            smallDelta =            params['smallDelta']
-            limitToAcceptFallingOfPrice = params['limitToAcceptFallingOfPrice']
-    
-            moscowTimeZone = pytz.timezone('Europe/Moscow')                    
-            moscowTime = dt.datetime.now(moscowTimeZone)
-            moscowHour = moscowTime.hour
+        longestPeriod = self.periods[-1]
+        # longestPeriod = p
+        board = security['board']
+        seccode = security['seccode']
+        decimals, marketId =    self.ds.getSecurityInfo (security)
+        decimals = int(decimals)
+        params = self.ds.getSecurityAlgParams( security )       
+        byMarket =              params['entryByMarket']
+        entryTimeSeconds =      params['entryTimeSeconds']
+        exitTimeSeconds =       params['exitTimeSeconds'] 
+        quantity =              params['positionQuantity']
+        k =                     params['stopLossCoefficient']
+        marginsByHour =         params['positionMargin']
+        correctionByHour =      params['correction']
+        spreadByHour =          params['spread']
+        smallDelta =            params['smallDelta']
+        limitToAcceptFallingOfPrice = params['limitToAcceptFallingOfPrice']
+
+        moscowTimeZone = pytz.timezone('Europe/Moscow')                    
+        moscowTime = dt.datetime.now(moscowTimeZone)
+        moscowHour = moscowTime.hour
+        
+        spread =        spreadByHour[str(moscowHour)]
+        correction =    correctionByHour[str(moscowHour)]
+        deltaForExit =  marginsByHour[str(moscowHour)]
+
+        exitTime = moscowTime + dt.timedelta(seconds = exitTimeSeconds)
+        stoploss = 0.0
+        exitPrice =  0.0
+        entryPrice =  0.0
+        
+        status = {}
+        for p in self.periods:
             
-            spread =        spreadByHour[str(moscowHour)]
-            correction =    correctionByHour[str(moscowHour)]
-            deltaForExit =  marginsByHour[str(moscowHour)]
-    
-            exitTime = moscowTime + dt.timedelta(seconds = exitTimeSeconds)
-            stoploss = 0.0
-            exitPrice =  0.0        
+            predictions = copy.deepcopy(security['predictions'][p])    
+            byMarket = False            
+            fluctuation = predictions[-1]
+            numWindowSize = fluctuation['samplingWindow'].shape[0]
             
-            predictions = copy.deepcopy(security['predictions'][longestPeriod])
-            model = security['models'][longestPeriod]
-    
-            if hasattr(model, 'id') and model.id == 'peaks_and_valleys':
-                byMarket = False            
-                fluctuation = predictions[-1]
-                numWindowSize = fluctuation['samplingWindow'].shape[0]
-                
-                if fluctuation['peak_idx'].any() :
-                    indexLastPeak = fluctuation['peak_idx'][-1]
-                else:
-                    indexLastPeak = 0
-                    
-                if fluctuation['valley_idx'].any() :
-                    indexLastValley = fluctuation['valley_idx'][-1]
-                else:
-                    indexLastValley = 0    
-                
-                if indexLastPeak == (numWindowSize - 2) and indexLastPeak  != indexLastValley :
-                    status = 1
-                elif indexLastValley == (numWindowSize - 2) and indexLastPeak  != indexLastValley :
-                     status = -1
-                elif indexLastPeak  == indexLastValley: #if in the same point thera peak and valley
-                     status = 0  
-                elif indexLastPeak == (numWindowSize - 3) and indexLastPeak  != indexLastValley :
-                    status = 1  
-                elif indexLastValley == (numWindowSize - 3) and indexLastPeak  != indexLastValley :
-                     status = -1    
-                else:
-                     status = 0  
-                     
-                logging.info('last change was = ' + str(status) ) 
-               
-                takePosition = self.takeDecisionPeaksAndValleys(security, status, fluctuation,limitToAcceptFallingOfPrice )
-                entryPrice = self.getEntryPrice(fluctuation, takePosition, smallDelta)
-                if (takePosition == 'short' or takePosition == 'long'):
-                    security['savedEntryPrice'] = entryPrice
-                
-                    
-                
-                nogoHours = [19, 20,21]
-                if moscowHour in nogoHours:
-                    logging.info('we are in a no-go hour ...')  
-                    takePosition = 'no-go' 
-                    entryPrice = 0.0
-    
+            if fluctuation['peak_idx'].any() :
+                indexLastPeak = fluctuation['peak_idx'][-1]
             else:
-                candlePredList,lastCandle = self.getPositionAssessmentParams(predictions)
-                entryPrice = lastCandle['currentClose']            
-                entryPrice, exitPrice, takePosition, printPrices = \
-                    self.positionAssestment(security,candlePredList,lastCandle)
-    
+                indexLastPeak = 0
+                
+            if fluctuation['valley_idx'].any() :
+                indexLastValley = fluctuation['valley_idx'][-1]
+            else:
+                indexLastValley = 0    
+            
+            if indexLastPeak == (numWindowSize - 2) and indexLastPeak  != indexLastValley :
+                status[p] = 1
+            elif indexLastValley == (numWindowSize - 2) and indexLastPeak  != indexLastValley :
+                 status[p] = -1
+            elif indexLastPeak  == indexLastValley: #if in the same point thera peak and valley
+                 status[p] = 0  
+            elif indexLastPeak == (numWindowSize - 3) and indexLastPeak  != indexLastValley :
+                status[p] = 1  
+            elif indexLastValley == (numWindowSize - 3) and indexLastPeak  != indexLastValley :
+                 status[p] = -1    
+            else:
+                 status[p] = 0  
+                 
+            logging.info('last change was = ' + str(status[p]) ) 
+        
+        if status[self.periods[0]] == status[self.periods[-1]]:
+            takePosition = self.takeDecisionPeaksAndValleys(
+                security, status[self.periods[0]], 
+                fluctuation, limitToAcceptFallingOfPrice
+            )
+            entryPrice = self.getEntryPrice(fluctuation, takePosition, smallDelta)
+            if (takePosition == 'short' or takePosition == 'long'):
+                security['savedEntryPrice'] = entryPrice            
+            nogoHours = [19, 20,21]
+            if moscowHour in nogoHours:
+                logging.info('we are in a no-go hour ...')  
+                takePosition = 'no-go' 
+                entryPrice = 0.0    
             if takePosition == 'long':
                 exitPrice = entryPrice  + deltaForExit
-                stoploss = entryPrice  - k * deltaForExit
-                
+                stoploss = entryPrice  - k * deltaForExit                
             elif takePosition == 'short':
                 exitPrice = entryPrice  - deltaForExit
-                stoploss = entryPrice  + k * deltaForExit
-                
+                stoploss = entryPrice  + k * deltaForExit                
             else:
                 exitPrice = entryPrice
                 stoploss = entryPrice
-            logging.info('exitPrice'+str(exitPrice))  
-            logging.info('entryPrice'+str(entryPrice)) 
-            position = tp.Position(
-                takePosition, board, seccode, marketId, entryTimeSeconds, 
-                quantity, entryPrice, exitPrice , stoploss, decimals, exitTime,
-                correction, spread, byMarket
-            )
-            logging.info( 'dolph decides: ' + str(position))    
+        else:
+            takePosition = 'no-go'
+            
+        logging.info('exitPrice'+str(exitPrice))  
+        logging.info('entryPrice'+str(entryPrice)) 
+        position = tp.Position(
+            takePosition, board, seccode, marketId, entryTimeSeconds, 
+            quantity, entryPrice, exitPrice , stoploss, decimals, exitTime,
+            correction, spread, byMarket
+        )
+        logging.info( 'dolph decides: ' + str(position))    
             
         return position
     
