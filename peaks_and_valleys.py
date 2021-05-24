@@ -73,7 +73,7 @@ class Model:
         #     answer = False
         return answer
     
-    def findPeaksValleys (self, dataframe, sec):
+    def findPeaksValleys (self, dataframe, sec, p):
         
         numWindowSize = 25
         dataframe = dataframe.tail(numWindowSize)
@@ -99,9 +99,9 @@ class Model:
         filtered, _ = signal.lfilter(b, a, seriesAvg, zi=zi*seriesAvg[0])
         filtered2, _ = signal.lfilter(b, a, filtered, zi=zi*filtered[0])
         y = signal.filtfilt(b, a, seriesAvg)
-        plt.plot(y ,'g')
-        plt.plot(seriesAvg.to_numpy(), 'r')
-        plt.show()
+        # plt.plot(y ,'g')
+        # plt.plot(seriesAvg.to_numpy(), 'r')
+        # plt.show()
 
         log.info('from ' + str(times[0]) + ' to ' + str(times[-1]) )
         
@@ -116,7 +116,7 @@ class Model:
         
         self.plotPeaksAndValleys (
             y,y, y,y, peak_idx_filtered,valley_idx_filtered, 
-            fluctuation_filtered, sec, times
+            fluctuation_filtered, sec, times,p
         )  
         
         
@@ -130,14 +130,14 @@ class Model:
         
         self.plotPeaksAndValleys (
             seriesMax,seriesEnd, seriesMin, y, peak_idx,valley_idx, 
-            fluctuation, sec, times
+            fluctuation, sec, times,p
         )  
               
-        return fluctuation_filtered
+        return fluctuation
     
     
     def plotPeaksAndValleys (self, seriesMax,seriesEnd, seriesMin, filteredDataLine,
-                             peak_idx,valley_idx,fluctuation,sec, times ):  
+                             peak_idx,valley_idx,fluctuation,sec, times,p ):  
         
         seseccode = sec['seccode']
         if (seseccode == 'GZM1'):
@@ -156,29 +156,24 @@ class Model:
         plt.plot(t , filteredDataLine, 'b')
 
         # Plot peaks (red) and valleys (blue)
-        plt.plot(t[peak_idx], seriesMax[peak_idx], 'g^')
-        plt.plot(t[valley_idx], seriesMin[valley_idx], 'rv')
+        plt.plot(t[peak_idx], seriesMax[peak_idx], 'k^', markersize=15)
+        plt.plot(t[valley_idx], seriesMin[valley_idx], 'rv', markersize=15)
         
-        # plt.gca().xaxis.set_minor_locator(plt.MultipleLocator(1))          
-        # plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
-        # xlocator = mdates.MinuteLocator(byminute=range(60))
-        # plt.gca().xaxis.set_major_locator(xlocator)  
-
-
+ 
         
         new_peak_ind=np.array(peak_idx)+1
         plt.plot(t[new_peak_ind],seriesEnd[new_peak_ind], 'm^') 
         new_valley_ind=np.array(valley_idx)+1
         plt.plot(t[new_valley_ind],seriesEnd[new_valley_ind], 'm^') 
-        plt.title('Prediction for ' + lable)
+        plt.title('Prediction for ' + lable + '   ' + p)
         
 
         
         plt.show()
         
-    def predict(self, df, sec ):        
+    def predict(self, df, sec, p ):        
       
-        fluctuation = self.findPeaksValleys(df, sec)
+        fluctuation = self.findPeaksValleys(df, sec, p)
         
                
         return fluctuation

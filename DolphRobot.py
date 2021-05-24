@@ -30,7 +30,7 @@ class Dolph:
         self.securities = securities
         
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
-        self.MODE = 'TEST_OFFLINE' 
+        self.MODE = 'OPERATIONAL' 
 
         self.numTestSample =10
         self.since = dt.date(year=2021,month=5,day=18)
@@ -45,7 +45,7 @@ class Dolph:
         #         self.between_time = ('14:00', '23:00')
    
                
-        self.periods = ['1Min','3Min']
+        self.periods = ['1Min','2Min']
 
         self.data = {}
         self.inputDataTest = {}
@@ -380,7 +380,7 @@ class Dolph:
                 seccode = sec['seccode']
                 dataframe = self.data[p]
                 df = dataframe[ dataframe['Mnemonic'] == seccode ]
-                pred = sec['models'][p].predict( df, sec )            
+                pred = sec['models'][p].predict( df, sec,p )            
                 self.storePrediction( sec, pred, p, params)
         
    
