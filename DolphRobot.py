@@ -30,10 +30,10 @@ class Dolph:
         self.securities = securities
         
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
-        self.MODE = 'OPERATIONAL' 
+        self.MODE = 'TEST_OFFLINE' 
 
-        self.numTestSample =10
-        self.since = dt.date(year=2021,month=5,day=18)
+        self.numTestSample =150
+        self.since = dt.date(year=2021,month=5,day=24)
         self.between_time = ('07:00', '23:40')
         self.TrainingHour = 10
     
@@ -544,11 +544,37 @@ class Dolph:
         
         return candlePredList,lastCandle        
 
+    def reviewForHigherfrequency (self, statusLowFreq, sec ):
+        
+        periodHighFreq = self.periods[0]
+        periodLowFreq = self.periods[-1]
+        numPeriodLowFreq    =   int(periodLowFreq[0])
+        numPeriodHighFreq   =   int(periodHighFreq[0])
+        periodGap = numPeriodLowFreq - numPeriodHighFreq  
+        predictions = copy.deepcopy(sec['predictions'][periodHighFreq])                
+        fluctuation = predictions[-1]
+        numWindowSize = fluctuation['samplingWindow'].shape[0]
+        penultimateIndex = numWindowSize - 2
+        status = 0
+      
+        indexLastPeak = fluctuation['peak_idx'][-1] if fluctuation['peak_idx'].any() else 0
+        indexLastValley = fluctuation['valley_idx'][-1] if fluctuation['valley_idx'].any() else 0
+            
+        if statusLowFreq == 1 and indexLastPeak > indexLastValley and \
+            abs( penultimateIndex - indexLastPeak ) <= periodGap :            
+            status = 1
+        elif statusLowFreq == -1 and indexLastValley > indexLastPeak and \
+            abs( penultimateIndex - indexLastValley ) <= periodGap:
+            status = -1
+        else: # statusLowFreq == 0
+            status = 0 
+        
+        return status
+        
 
     def evaluatePosition (self, security):        
 
         longestPeriod = self.periods[-1]
-        # longestPeriod = p
         board = security['board']
         seccode = security['seccode']
         decimals, marketId =    self.ds.getSecurityInfo (security)
@@ -578,48 +604,44 @@ class Dolph:
         exitPrice =  0.0
         entryPrice =  0.0
         
-        status = {}
-        for p in self.periods:
-            
-            predictions = copy.deepcopy(security['predictions'][p])    
-            byMarket = False            
-            fluctuation = predictions[-1]
-            numWindowSize = fluctuation['samplingWindow'].shape[0]
-            
-            if fluctuation['peak_idx'].any() :
-                indexLastPeak = fluctuation['peak_idx'][-1]
-            else:
-                indexLastPeak = 0
-                
-            if fluctuation['valley_idx'].any() :
-                indexLastValley = fluctuation['valley_idx'][-1]
-            else:
-                indexLastValley = 0    
-            
-            if indexLastPeak == (numWindowSize - 2) and indexLastPeak  != indexLastValley :
-                status[p] = 1
-            elif indexLastValley == (numWindowSize - 2) and indexLastPeak  != indexLastValley :
-                 status[p] = -1
-            elif indexLastPeak  == indexLastValley: #if in the same point thera peak and valley
-                 status[p] = 0  
-            elif indexLastPeak == (numWindowSize - 3) and indexLastPeak  != indexLastValley :
-                status[p] = 1  
-            elif indexLastValley == (numWindowSize - 3) and indexLastPeak  != indexLastValley :
-                 status[p] = -1    
-            else:
-                 status[p] = 0  
-                 
-            logging.info('last change was = ' + str(status[p]) ) 
+        status = 0
+        predictions = copy.deepcopy(security['predictions'][longestPeriod])    
+        byMarket = False            
+        fluctuation = predictions[-1]
+        numWindowSize = fluctuation['samplingWindow'].shape[0]
         
-        if status[self.periods[0]] == status[self.periods[-1]]:
+        if fluctuation['peak_idx'].any() :
+            indexLastPeak = fluctuation['peak_idx'][-1]
+        else:
+            indexLastPeak = 0
+            
+        if fluctuation['valley_idx'].any() :
+            indexLastValley = fluctuation['valley_idx'][-1]
+        else:
+            indexLastValley = 0    
+        
+        if indexLastPeak == (numWindowSize - 2) and indexLastPeak  != indexLastValley :
+            status = 1
+        elif indexLastValley == (numWindowSize - 2) and indexLastPeak  != indexLastValley :
+             status = -1
+        elif indexLastPeak  == indexLastValley: #if in the same point thera peak and valley
+             status = 0     
+        else:
+             status = 0  
+             
+        status = self.reviewForHigherfrequency( status, security )
+             
+        logging.info('last change was = ' + str(status) ) 
+        
+
+        if status != 0:
             takePosition = self.takeDecisionPeaksAndValleys(
-                security, status[self.periods[0]], 
-                fluctuation, limitToAcceptFallingOfPrice
+                security, status, fluctuation, limitToAcceptFallingOfPrice
             )
             entryPrice = self.getEntryPrice(fluctuation, takePosition, smallDelta)
             if (takePosition == 'short' or takePosition == 'long'):
                 security['savedEntryPrice'] = entryPrice            
-            nogoHours = [19, 20,21]
+            nogoHours = [21]
             if moscowHour in nogoHours:
                 logging.info('we are in a no-go hour ...')  
                 takePosition = 'no-go' 
@@ -636,8 +658,8 @@ class Dolph:
         else:
             takePosition = 'no-go'
             
-        logging.info('exitPrice'+str(exitPrice))  
-        logging.info('entryPrice'+str(entryPrice)) 
+        logging.info('exitPrice:  '+str(exitPrice))  
+        logging.info('entryPrice: '+str(entryPrice)) 
         position = tp.Position(
             takePosition, board, seccode, marketId, entryTimeSeconds, 
             quantity, entryPrice, exitPrice , stoploss, decimals, exitTime,
