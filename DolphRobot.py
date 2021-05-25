@@ -30,7 +30,7 @@ class Dolph:
         self.securities = securities
         
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
-        self.MODE = 'TEST_OFFLINE' 
+        self.MODE = 'OPERATIONAL' 
 
         self.numTestSample =150
         self.since = dt.date(year=2021,month=5,day=24)
@@ -221,9 +221,9 @@ class Dolph:
             position.entryPrice = lastClosePrice - smallDeltaExtreamCase
             position.exitPrice =position.entryPrice-deltaForExit
             position.stoploss = position.entryPrice  + k * deltaForExit
-            
-        
-        
+        else:
+            logging.info('this shouldnt happen ' + position.takePosition )
+
         
         logging.info('sending '+position.takePosition+' to Trading platform')
         self.tp.processPosition(position)     
@@ -554,17 +554,17 @@ class Dolph:
         predictions = copy.deepcopy(sec['predictions'][periodHighFreq])                
         fluctuation = predictions[-1]
         numWindowSize = fluctuation['samplingWindow'].shape[0]
-        penultimateIndex = numWindowSize - 2
+        indexPenultimate = numWindowSize - 2
         status = 0
       
         indexLastPeak = fluctuation['peak_idx'][-1] if fluctuation['peak_idx'].any() else 0
         indexLastValley = fluctuation['valley_idx'][-1] if fluctuation['valley_idx'].any() else 0
             
         if statusLowFreq == 1 and indexLastPeak > indexLastValley and \
-            abs( penultimateIndex - indexLastPeak ) <= periodGap :            
+            abs( indexPenultimate - indexLastPeak ) <= periodGap :            
             status = 1
         elif statusLowFreq == -1 and indexLastValley > indexLastPeak and \
-            abs( penultimateIndex - indexLastValley ) <= periodGap:
+            abs( indexPenultimate - indexLastValley ) <= periodGap:
             status = -1
         else: # statusLowFreq == 0
             status = 0 
@@ -609,20 +609,14 @@ class Dolph:
         byMarket = False            
         fluctuation = predictions[-1]
         numWindowSize = fluctuation['samplingWindow'].shape[0]
-        
-        if fluctuation['peak_idx'].any() :
-            indexLastPeak = fluctuation['peak_idx'][-1]
-        else:
-            indexLastPeak = 0
-            
-        if fluctuation['valley_idx'].any() :
-            indexLastValley = fluctuation['valley_idx'][-1]
-        else:
-            indexLastValley = 0    
-        
-        if indexLastPeak == (numWindowSize - 2) and indexLastPeak  != indexLastValley :
+        indexPenultimate = numWindowSize - 2
+                
+        indexLastPeak = fluctuation['peak_idx'][-1] if fluctuation['peak_idx'].any() else 0
+        indexLastValley = fluctuation['valley_idx'][-1] if fluctuation['valley_idx'].any() else 0
+   
+        if indexLastPeak == indexPenultimate and indexLastPeak != indexLastValley :
             status = 1
-        elif indexLastValley == (numWindowSize - 2) and indexLastPeak  != indexLastValley :
+        elif indexLastValley == indexPenultimate and indexLastPeak != indexLastValley :
              status = -1
         elif indexLastPeak  == indexLastValley: #if in the same point thera peak and valley
              status = 0     
@@ -633,19 +627,18 @@ class Dolph:
              
         logging.info('last change was = ' + str(status) ) 
         
+        takePosition = self.takeDecisionPeaksAndValleys(
+            security, status, fluctuation, limitToAcceptFallingOfPrice
+        )
+        entryPrice = self.getEntryPrice(fluctuation, takePosition, smallDelta)        
 
-        if status != 0:
-            takePosition = self.takeDecisionPeaksAndValleys(
-                security, status, fluctuation, limitToAcceptFallingOfPrice
-            )
-            entryPrice = self.getEntryPrice(fluctuation, takePosition, smallDelta)
-            if (takePosition == 'short' or takePosition == 'long'):
-                security['savedEntryPrice'] = entryPrice            
+        if status != 0:   
             nogoHours = [21]
             if moscowHour in nogoHours:
                 logging.info('we are in a no-go hour ...')  
                 takePosition = 'no-go' 
                 entryPrice = 0.0    
+                
             if takePosition == 'long':
                 exitPrice = entryPrice  + deltaForExit
                 stoploss = entryPrice  - k * deltaForExit                
@@ -670,30 +663,9 @@ class Dolph:
         return position
     
     def takeDecisionPeaksAndValleys(self, security, status,fluctuation, limitToAcceptFallingOfPrice ):
-        
-        # distanceBetweenPeekAndValley=2
-
-        openPosition = self.tp.isPositionOpen( security['seccode'] )
-        
-        # if (fluctuation['peak_idx'].size  >= 2):    
-        #     indexLastPeak = fluctuation['peak_idx'][-1]
-        #     index2LastPeak = fluctuation['peak_idx'][-2]
-        # elif(fluctuation['peak_idx'].size  == 1 ):
-        #     indexLastPeak = fluctuation['peak_idx'][-1]
-        #     index2LastPeak = 0
-        # else:
-        #     indexLastPeak=0
-        #     index2LastPeak=0
-        # if (fluctuation['valley_idx'].size  >= 2):   
-        #     indexLastValley = fluctuation['valley_idx'][-1]
-        #     index2LastValley = fluctuation['valley_idx'][-2]
-        # elif(fluctuation['valley_idx'].size  == 1 ):
-        #     indexLastValley = fluctuation['valley_idx'][-1]
-        #     index2LastValley = 0
-        # else:
-        #     indexLastValley=0
-        #     index2LastValley=0
             
+        seccode = security['seccode']
+        openPosition = self.tp.isPositionOpen( seccode )
         takePosition = 'no-go'
         
         if status == 1:
@@ -703,33 +675,36 @@ class Dolph:
                 else:
                     takePosition = 'close-counterPosition'  
                     security['lastPositionTaken'] = None
-                    security['savedEntryPrice'] = 0
             else:
-                    takePosition= 'short' 
-                    security['lastPositionTaken'] = takePosition
-                    security['savedEntryPrice'] = 0
+                takePosition= 'short' 
+                security['lastPositionTaken'] = takePosition
 
-        elif (status == -1):
+        elif status == -1:
             if openPosition == True:
                 if (security['lastPositionTaken'] ==  'long'):
                     takePosition = 'no-go'
                 else:
                     takePosition = 'close-counterPosition' 
                     security['lastPositionTaken'] = None
-                    security['savedEntryPrice'] = 0
             else:             
-                    takePosition= 'long' 
-                    security['lastPositionTaken'] = takePosition
-                    security['savedEntryPrice'] = 0
-        else:
+                takePosition= 'long' 
+                security['lastPositionTaken'] = takePosition
+        
+        elif status == 0:
             if openPosition == True: 
-                lastClosePrice = self.getOnlyLastClosePrice(fluctuation)
-                if (abs(security['savedEntryPrice'] - lastClosePrice) < limitToAcceptFallingOfPrice):
+                lastClosePrice = self.getLastClosePrice(seccode)
+                position = self.tp.getMonitoredPositionBySeccode(seccode)
+                entryPrice = position.entryPrice
+                if ( abs( entryPrice - lastClosePrice ) < limitToAcceptFallingOfPrice):
                     takePosition = 'no-go' 
                 else:
                     takePosition = 'close-counterPosition'
                     logging.info('entryprice' + str(security['savedEntryPrice']))
                     logging.info('lastClosePrice' + str(lastClosePrice))
+        else:
+            logging.error('this shouldnt happen' + str(security) + str(status))
+
+            
         return takePosition
     
     
@@ -772,8 +747,8 @@ class Dolph:
 if __name__== "__main__":
 
     securities = [] 
-    # securities.append( {'board':'FUT', 'seccode':'SRM1'} )
-    # securities.append( {'board':'FUT', 'seccode':'GZM1'} ) 
+    securities.append( {'board':'FUT', 'seccode':'SRM1'} )
+    securities.append( {'board':'FUT', 'seccode':'GZM1'} ) 
     securities.append( {'board':'FUT', 'seccode':'SiM1'} ) 
 
     dolph = Dolph( securities )
