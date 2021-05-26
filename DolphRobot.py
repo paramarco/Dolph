@@ -701,6 +701,8 @@ class Dolph:
                     takePosition = 'close-counterPosition'
                     logging.info('entryprice' + str(security['savedEntryPrice']))
                     logging.info('lastClosePrice' + str(lastClosePrice))
+                    logging.info('AVALANCHE has happened!')
+
         else:
             logging.error('this shouldnt happen' + str(security) + str(status))
 
