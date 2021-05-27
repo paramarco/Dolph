@@ -627,29 +627,24 @@ class Dolph:
              
         logging.info('last change was = ' + str(status) ) 
         
+        takePosition = 'no-go'
+        
         takePosition = self.takeDecisionPeaksAndValleys(
             security, status, fluctuation, limitToAcceptFallingOfPrice
         )
-        entryPrice = self.getEntryPrice(fluctuation, takePosition, smallDelta)        
-
-        if status != 0:   
-            nogoHours = [21]
-            if moscowHour in nogoHours:
-                logging.info('we are in a no-go hour ...')  
-                takePosition = 'no-go' 
-                entryPrice = 0.0    
-                
-            if takePosition == 'long':
-                exitPrice = entryPrice  + deltaForExit
-                stoploss = entryPrice  - k * deltaForExit                
-            elif takePosition == 'short':
-                exitPrice = entryPrice  - deltaForExit
-                stoploss = entryPrice  + k * deltaForExit                
-            else:
-                exitPrice = entryPrice
-                stoploss = entryPrice
-        else:
-            takePosition = 'no-go'
+        entryPrice = self.getEntryPrice(fluctuation, takePosition, smallDelta)
+            
+        if takePosition == 'long':
+            exitPrice = entryPrice  + deltaForExit
+            stoploss = entryPrice  - k * deltaForExit                
+        elif takePosition == 'short':
+            exitPrice = entryPrice  - deltaForExit
+            stoploss = entryPrice  + k * deltaForExit                
+            
+        nogoHours = [7,18,19,21]
+        if moscowHour in nogoHours:
+            logging.info('we are in a no-go hour ...')  
+            takePosition = 'no-go' 
             
         logging.info('exitPrice:  '+str(exitPrice))  
         logging.info('entryPrice: '+str(entryPrice)) 
@@ -666,7 +661,11 @@ class Dolph:
             
         seccode = security['seccode']
         openPosition = self.tp.isPositionOpen( seccode )
-        takePosition = 'no-go'
+        lastClosePrice = self.getLastClosePrice(seccode)
+        position = self.tp.getMonitoredPositionBySeccode(seccode)
+        if position is None: 
+            status = -404
+        takePosition = 'no-go' 
         
         if status == 1:
             if openPosition == True:
@@ -691,25 +690,20 @@ class Dolph:
                 security['lastPositionTaken'] = takePosition
         
         elif status == 0:
-            if openPosition == True: 
-                lastClosePrice = self.getLastClosePrice(seccode)
-                position = self.tp.getMonitoredPositionBySeccode(seccode)
+            if openPosition == True:
                 entryPrice = position.entryPrice
                 if ( abs( entryPrice - lastClosePrice ) < limitToAcceptFallingOfPrice):
                     takePosition = 'no-go' 
                 else:
                     takePosition = 'close-counterPosition'
-                    logging.info('entryprice' + str(security['savedEntryPrice']))
+                    logging.info('entryprice' + str(entryPrice))
                     logging.info('lastClosePrice' + str(lastClosePrice))
                     logging.info('AVALANCHE has happened!')
-
         else:
             logging.error('this shouldnt happen' + str(security) + str(status))
-
             
         return takePosition
-    
-    
+  
     
     def getOnlyLastClosePrice (self,fluctuation):
         dataInSamplinWindow = fluctuation['samplingWindow']
@@ -721,13 +715,21 @@ class Dolph:
    
         dataInSamplinWindow = fluctuation['samplingWindow']
         currentClose = dataInSamplinWindow.iloc[-1].EndPrice
+        currentMin = dataInSamplinWindow.iloc[-1].MinPrice
+        currentMax = dataInSamplinWindow.iloc[-1].MaxPrice
 
+        # if (takePosition=="long"):
+        #    entryPricePV = currentClose + smallDelta
+        # elif(takePosition=="short"):
+        #     entryPricePV = currentClose - smallDelta
+        # else:
+        #     entryPricePV=currentClose 
         if (takePosition=="long"):
-           entryPricePV = currentClose + smallDelta
+            entryPricePV = currentMin *1.0003
         elif(takePosition=="short"):
-            entryPricePV = currentClose - smallDelta
+            entryPricePV = currentMax *0.9997
         else:
-            entryPricePV=currentClose       
+            entryPricePV=currentClose 
         return entryPricePV
         
     

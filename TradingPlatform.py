@@ -424,15 +424,7 @@ class TradingPlatform:
         self.reportCurrentOpenPositions()
         
     def isPositionOpen( self, seccode ):
-        """ 
-            isExitOrderNotTriggered is True when there is a position which 
-            takeProfit/stoploss was not yet triggered.
-            
-            isExitOrderActive is True when there isn't any MonitoredPosition
-            and the exit order is still active hanging, not executed yet.
-            
-            isPositionOpen = isExitOrderNotTriggered or isExitOrderActive                
-        """
+
         flag = False
         inMP = False
         inMSP = False
@@ -453,11 +445,7 @@ class TradingPlatform:
                 isOrderActive = True
                 break
             
-        isExitOrderNotTriggered = inMP and ( inMSP or isOrderActive )
-        
-        isExitOrderActive = not inMP and isOrderActive
-      
-        flag = isExitOrderNotTriggered or isExitOrderActive 
+        flag =  inMP or inMSP or isOrderActive         
         
         return flag
              
