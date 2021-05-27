@@ -663,8 +663,7 @@ class Dolph:
         openPosition = self.tp.isPositionOpen( seccode )
         lastClosePrice = self.getLastClosePrice(seccode)
         position = self.tp.getMonitoredPositionBySeccode(seccode)
-        if position is None: 
-            status = -404
+
         takePosition = 'no-go' 
         
         if status == 1:
@@ -690,7 +689,7 @@ class Dolph:
                 security['lastPositionTaken'] = takePosition
         
         elif status == 0:
-            if openPosition == True:
+            if openPosition == True and position is not None:
                 entryPrice = position.entryPrice
                 if ( abs( entryPrice - lastClosePrice ) < limitToAcceptFallingOfPrice):
                     takePosition = 'no-go' 
@@ -700,7 +699,7 @@ class Dolph:
                     logging.info('lastClosePrice' + str(lastClosePrice))
                     logging.info('AVALANCHE has happened!')
         else:
-            logging.error('this shouldnt happen' + str(security) + str(status))
+            logging.info("this should happen for " + seccode )
             
         return takePosition
   
