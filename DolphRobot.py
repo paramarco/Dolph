@@ -38,7 +38,7 @@ class Dolph:
         #         self.between_time = ('14:00', '23:00')
    
                
-        self.periods = ['1Min','2Min', '3Min']
+        self.periods = ['1Min','10Min']
 
         self.data = {}
         self.inputDataTest = {}

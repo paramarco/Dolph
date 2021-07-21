@@ -21,7 +21,7 @@ import scipy.signal as signal
 # import NeuronalNet_v6 as nn_v6
 from scipy.signal import find_peaks
 
-  
+
 
 class Predictions:
     def __init__(self, predictions, training_set):
@@ -132,7 +132,34 @@ class Model:
             seriesMax,seriesEnd, seriesMin, y, peak_idx,valley_idx, 
             fluctuation, sec, times,p
         )  
-              
+        
+        
+        lag = 5
+        threshold = 2
+        influence = 0
+        
+        # Run algo with settings from above
+        result = self.thresholding_algo(seriesAvg, lag=lag, threshold=threshold, influence=influence)
+        
+        # Plot result
+        plt.subplot(211)
+        plt.plot(np.arange(1, len(y)+1), y)
+        
+        plt.plot(np.arange(1, len(y)+1),
+                   result["avgFilter"], color="cyan", lw=2)
+        
+        plt.plot(np.arange(1, len(y)+1),
+                   result["avgFilter"] + threshold * result["stdFilter"], color="green", lw=2)
+        
+        plt.plot(np.arange(1, len(y)+1),
+                   result["avgFilter"] - threshold * result["stdFilter"], color="green", lw=2)
+        
+        plt.subplot(212)
+        plt.step(np.arange(1, len(y)+1), result["signals"], color="red", lw=2)
+        plt.ylim(-1.5, 1.5)
+        plt.show()   
+        
+        
         return fluctuation
     
     
@@ -177,3 +204,34 @@ class Model:
         
                
         return fluctuation
+    
+    
+    def thresholding_algo(self, y, lag, threshold, influence):
+        signals = np.zeros(len(y))
+        filteredY = np.array(y)
+        avgFilter = [0]*len(y)
+        stdFilter = [0]*len(y)
+        avgFilter[lag - 1] = np.mean(y[0:lag])
+        stdFilter[lag - 1] = np.std(y[0:lag])
+        for i in range(lag, len(y)):
+            if abs(y[i] - avgFilter[i-1]) > threshold * stdFilter [i-1]:
+                if y[i] > avgFilter[i-1]:
+                    signals[i] = 1
+                else:
+                    signals[i] = -1
+    
+                filteredY[i] = influence * y[i] + (1 - influence) * filteredY[i-1]
+                avgFilter[i] = np.mean(filteredY[(i-lag+1):i+1])
+                stdFilter[i] = np.std(filteredY[(i-lag+1):i+1])
+            else:
+                signals[i] = 0
+                filteredY[i] = y[i]
+                avgFilter[i] = np.mean(filteredY[(i-lag+1):i+1])
+                stdFilter[i] = np.std(filteredY[(i-lag+1):i+1])
+    
+        return dict(signals = np.asarray(signals),
+                    avgFilter = np.asarray(avgFilter),
+                    stdFilter = np.asarray(stdFilter))
+        
+    
+    
