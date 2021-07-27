@@ -23,10 +23,10 @@ class Dolph:
         self.securities = securities
         
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
-        self.MODE = 'TEST_ONLINE' 
+        self.MODE = 'TEST_OFFLINE' 
 
         self.numTestSample =150
-        self.since = dt.date(year=2021,month=5,day=24)
+        self.since = dt.date(year=2021,month=1,day=24)
         self.between_time = ('07:00', '23:40')
         self.TrainingHour = 10
     

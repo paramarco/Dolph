@@ -20,8 +20,7 @@ import scipy.signal as signal
 
 # import NeuronalNet_v6 as nn_v6
 from scipy.signal import find_peaks
-
-
+import linearRegression as lr
 
 class Predictions:
     def __init__(self, predictions, training_set):
@@ -75,8 +74,11 @@ class Model:
     
     def findPeaksValleys (self, dataframe, sec, p):
         
-        numWindowSize = 25
+        numWindowSize = 5000
         dataframe = dataframe.tail(numWindowSize)
+        data_df_hour=dataframe.index.hour
+        data_df_min=dataframe.index.minute
+        
         fluctuation = {}
         fluctuation_filtered = {}
         df = dataframe.copy()
@@ -90,7 +92,7 @@ class Model:
         seriesStart = df['StartPrice']
         seriesAvg = (seriesEnd + seriesMax + seriesMin + seriesStart)/4
         times =     df['CalcDateTime']
-        
+
         
         
         b, a = signal.butter(2, 0.2)
@@ -133,32 +135,9 @@ class Model:
             fluctuation, sec, times,p
         )  
         
-        
-        lag = 5
-        threshold = 2
-        influence = 0
-        
-        # Run algo with settings from above
-        result = self.thresholding_algo(seriesAvg, lag=lag, threshold=threshold, influence=influence)
-        
-        # Plot result
-        plt.subplot(211)
-        plt.plot(np.arange(1, len(y)+1), y)
-        
-        plt.plot(np.arange(1, len(y)+1),
-                   result["avgFilter"], color="cyan", lw=2)
-        
-        plt.plot(np.arange(1, len(y)+1),
-                   result["avgFilter"] + threshold * result["stdFilter"], color="green", lw=2)
-        
-        plt.plot(np.arange(1, len(y)+1),
-                   result["avgFilter"] - threshold * result["stdFilter"], color="green", lw=2)
-        
-        plt.subplot(212)
-        plt.step(np.arange(1, len(y)+1), result["signals"], color="red", lw=2)
-        plt.ylim(-1.5, 1.5)
-        plt.show()   
-        
+       
+        lr.callLinearRegression (seriesAvg,data_df_hour, data_df_min )
+
         
         return fluctuation
     
