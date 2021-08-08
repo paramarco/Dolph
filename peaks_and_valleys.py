@@ -11,7 +11,7 @@ import logging
 import pandas as pd
 from pandas import DataFrame
 import numpy as np
-
+from datetime import datetime, date, time, timedelta
 import matplotlib.pyplot as plt
 
 log = logging.getLogger("TradingPlatform")
@@ -74,10 +74,16 @@ class Model:
     
     def findPeaksValleys (self, dataframe, sec, p):
         
-        numWindowSize = 5000
+        numWindowSize = 1000
         dataframe = dataframe.tail(numWindowSize)
         data_df_hour=dataframe.index.hour
         data_df_min=dataframe.index.minute
+        
+        dataframe2Pandas=pd.to_datetime(dataframe.index.to_pydatetime())
+        dataTimestamp= dataframe2Pandas.astype(np.int64) // 10**9
+        
+        
+        
         
         fluctuation = {}
         fluctuation_filtered = {}
@@ -136,7 +142,7 @@ class Model:
         )  
         
        
-        lr.callLinearRegression (seriesAvg,data_df_hour, data_df_min )
+        lr.callLinearRegression (seriesAvg,dataframe,  dataTimestamp )
 
         
         return fluctuation
