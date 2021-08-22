@@ -17,6 +17,7 @@ import pandas as pd
 import csv
 from xml.etree.ElementTree import fromstring, ElementTree
 import json
+import numpy as np
 
 
 log = logging.getLogger("DataServer")
@@ -478,12 +479,18 @@ class DataServer:
                 sqliteConnection.close(); log.info(" finished")
 
 
-    def __querySearchSec(self, security, since):        
+    def __querySearchSec(self, security, since, until ):        
         
         date = str(since.year) + str(since.month).zfill(2) 
-        date +=str(since.day).zfill(2) + ' 000000'
+        date +=str(since.day).zfill(2) + ' ' + str(since.hour).zfill(2)
+        date +=str(since.minute).zfill(2) + '00'
         log.debug(" since: " +  date)
-        
+        untilDate = ""
+        if until is not None:
+            untilDate = str(until.year) + str(until.month).zfill(2)
+            untilDate +=str(until.day).zfill(2) + ' ' + str(until.hour).zfill(2)
+            untilDate +=str(until.minute).zfill(2) + '00'
+            log.debug(" until: " +  untilDate)
         try:            
             sqliteConnection = sqlite3.connect('bimbi.sqlite') 
             cursor = sqliteConnection.cursor()   
@@ -519,6 +526,8 @@ class DataServer:
                 
             condWHERE = "security_id = " + security_id
             condWHERE += " AND DATE_TIME > '" + date +"' "
+            if until is not None: 
+                condWHERE += " AND DATE_TIME < '" + untilDate +"' "
             query = """
                 SELECT   """+fieldsSELECT+"""
                 FROM     """+fieldsFROM+"""
@@ -539,9 +548,11 @@ class DataServer:
             periods, 
             since, 
             target = None, 
-            between_time = ('10:00', '18:00')
+            between_time = ('10:00', '18:00'),
+            until = None
         ):
         
+        sqliteConnection = None
         log.debug(" searching into database ...")
         fmt = '%Y%m%d %H:%M:%S'
         tb = between_time[0]
@@ -564,7 +575,7 @@ class DataServer:
                 list_df = []
                 for sec in securities:
                     # log.debug( "building dataframe for: " + str(sec) )
-                    query = self.__querySearchSec( sec, since )
+                    query = self.__querySearchSec( sec, since, until )
                     
                     sqliteConnection = sqlite3.connect('bimbi.sqlite')
                     df = pd.read_sql_query(
@@ -576,7 +587,15 @@ class DataServer:
                     sqliteConnection.close() 
                     df = df.loc[ since :]
                     df = df.between_time(tb, te)
-                    df = df.resample(p).agg(agg_dict).dropna()
+                    #coger base del primer minuto .......
+                    
+                    lastMinute = df.index[-1].minute
+                    base4sampling = lastMinute  % int(p[0])
+                    df = df.resample( p , closed='right', base=base4sampling, convention='end').agg(agg_dict).dropna()
+                    
+                    # df = df.resample(p, base=1).agg(agg_dict).dropna()
+                    # t = np.arange(len(df.index)-1, -1, -1) // int(p[0])                    
+                    # df = df.groupby(t, sort=False).agg(agg_dict).dropna()
                     df.columns = df.columns.droplevel(1)
                     list_df.append(df)
                 
@@ -588,7 +607,7 @@ class DataServer:
         except sqlite3.Error as error:
             log.error(" Failed to read from database", error)
         finally:
-            if (sqliteConnection):
+            if (sqliteConnection is not None ):
                 sqliteConnection.close(); log.debug(" finished")    
     
     def getDataFrames(self):

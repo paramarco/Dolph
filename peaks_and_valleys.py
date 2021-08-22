@@ -75,7 +75,7 @@ class Model:
     
     def findPeaksValleys (self, dataframe, sec, p):
         
-        numWindowSize = 25
+        numWindowSize = 100
         dataframe = dataframe.tail(numWindowSize)
         fluctuation = {}
         fluctuation_filtered = {}
@@ -140,12 +140,14 @@ class Model:
                              peak_idx,valley_idx,fluctuation,sec, times,p ):  
         
         seseccode = sec['seccode']
+        lable = sec['label']
         if (seseccode == 'GZM1'):
             lable= 'GAZPROM'
         elif(seseccode == 'SRM1'):
              lable= 'SBERBANK'
         elif(seseccode == 'SiM1'):
              lable= 'SIH'
+        
         
         # Plot curves
         # t = np.arange(start=0, stop=len(seriesEnd), step=1, dtype=int)

@@ -25,8 +25,9 @@ class Dolph:
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
         self.MODE = 'TEST_ONLINE' 
 
-        self.numTestSample =150
-        self.since = dt.date(year=2021,month=5,day=24)
+        self.numTestSample = 100
+        self.since = dt.datetime(year=2021,month=5,day=26,hour=9, minute=0)
+        self.until = dt.datetime(year=2021,month=5,day=27,hour=22, minute=0)        
         self.between_time = ('07:00', '23:40')
         self.TrainingHour = 10
     
@@ -38,7 +39,7 @@ class Dolph:
         #         self.between_time = ('14:00', '23:00')
    
                
-        self.periods = ['1Min','2Min', '3Min']
+        self.periods = ['1Min','3Min','30Min']
 
         self.data = {}
         self.inputDataTest = {}
@@ -47,8 +48,8 @@ class Dolph:
         
         logFormat = '%(asctime)s | %(levelname)s | %(funcName)s |%(message)s'
         logging.basicConfig(
-            level = logging.INFO , 
-            # level = logging.DEBUG , 
+            #level = logging.INFO , 
+            level = logging.DEBUG , 
             format = logFormat,
             handlers=[  
                 logging.FileHandler("./log/Dolph.log"),
@@ -122,11 +123,20 @@ class Dolph:
     def getLastClosePrice(self, seccode):
         
         sec = self.getSecurityBySeccode( seccode )
-        since = dt.date.today()
         periods = self.periods
-        dfs = self.getData(
-            self.securities, periods, since, sec, self.between_time
-        )
+        since = dt.datetime.now() - dt.timedelta( hours = 12 ) 
+        dfs = {}
+        
+        if self.MODE == 'TEST_OFFLINE' :
+            dfs = self.getData(
+                self.securities, periods, self.since, sec, self.between_time, 
+                self.until
+            )   
+        else:
+            dfs = self.getData(
+                self.securities, periods, since, sec, self.between_time
+            )   
+
         dataFrame_1min = dfs['1Min']
         df_1min = dataFrame_1min[ dataFrame_1min['Mnemonic'] == seccode ]
         timelast1Min = df_1min.tail(1).index
@@ -250,7 +260,11 @@ class Dolph:
 
     def dataAcquisition(_):
         
-        since = _.since
+        _.since = _.since +  dt.timedelta( minutes = 1 ) 
+        since = _.since 
+        _.until = _.since +  dt.timedelta( minutes = _.numTestSample ) 
+        until = _.until 
+        
         periods = _.periods
         securities = _.securities
         dfs = {}
@@ -263,25 +277,14 @@ class Dolph:
 
         elif (_.MODE == 'TEST_OFFLINE'):
             
-            if( _.data == {} ):             
-                _.inputDataTest = \
-                _.getData(securities, periods, since, None, _.between_time )
-   
-            for p in periods:
-                df = _.inputDataTest[p].copy()
-                for s in securities:
-                    seccode = s['seccode']
-                    indexes = df[ df['Mnemonic'] == seccode ].index
-                    indexes = indexes[-_.numTestSample :]
-                    df.drop(indexes, inplace = True)                    
-                _.data[p] = df
+            _.data = \
+            _.getData(securities, periods, since, None, _.between_time, until )
             
-            _.numTestSample = _.numTestSample - 1
-             
             
         elif ( _.MODE == 'TEST_ONLINE' or _.MODE == 'OPERATIONAL'):   
             
-            since = dt.date.today() - dt.timedelta(days=3)            
+            #since = dt.date.today() - dt.timedelta(days=3)            
+            since =  dt.datetime.now() - dt.timedelta( hours = 12 ) 
             while True:    
                 dfs = _.getData(securities, periods, since, None, _.between_time )
                 if not _.isSufficientData(dfs) :
@@ -334,7 +337,6 @@ class Dolph:
 
     def predict( self ):
         
-        # p = self.periods[-1]
         for p in self.periods:
             for sec in self.securities:
                 params = self.ds.getSecurityAlgParams( sec )
@@ -349,7 +351,7 @@ class Dolph:
    
     def displayPredictions (self):
         
-        logging.info( 'plotting a graph ...') 
+        #logging.info( 'plotting a graph ...') 
         p = self.periods[-1]
         
         for sec in self.securities:
@@ -559,7 +561,7 @@ class Dolph:
 if __name__== "__main__":
 
     securities = [] 
-    securities.append( {'board':'FUT', 'seccode':'SRM1'} )
+    securities.append( {'board':'FUT', 'seccode':'SRU1', 'label': 'SBERBANK'} )
     # securities.append( {'board':'FUT', 'seccode':'GZM1'} ) 
     # securities.append( {'board':'FUT', 'seccode':'SiM1'} ) 
 
