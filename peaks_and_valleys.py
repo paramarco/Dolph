@@ -21,7 +21,7 @@ import scipy.signal as signal
 # import NeuronalNet_v6 as nn_v6
 from scipy.signal import find_peaks
 
-  
+import pyampd.ampd as ampd 
 
 class Predictions:
     def __init__(self, predictions, training_set):
@@ -75,7 +75,17 @@ class Model:
     
     def findPeaksValleys (self, dataframe, sec, p):
         
-        numWindowSize = 100
+        numWindowSize = 20
+        if (p=='1Min'):
+            numWindowSize=60
+        elif (p == '30Min'):
+            numWindowSize=100
+        else:
+            log.info('we careful')
+            numWindowSize=100
+        
+        
+        
         dataframe = dataframe.tail(numWindowSize)
         fluctuation = {}
         fluctuation_filtered = {}
@@ -91,6 +101,8 @@ class Model:
         seriesAvg = (seriesEnd + seriesMax + seriesMin + seriesStart)/4
         times =     df['CalcDateTime']
         
+        length = len(seriesAvg)
+        log.debug('we careful: size for period: ' + p + ': '  + str(length))
         
         
         b, a = signal.butter(2, 0.2)
@@ -114,10 +126,10 @@ class Model:
         fluctuation_filtered['peak_idx'] = peak_idx_filtered
         fluctuation_filtered['valley_idx'] = valley_idx_filtered
         
-        self.plotPeaksAndValleys (
-            y,y, y,y, peak_idx_filtered,valley_idx_filtered, 
-            fluctuation_filtered, sec, times,p
-        )  
+        # self.plotPeaksAndValleys (
+        #     y,y, y,y, peak_idx_filtered,valley_idx_filtered, 
+        #     fluctuation_filtered, sec, times,p
+        # )  
         
         
         # Find indices of peaks
@@ -128,11 +140,20 @@ class Model:
         fluctuation['peak_idx'] = peak_idx
         fluctuation['valley_idx'] = valley_idx
         
-        self.plotPeaksAndValleys (
-            seriesMax,seriesEnd, seriesMin, y, peak_idx,valley_idx, 
-            fluctuation, sec, times,p
-        )  
-              
+        # self.plotPeaksAndValleys (
+        #     seriesMax,seriesEnd, seriesMin, y, peak_idx,valley_idx, 
+        #     fluctuation, sec, times,p
+        # )  
+
+
+        
+        peaksAMPD= ampd.find_peaks(seriesAvg, numWindowSize)
+        valleysAMPD= ampd.find_peaks(-seriesAvg, numWindowSize)
+        plt.plot( seriesAvg, 'b')
+        plt.plot(seriesAvg[peaksAMPD], 'k^', markersize=5)
+        plt.plot(seriesAvg[valleysAMPD], 'rv', markersize=5)
+        plt.title('Prediction for ' + p)
+        plt.show()
         return fluctuation
     
     

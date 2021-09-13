@@ -26,8 +26,8 @@ class Dolph:
         self.MODE = 'TEST_ONLINE' 
 
         self.numTestSample = 100
-        self.since = dt.datetime(year=2021,month=5,day=26,hour=9, minute=0)
-        self.until = dt.datetime(year=2021,month=5,day=27,hour=22, minute=0)        
+        self.since = dt.datetime(year=2021,month=1,day=1,hour=9, minute=0)
+        self.until = dt.datetime(year=2021,month=1,day=27,hour=22, minute=0)        
         self.between_time = ('07:00', '23:40')
         self.TrainingHour = 10
     
@@ -39,7 +39,7 @@ class Dolph:
         #         self.between_time = ('14:00', '23:00')
    
                
-        self.periods = ['1Min','3Min','30Min']
+        self.periods = ['1Min','10Min']
 
         self.data = {}
         self.inputDataTest = {}
@@ -205,9 +205,11 @@ class Dolph:
            
     def isSufficientData (self, dataFrame):
         
-        periods = self.periods
-        longestPeriod = periods[-1]
-        dataFrame = dataFrame[longestPeriod]    
+        # periods = self.periods
+        # longestPeriod = periods[-1]
+        # dataFrame = dataFrame[longestPeriod]
+        dataFrame = dataFrame['1Min']
+        
         msg = 'there is only %s samples now, you need at least %s samples for '
         msg+= 'the model to be able to predict'
         sufficient = True
@@ -225,10 +227,12 @@ class Dolph:
     def isPeriodSynced(self, dfs):
         
         synced = False
-        periods = self.periods
-        period = periods[-1]        
-        numPeriod = int(period[0])
-        dataFrame = dfs[period]
+        # periods = self.periods
+        # period = periods[-1]        
+        # numPeriod = int(period[0])
+        # dataFrame = dfs[period]
+        numPeriod = 1
+        dataFrame = dfs['1Min']
         dataFrame_1min = dfs['1Min']
         
         for sec in self.securities:
@@ -284,7 +288,7 @@ class Dolph:
         elif ( _.MODE == 'TEST_ONLINE' or _.MODE == 'OPERATIONAL'):   
             
             #since = dt.date.today() - dt.timedelta(days=3)            
-            since =  dt.datetime.now() - dt.timedelta( hours = 12 ) 
+            since =  dt.datetime.now() - dt.timedelta( hours = 24 ) 
             while True:    
                 dfs = _.getData(securities, periods, since, None, _.between_time )
                 if not _.isSufficientData(dfs) :
@@ -570,7 +574,7 @@ if __name__== "__main__":
     while True:
         dolph.dataAcquisition()
         dolph.predict()
-        dolph.displayPredictions()
+        # dolph.displayPredictions()
         dolph.takePosition()         
         
         

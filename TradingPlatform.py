@@ -196,7 +196,8 @@ class TradingPlatform:
     def disconnect(self):
         
         log.info('stopping candlesUpdateTask ...')
-        self.candlesUpdateTask.terminate()
+        if self.candlesUpdateTask is not None:
+            self.candlesUpdateTask.terminate()
         
         if self.tc.connected:
             log.info('disconnecting from TRANSAQ...')
