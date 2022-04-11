@@ -79,7 +79,7 @@ class Model:
         if (p=='1Min'):
             numWindowSize=60
         elif (p == '30Min'):
-            numWindowSize=100
+            numWindowSize=60
         else:
             log.info('we careful')
             numWindowSize=100
@@ -126,16 +126,20 @@ class Model:
         fluctuation_filtered['peak_idx'] = peak_idx_filtered
         fluctuation_filtered['valley_idx'] = valley_idx_filtered
         
-        # self.plotPeaksAndValleys (
-        #     y,y, y,y, peak_idx_filtered,valley_idx_filtered, 
-        #     fluctuation_filtered, sec, times,p
-        # )  
+        self.plotPeaksAndValleys (
+            y,y, y,y, peak_idx_filtered,valley_idx_filtered, 
+            fluctuation_filtered, sec, times,p
+        )  
         
         
         # Find indices of peaks
         peak_idx, _ = find_peaks(seriesAvg, distance=self.bestDistancePeak )        
+        
         # Find indices of valleys (from inverting the signal)
-        valley_idx, _ = find_peaks(-seriesAvg, distance=self.bestDistanceValley)
+        # seriesAvgInv= -seriesAvg
+        
+        
+        valley_idx, _ = find_peaks(seriesAvgInv, distance=self.bestDistanceValley)
         
         fluctuation['peak_idx'] = peak_idx
         fluctuation['valley_idx'] = valley_idx
@@ -147,13 +151,13 @@ class Model:
 
 
         
-        peaksAMPD= ampd.find_peaks(seriesAvg, numWindowSize)
-        valleysAMPD= ampd.find_peaks(-seriesAvg, numWindowSize)
-        plt.plot( seriesAvg, 'b')
-        plt.plot(seriesAvg[peaksAMPD], 'k^', markersize=5)
-        plt.plot(seriesAvg[valleysAMPD], 'rv', markersize=5)
-        plt.title('Prediction for ' + p)
-        plt.show()
+        # peaksAMPD= ampd.find_peaks(seriesAvg, numWindowSize)
+        # valleysAMPD= ampd.find_peaks(-seriesAvg, numWindowSize)
+        # plt.plot( seriesAvg, 'b')
+        # plt.plot(seriesAvg[peaksAMPD], 'k^', markersize=5)
+        # plt.plot(seriesAvg[valleysAMPD], 'rv', markersize=5)
+        # plt.title('Prediction for ' + p)
+        # plt.show()
         return fluctuation
     
     
@@ -164,7 +168,7 @@ class Model:
         lable = sec['label']
         if (seseccode == 'GZM1'):
             lable= 'GAZPROM'
-        elif(seseccode == 'SRM1'):
+        elif(seseccode == 'SRZ1'):
              lable= 'SBERBANK'
         elif(seseccode == 'SiM1'):
              lable= 'SIH'

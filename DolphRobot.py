@@ -23,11 +23,11 @@ class Dolph:
         self.securities = securities
         
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
-        self.MODE = 'TEST_ONLINE' 
+        self.MODE = 'TEST_OFFLINE' 
 
-        self.numTestSample = 100
-        self.since = dt.datetime(year=2021,month=1,day=1,hour=9, minute=0)
-        self.until = dt.datetime(year=2021,month=1,day=27,hour=22, minute=0)        
+        self.numTestSample = 1000
+        self.since = dt.datetime(year=2021,month=9,day=1,hour=9, minute=0)
+        self.until = dt.datetime(year=2021,month=9,day=15,hour=22, minute=0)        
         self.between_time = ('07:00', '23:40')
         self.TrainingHour = 10
     
@@ -124,7 +124,7 @@ class Dolph:
         
         sec = self.getSecurityBySeccode( seccode )
         periods = self.periods
-        since = dt.datetime.now() - dt.timedelta( hours = 12 ) 
+        since = dt.datetime.now() - dt.timedelta( hours = 120 ) 
         dfs = {}
         
         if self.MODE == 'TEST_OFFLINE' :
@@ -266,6 +266,11 @@ class Dolph:
         
         _.since = _.since +  dt.timedelta( minutes = 1 ) 
         since = _.since 
+        # periods = _.periods
+        # period = periods[-1]        
+        # numPeriod = int(period[0])
+        # samples1Min = _.numTestSample * numPeriod
+        
         _.until = _.since +  dt.timedelta( minutes = _.numTestSample ) 
         until = _.until 
         
@@ -287,8 +292,7 @@ class Dolph:
             
         elif ( _.MODE == 'TEST_ONLINE' or _.MODE == 'OPERATIONAL'):   
             
-            #since = dt.date.today() - dt.timedelta(days=3)            
-            since =  dt.datetime.now() - dt.timedelta( hours = 24 ) 
+            since =  dt.datetime.now() - dt.timedelta( hours = 72 ) 
             while True:    
                 dfs = _.getData(securities, periods, since, None, _.between_time )
                 if not _.isSufficientData(dfs) :
@@ -565,7 +569,7 @@ class Dolph:
 if __name__== "__main__":
 
     securities = [] 
-    securities.append( {'board':'FUT', 'seccode':'SRU1', 'label': 'SBERBANK'} )
+    securities.append( {'board':'FUT', 'seccode':'SRZ1', 'label': 'SBERBANK'} )
     # securities.append( {'board':'FUT', 'seccode':'GZM1'} ) 
     # securities.append( {'board':'FUT', 'seccode':'SiM1'} ) 
 

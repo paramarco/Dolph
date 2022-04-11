@@ -215,8 +215,8 @@ class TradingPlatform:
             time.sleep(2)   
 
         self.tc.connected = True
-        log.info('requesting last 300 entries of the securities ...')
-        self.HistoryCandleReq( self.securities, 1, 300)                 
+        log.info('requesting last 10000 entries of the securities ...')
+        self.HistoryCandleReq( self.securities, 1, 10000)                 
         
         log.info('starting candlesUpdateThread ...')
         self.candlesUpdateTask = candleUpdateTask(self.tc)
