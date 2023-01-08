@@ -14,8 +14,8 @@ import pandas as pd
                                                       
 import DataServer as ds
 import TradingPlatform as tp
-
 import peaks_and_valleys as fluctuationModel
+import fractal_dimension as fractalModel
 
 class Dolph:
     def __init__(self, securities):
@@ -25,9 +25,9 @@ class Dolph:
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
         self.MODE = 'TEST_OFFLINE' 
 
-        self.numTestSample = 1000
+        self.numTestSample = 20000
         self.since = dt.datetime(year=2021,month=9,day=1,hour=9, minute=0)
-        self.until = dt.datetime(year=2021,month=9,day=15,hour=22, minute=0)        
+        self.until = dt.datetime(year=2021,month=11,day=15,hour=22, minute=0)        
         self.between_time = ('07:00', '23:40')
         self.TrainingHour = 10
     
@@ -39,7 +39,7 @@ class Dolph:
         #         self.between_time = ('14:00', '23:00')
    
                
-        self.periods = ['1Min','10Min']
+        self.periods = ['1Min']
 
         self.data = {}
         self.inputDataTest = {}
@@ -76,15 +76,17 @@ class Dolph:
         self.target = securities[0]
         self.params = self.ds.getSecurityAlgParams(self.target)
         self.minNumPastSamples = self.params['minNumPastSamples']  
-
-        alg = self.params['algorithm']  
+        self.getData = self.ds.searchData
         
-       
-        if (alg == 'peaks_and_valleys' ):
-            self.getData = self.ds.searchData
-            self.getTrainingModel = fluctuationModel.Model      
-        else:
-            raise RuntimeError('algorithm not found')
+        alg = self.params['algorithm']
+        self.getTrainingModel = fractalModel.Model
+
+        # if (alg == 'peaks_and_valleys'):            
+        #     self.getTrainingModel = fluctuationModel.Model
+        # elif (alg == 'fractal_dimension'):
+        #     self.getTrainingModel = fractalModel.Model
+        # else:
+        #     raise RuntimeError('algorithm not found')
 
         connectOnInit = False
         if (self.MODE == 'TEST_ONLINE' or self.MODE == 'OPERATIONAL' ):
