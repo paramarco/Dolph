@@ -25,9 +25,9 @@ class Dolph:
         # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
         self.MODE = 'TEST_OFFLINE' 
 
-        self.numTestSample = 20000
+        self.numTestSample = 100
         self.since = dt.datetime(year=2021,month=9,day=1,hour=9, minute=0)
-        self.until = dt.datetime(year=2021,month=11,day=15,hour=22, minute=0)        
+        self.until = dt.datetime(year=2021,month=11,day=1,hour=22, minute=0)        
         self.between_time = ('07:00', '23:40')
         self.TrainingHour = 10
     
@@ -39,7 +39,7 @@ class Dolph:
         #         self.between_time = ('14:00', '23:00')
    
                
-        self.periods = ['1Min']
+        self.periods = ['20Min']
 
         self.data = {}
         self.inputDataTest = {}

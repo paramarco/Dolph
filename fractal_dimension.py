@@ -58,7 +58,7 @@ class Model:
         maxMinSeriesDelta = self.df['MaxPrice'] - self.df['MinPrice']
         minPrice = self.minPrice
         ΔPrice = self.ΔPrice 
-        
+
         for i in range( 1, self.numSamples) :
             for j in range( 0, self.numSamples):
                 
@@ -78,7 +78,7 @@ class Model:
                
                 if ( (condition_1 and condition_2) or (condition_3 and condition_4)):
                     numOfCells = numOfCells + 1
-                                    
+
         log.info( "number of Cells: " + str(numOfCells) )
         
         return numOfCells
@@ -105,7 +105,12 @@ class Model:
         numerator = np.log(self.findNumberOfCells())
         denominator =  np.log( (self.numSamples**2) )
         dimension = numerator / denominator
-        
+        listPrice =[39,34,21,14,9,5]
+        listTime = np.array[1,2,5,10,15,20]
+        vP=np.array(listPrice)
+        vT=np.array(listTime)
+        coeffs = np.polyfit(np.log(vP), np.log(vT), 1)
+        print(coeffs[0])
         return dimension
         
     
