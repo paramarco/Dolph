@@ -105,12 +105,18 @@ class Model:
         numerator = np.log(self.findNumberOfCells())
         denominator =  np.log( (self.numSamples**2) )
         dimension = numerator / denominator
-        listPrice =[39,34,21,14,9,5]
-        listTime = np.array[1,2,5,10,15,20]
+        listPrice =[39.0,34.0,21.0,14.0,9.0,5.0]
+        listTime = [1.0,2.0,5.0,10.0,15.0,20.0]
         vP=np.array(listPrice)
         vT=np.array(listTime)
-        coeffs = np.polyfit(np.log(vP), np.log(vT), 1)
-        print(coeffs[0])
+        coeffs = np.polyfit(np.log(vT), np.log(vP), 3)
+        # print(coeffs[0])
+        plt.plot(vT,vP ,'g')
+        trendpoly = np.poly1d(coeffs) 
+        plt.plot(vT,trendpoly(vT),'r')
+        # plt.plot(seriesAvg.to_numpy(), 'r')
+        plt.show()
+
         return dimension
         
     
