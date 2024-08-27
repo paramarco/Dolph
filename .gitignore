@@ -12,6 +12,9 @@ bkp/
 # logs
 log/
 
+# python virtual environment
+myenv/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -141,3 +144,10 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Ignore all .sql files in the Configuration directory
+/Configuration/*.sql
+
+# Ignore README.md in the Configuration directory
+/Configuration/README.md
+

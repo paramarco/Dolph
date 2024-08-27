@@ -21,42 +21,16 @@ import time
 import numbers
 import datetime
 import datetime as dt
-
-# import NeuronalNet_v6 as nn_v6
 from scipy.signal import find_peaks
 import matplotlib.pyplot as plt
-
-def findPeaksValleys (data_test):
-    
-    data_test = data_test[['timeDate','StartPrice','MaxPrice','EndPrice'] ].values
-    
-    series = data_test[:,3]
-    numWindowSize = 25
-    series = series[-numWindowSize:]
-  
-   
-    # Find indices of peaks
-    peak_idx, _ = find_peaks(series, distance=3)
-    
-    # Find indices of valleys (from inverting the signal)
-    valley_idx, _ = find_peaks(-series, distance=3)
-    
-    # Plot 
-    t = np.arange(start=0, stop=len(series), step=1, dtype=int)
-    plt.plot(t, series)   
-    
-    # Plot peaks (red) and valleys (blue)
-    plt.plot(t[peak_idx], series[peak_idx], 'g^')
-    plt.plot(t[valley_idx], series[valley_idx], 'rv')
-    
-    plt.gca().xaxis.set_minor_locator(plt.MultipleLocator(1))
-    
-    plt.show() 
-
+import DataManagement.DataServer as ds
+import Configuration.Conf as cm
 
 class TrendViewer:
     
-    def __init__(self, periods, func):
+    def __init__(self, func):
+        
+        self._init_configuration()
         self.preds = []
         self.predsplot = []
         self.predsplot1 = []
@@ -68,7 +42,6 @@ class TrendViewer:
         self.data_test = None
         self.data_train = None
         self.listPredictions = []
-        self.periods = periods
         self.previousPrice =0
         self.numTotalPrices = 0
         self.numPositivePrices=0
@@ -86,11 +59,51 @@ class TrendViewer:
         self.moscowHourarray = []
         self.positiveHour = []
         self.negativeHour =[]
+        self.set_display_prediction_method()
+    
+    def _init_configuration(self):
+        
+        self.MODE = cm.MODE
+        self.numTestSample = cm.numTestSample
+        self.since = cm.since
+        self.until = cm.until
+        self.between_time = cm.between_time
+        self.TrainingHour = cm.TrainingHour
+        self.periods = cm.periods
+        self.securities = cm.securities
+        self.currentTestIndex = cm.currentTestIndex 
+
+    def set_display_prediction_method(self):
+        
+        sec = cm.securities[0]
+        params = ds.DataServer().getSecurityAlgParams( sec )
+        alg = params["algorithm"]
+   
+        if alg == 'NeuronalNet':
+            self.showPrediction = self.displayPrediction
+        elif alg == 'NeuronalNet_v2':
+            self.showPrediction = self.displayPrediction_v2
+        elif alg == 'NeuronalNet_v3':
+            self.showPrediction = self.displayPrediction_v3
+        elif alg == 'NeuronalNet_v4':
+            self.showPrediction = self.displayPrediction_v4
+        elif alg == 'NeuronalNet_v5':
+            self.showPrediction = self.displayPrediction_v5
+        elif alg == 'NeuronalNet_v6':
+            self.showPrediction = self.displayPrediction_v6
+        elif alg == 'NeuronalNet_v9':
+            self.showPrediction = self.displayPrediction_v9
+        elif alg == 'NeuronalNet_v10':
+            self.showPrediction = self.displayPrediction_v10
+        elif alg == 'peaks_and_valleys':
+            self.showPrediction = self.displayNothing
+        else:
+            raise ValueError(f"Algorithm '{alg}' not recognized")
+    
+    
     def setDataTest(self, inputData):
         self.data_test = inputData
         
-        
-
                 
                 
     def alignCruves (self, inputPredicion ):
@@ -593,11 +606,9 @@ class TrendViewer:
         plt.gca().xaxis.set_major_locator(xlocator)  
         plt.show() 
 
-
+       
         
-        
-        
-    def displayPrediction_v10 (self, predictions, period):
+    def displayPrediction_v10 (self, predictions, period, security):
         
         numPeriod = int(period[0])
         df_in = pd.DataFrame(columns=['predictions',
@@ -749,8 +760,6 @@ class TrendViewer:
              
         self.moscowHourarray.append(moscowHour)    
              
-             
-             
         if (printPrices == True):
             plt.annotate(
                     "entrance="+ str(entryPrice), # this is the text
@@ -767,11 +776,37 @@ class TrendViewer:
                 ha='center',  # horizontal alignment 
                 size=20)
         plt.show() 
+                
+        #self.findPeaksValleys(df)
         
         
-        findPeaksValleys(df)
+    def findPeaksValleys (data_test):
+    
+        data_test = data_test[['timeDate','StartPrice','MaxPrice','EndPrice'] ].values
         
+        series = data_test[:,3]
+        numWindowSize = 25
+        series = series[-numWindowSize:]
+      
+       
+        # Find indices of peaks
+        peak_idx, _ = find_peaks(series, distance=3)
         
-    def displayNothing (self, predictions, period):
+        # Find indices of valleys (from inverting the signal)
+        valley_idx, _ = find_peaks(-series, distance=3)
+        
+        # Plot 
+        t = np.arange(start=0, stop=len(series), step=1, dtype=int)
+        plt.plot(t, series)   
+        
+        # Plot peaks (red) and valleys (blue)
+        plt.plot(t[peak_idx], series[peak_idx], 'g^')
+        plt.plot(t[valley_idx], series[valley_idx], 'rv')
+        
+        plt.gca().xaxis.set_minor_locator(plt.MultipleLocator(1))
+        
+        plt.show() 
+        
+    def displayNothing (self, predictions, period, security):
         pass
 

@@ -14,11 +14,16 @@ import logging
 import ctypes
 import platform, os, sys
 import lxml.etree as et
-import lib.transaq_connector.structures as ts
+from . import structures as ts
+
 
 log = logging.getLogger("TransaqConnector")
 
-callback_func = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_char_p)
+# Check the platform and set the appropriate callback function type
+if platform.system() == "Windows":
+    callback_func = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_char_p)
+else:
+    callback_func = ctypes.CFUNCTYPE(ctypes.c_bool, ctypes.c_char_p)
 
 encoding = sys.stdout.encoding
 global_handler = None

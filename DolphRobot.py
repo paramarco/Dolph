@@ -6,63 +6,42 @@ import sys
 import signal
 import gc; gc.collect()
 import datetime as dt
-import pytz
-import time
-
 import copy
 import pandas as pd
-                                                      
-import DataServer as ds
-import TradingPlatform as tp
-
-import peaks_and_valleys as fluctuationModel
+import DataManagement.DataServer as ds
+import Configuration.Conf as cm
+import TradingPlatforms.TradingPlatform as tp 
+import PredictionModels.PredictionModel as pm
+import DataVisualization.TrendViewer as tv
 
 class Dolph:
-    def __init__(self, securities):
-        
-        self.securities = securities
-        
-        # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
-        self.MODE = 'TEST_ONLINE' 
 
-        self.numTestSample = 100
-        self.since = dt.datetime(year=2021,month=1,day=1,hour=9, minute=0)
-        self.until = dt.datetime(year=2021,month=1,day=27,hour=22, minute=0)        
-        self.between_time = ('07:00', '23:40')
-        self.TrainingHour = 10
-    
-        # if self.MODE == 'TRAIN_OFFLINE' or self.MODE == 'TEST_OFFLINE':
-            
-        #     if self.TrainingHour in range(9,14):
-        #         self.between_time = ('07:00', '17:00')
-        #     else:
-        #         self.between_time = ('14:00', '23:00')
-   
-               
-        self.periods = ['1Min','10Min']
-
-        self.data = {}
-        self.inputDataTest = {}
-        self.lastUpdate = None
-        self.currentTestIndex = 0  
+    def __init__(self):
         
-        logFormat = '%(asctime)s | %(levelname)s | %(funcName)s |%(message)s'
-        logging.basicConfig(
-            #level = logging.INFO , 
-            level = logging.DEBUG , 
-            format = logFormat,
-            handlers=[  
-                logging.FileHandler("./log/Dolph.log"),
-                logging.StreamHandler(sys.stdout)
-            ]
-        )
-        logging.info('running on mode: ' + self.MODE)
-
+        self._init_configuration()        
+        self._init_logging()
+        self._init_signaling()
         self.ds = ds.DataServer()
-        self.getData = None
-        self.getTrainingModel = None
-        self.showPrediction = None      
+        self._init_securities() 
+        self.tp = tp.initTradingPlatform( self.onCounterPosition )   
+        self.tv = tv.TrendViewer( self.evaluatePosition )
+        self.data = {}
+        
 
+    def _init_configuration(self):
+        
+        self.MODE = cm.MODE
+        self.numTestSample = cm.numTestSample
+        self.since = cm.since
+        self.until = cm.until
+        self.between_time = cm.between_time
+        self.TrainingHour = cm.TrainingHour
+        self.periods = cm.periods
+        self.securities = cm.securities
+        self.currentTestIndex = cm.currentTestIndex                 
+    
+
+    def _init_securities(self):
         
         for sec in self.securities: 
             sec['params'] = self.ds.getSecurityAlgParams( sec )
@@ -71,82 +50,76 @@ class Dolph:
             sec['lastPositionTaken'] = None
             sec['savedEntryPrice'] = None
             for p in self.periods:
-                sec['predictions'][p] = []         
-               
-        self.target = securities[0]
-        self.params = self.ds.getSecurityAlgParams(self.target)
-        self.minNumPastSamples = self.params['minNumPastSamples']  
+                sec['predictions'][p] = []   
+            logging.info(str(sec))
 
-        alg = self.params['algorithm']  
+    
+    def _init_logging(self):
         
-       
-        if (alg == 'peaks_and_valleys' ):
-            self.getData = self.ds.searchData
-            self.getTrainingModel = fluctuationModel.Model      
-        else:
-            raise RuntimeError('algorithm not found')
-
-        connectOnInit = False
-        if (self.MODE == 'TEST_ONLINE' or self.MODE == 'OPERATIONAL' ):
-            connectOnInit = True
-            
-        self.tp = tp.TradingPlatform(
-            self.target, 
-            self.securities, 
-            self.onHistoryCandleRes,
-            connectOnInit,
-            self.onCounterPosition
+        logging.basicConfig(            
+            level = logging.DEBUG , #level = logging.INFO , 
+            format = '%(asctime)s | %(levelname)s | %(funcName)s |%(message)s',
+            handlers=[  
+                logging.FileHandler("./log/Dolph.log"),
+                logging.StreamHandler(sys.stdout)
+            ]
         )
+        logging.info('running on mode: ' + self.MODE)
         
-        def signalHandler(signum, frame):
+
+    def _init_signaling(self):
+        
+        def signalHandler( signum, frame):
             self.tp.disconnect()
             print ('hasta la vista!')
             sys.exit()
         
-        signal.signal(signal.SIGINT, signalHandler)
+        signal.signal(signal.SIGINT, signalHandler)     
         
-        self.goodLuckStreak  = 100
 
-    def onHistoryCandleRes(self, obj):
-        logging.debug( repr(obj) )            
-        self.ds.storeCandles(obj)
-     
-        
+    # return next((s for s in self.securities if s['seccode'] == seccode), None)
     def getSecurityBySeccode(self, seccode):
         sec = None
         for s in self.securities: 
             if seccode == s['seccode']:
                 sec = s
                 break
+        
+        if sec is None: 
+            logging.error('Security not found... ' + seccode);
+            sys.exit(0)
+        
         return sec
         
+    
     def getLastClosePrice(self, seccode):
+        # Get the 1-minute data
+        dataFrame_1min = self.data['1Min']
+        logging.debug(dataFrame_1min.head)
         
-        sec = self.getSecurityBySeccode( seccode )
-        periods = self.periods
-        since = dt.datetime.now() - dt.timedelta( hours = 12 ) 
-        dfs = {}
+        # Filter the data for the specified security code
+        df_1min = dataFrame_1min[dataFrame_1min['mnemonic'] == seccode]
+        logging.debug(df_1min.head)
         
-        if self.MODE == 'TEST_OFFLINE' :
-            dfs = self.getData(
-                self.securities, periods, self.since, sec, self.between_time, 
-                self.until
-            )   
-        else:
-            dfs = self.getData(
-                self.securities, periods, since, sec, self.between_time
-            )   
-
-        dataFrame_1min = dfs['1Min']
-        df_1min = dataFrame_1min[ dataFrame_1min['Mnemonic'] == seccode ]
-        timelast1Min = df_1min.tail(1).index
+        # Check if df_1min is empty
+        if df_1min.empty:
+            logging.error(f"No data found for seccode: {seccode}")
+            return None  # Or handle this case differently depending on your requirements
+    
+        # Get the last close price
+        timelast1Min = df_1min.index[-1]
         timelast1Min = timelast1Min.to_pydatetime()
-        LastClosePrice = df_1min['EndPrice'].iloc[-1]
-        logging.info(' time last 1Min: ' + str(timelast1Min) )
-        logging.info(' Close last 1Min: ' + str(LastClosePrice) )
-
+        LastClosePrice = df_1min['endprice'].iloc[-1]
+        logging.debug(f'time last {timelast1Min}, Close: {LastClosePrice}')
+        
+        # Check if the LastClosePrice is None
+        if pd.isnull(LastClosePrice):
+            logging.error(f'LastClosePrice is None for seccode: {seccode}')
+            sys.exit(0)
+        
         return LastClosePrice
         
+    
     def onCounterPosition(self, position2invert ):
         
         position = copy.deepcopy(position2invert)
@@ -157,339 +130,101 @@ class Dolph:
         else:
             logging.error( "takePosition must be either long or short")
             raise Exception( position.takePosition )
-        
-        
+                
         sec = self.getSecurityBySeccode( position.seccode )
-        if sec is None: logging.error('sec not found... '); return;
-        
-        lastClosePrice = self.getLastClosePrice(position.seccode)
-        if lastClosePrice is None :  logging.error('for seccode...'); return;
-        
-        
-        params = self.ds.getSecurityAlgParams( sec )       
-        entryTimeSeconds =      params['entryTimeSeconds']
-        exitTimeSeconds =       params['exitTimeSeconds'] 
-        k =                     params['stopLossCoefficient']
-        marginsByHour =         params['positionMargin']
-        correctionByHour =      params['correction']
-        spreadByHour =          params['spread']
-        
-        moscowTimeZone = pytz.timezone('Europe/Moscow')                    
-        moscowTime = dt.datetime.now(moscowTimeZone)
-        moscowHour = moscowTime.hour        
-        
-        spread =        spreadByHour[str(moscowHour)]
-        correction =    correctionByHour[str(moscowHour)]
-        deltaForExit =  marginsByHour[str(moscowHour)]
-
-        position.exitTime = moscowTime + dt.timedelta(seconds = exitTimeSeconds)
+        lastClosePrice = self.getLastClosePrice(position.seccode)                
+        params = sec['params']
+        ct = self.tp.getTradingPlatformTime()        
+        deltaForExit =  params['positionMargin'][str(ct.hour)]
+        position.exitTime = ct + dt.timedelta(seconds = params['exitTimeSeconds'])
         smallDeltaExtreamCase = params['smallDeltaExtreamCase']
         
         if position.takePosition == 'long':
             position.entryPrice = lastClosePrice + smallDeltaExtreamCase
-            position.exitPrice =position.entryPrice+deltaForExit
-            position.stoploss = position.entryPrice  - k * deltaForExit
+            position.exitPrice = position.entryPrice + deltaForExit
+            position.stoploss = position.entryPrice - params['stopLossCoefficient'] * deltaForExit
             
         elif position.takePosition == 'short':
             position.entryPrice = lastClosePrice - smallDeltaExtreamCase
             position.exitPrice =position.entryPrice-deltaForExit
-            position.stoploss = position.entryPrice  + k * deltaForExit
+            position.stoploss = position.entryPrice + params['stopLossCoefficient'] * deltaForExit
         else:
             logging.info('this shouldnt happen ' + position.takePosition )
-
         
         logging.info('sending '+position.takePosition+' to Trading platform')
         self.tp.processPosition(position)     
        
-    
-           
-    def isSufficientData (self, dataFrame):
-        
-        # periods = self.periods
-        # longestPeriod = periods[-1]
-        # dataFrame = dataFrame[longestPeriod]
-        dataFrame = dataFrame['1Min']
-        
-        msg = 'there is only %s samples now, you need at least %s samples for '
-        msg+= 'the model to be able to predict'
-        sufficient = True
-        for sec in self.securities:
-            seccode = sec['seccode']
-            df = dataFrame[ dataFrame['Mnemonic'] == seccode ]
-            numSamplesNow = len(df.index)
-            if ( numSamplesNow < self.minNumPastSamples ):
-                logging.warning(msg, numSamplesNow,self.minNumPastSamples)            
-                sufficient = False
-                break
-            
-        return sufficient
-     
-    def isPeriodSynced(self, dfs):
-        
-        synced = False
-        # periods = self.periods
-        # period = periods[-1]        
-        # numPeriod = int(period[0])
-        # dataFrame = dfs[period]
-        numPeriod = 1
-        dataFrame = dfs['1Min']
-        dataFrame_1min = dfs['1Min']
-        
-        for sec in self.securities:
-            seccode = sec['seccode']
-            df = dataFrame[ dataFrame['Mnemonic'] == seccode ]
-            df_1min = dataFrame_1min[ dataFrame_1min['Mnemonic'] == seccode ]
-        
-        
-            timelastPeriod = df.tail(1).index
-            timelastPeriod = timelastPeriod.to_pydatetime()
-     
-            timelast1Min = df_1min.tail(1).index
-            timelast1Min = timelast1Min.to_pydatetime()
-            
-            nMin = -numPeriod + 1
-            timeAux = timelast1Min + dt.timedelta(minutes = nMin)
-            
-            if (timeAux >= timelastPeriod and self.lastUpdate != timelastPeriod):
-                synced = True
-                self.lastUpdate = timelastPeriod
-        
-            logging.debug(' timelastPeriod: '  + str(timelastPeriod) )
-            logging.debug(' timelast1Min: '     + str(timelast1Min) )
-            logging.debug(' timeAux: '     + str(timeAux) )
-            logging.debug(' period synced: ' + str(synced) )
 
+    def dataAcquisition(self):        
         
-        return synced
-
-    def dataAcquisition(_):
-        
-        _.since = _.since +  dt.timedelta( minutes = 1 ) 
-        since = _.since 
-        _.until = _.since +  dt.timedelta( minutes = _.numTestSample ) 
-        until = _.until 
-        
-        periods = _.periods
-        securities = _.securities
-        dfs = {}
-        
-        if (_.MODE == 'TRAIN_OFFLINE'):
-
-            dfs = _.getData(securities, periods, since, None, _.between_time)
-            for p in periods:
-                _.data[p] =  dfs[p]                
-
-        elif (_.MODE == 'TEST_OFFLINE'):
-            
-            _.data = \
-            _.getData(securities, periods, since, None, _.between_time, until )
-            
-            
-        elif ( _.MODE == 'TEST_ONLINE' or _.MODE == 'OPERATIONAL'):   
-            
-            #since = dt.date.today() - dt.timedelta(days=3)            
-            since =  dt.datetime.now() - dt.timedelta( hours = 24 ) 
-            while True:    
-                dfs = _.getData(securities, periods, since, None, _.between_time )
-                if not _.isSufficientData(dfs) :
-                    continue
-                if _.isPeriodSynced(dfs):
-                    break
-                time.sleep(1.5) 
-                
-            for p in periods:
-                _.data[p] = dfs[p]            
-        
-        else:
-            _.log.error('wrong running mode, check self.MODE')
+        self.ds.syncData( self.data )
 
 
-    def trainModel(self, sec, period, params, hour):
+    def _getPredictionModel(self, sec, period):
         
-        msg = 'training&prediction params: '+ period +' '+ str(params)
-        logging.info( msg )        
-        
-        sec['models'][period] = self.getTrainingModel(
-            self.data[period], 
-            params, 
-            period,
-            self.MODE,
-            hour
-        )
+        sec['params']['period'] = period 
+        sec['models'][period] = pm.initPredictionModel( self.data, sec )
+        msg = f"loading training & prediction params: {sec['params']}"
+        logging.debug( msg )        
 
     
-    def storePrediction(self, sec, prediction, period, params):
+    def storePrediction(self, sec, prediction, period):
 
         sec['predictions'][period].append(prediction)
    
-    def loadModel(self, sec, p , params):        
-     
-        moscowTimeZone = pytz.timezone('Europe/Moscow')                    
-        moscowTime = dt.datetime.now(moscowTimeZone)
-        currentHour = moscowTime.hour
     
-        if self.MODE == 'TRAIN_OFFLINE' or self.MODE == 'TEST_OFFLINE':
-            currentHour = self.TrainingHour
-
-        if p not in sec['models']:
-            self.trainModel(sec, p, params, currentHour )
-        elif not sec['models'][p].isSuitableForThisTime(currentHour):
-            self.trainModel(sec, p, params, currentHour)
+    def loadModel(self, sec, period):        
+   
+        if period not in sec['models']:
+            self._getPredictionModel(sec, period )
         else:
             logging.debug('model already loaded') 
 
 
     def predict( self ):
         
-        for p in self.periods:
+        for period in self.periods:
             for sec in self.securities:
-                params = self.ds.getSecurityAlgParams( sec )
-                self.loadModel(sec, p, params)            
-                logging.debug( 'calling the model ...')
-                seccode = sec['seccode']
-                dataframe = self.data[p]
-                df = dataframe[ dataframe['Mnemonic'] == seccode ]
-                pred = sec['models'][p].predict( df, sec,p )            
-                self.storePrediction( sec, pred, p, params)
+                self.loadModel(sec, period)            
+                prediction = sec['models'][period].predict( self.data[period], sec, period )            
+                self.storePrediction( sec, prediction, period)
         
    
     def displayPredictions (self):
         
-        #logging.info( 'plotting a graph ...') 
-        p = self.periods[-1]
+        period = self.periods[-1]
         
-        for sec in self.securities:
-            preds = copy.deepcopy(sec['predictions'][p])
-            # self.showPrediction( preds , p)    
-      
+        for security in self.securities:
+            prediction = copy.deepcopy(security['predictions'][period])
+            self.tv.showPrediction( prediction , period, security)    
+  
     
+    def getEntryPrice(self, seccode, takePosition ):    
+        
+        currentClose = self.getLastClosePrice( seccode)
+        smallDelta = currentClose * 0.001
     
-
-    def reviewForHigherfrequency (self, statusLowFreq, sec ):
-        
-        periodHighFreq = self.periods[0]
-        periodLowFreq = self.periods[-1]
-        numPeriodLowFreq    =   int(periodLowFreq[0])
-        numPeriodHighFreq   =   int(periodHighFreq[0])
-        periodGap = numPeriodLowFreq - numPeriodHighFreq  
-        predictions = copy.deepcopy(sec['predictions'][periodHighFreq])                
-        fluctuation = predictions[-1]
-        numWindowSize = fluctuation['samplingWindow'].shape[0]
-        indexPenultimate = numWindowSize - 2
-        status = 0
-      
-        indexLastPeak = fluctuation['peak_idx'][-1] if fluctuation['peak_idx'].any() else 0
-        indexLastValley = fluctuation['valley_idx'][-1] if fluctuation['valley_idx'].any() else 0
-            
-        if statusLowFreq == 1 and indexLastPeak > indexLastValley and \
-            abs( indexPenultimate - indexLastPeak ) <= periodGap :            
-            status = 1
-        elif statusLowFreq == -1 and indexLastValley > indexLastPeak and \
-            abs( indexPenultimate - indexLastValley ) <= periodGap:
-            status = -1
-        else: # statusLowFreq == 0
-            status = 0 
-        
-        return status
-        
-
-    def evaluatePosition (self, security):        
-
-        longestPeriod = self.periods[-1]
-        board = security['board']
-        seccode = security['seccode']
-        decimals, marketId =    self.ds.getSecurityInfo (security)
-        decimals = int(decimals)
-        params = self.ds.getSecurityAlgParams( security )       
-        byMarket =              params['entryByMarket']
-        entryTimeSeconds =      params['entryTimeSeconds']
-        exitTimeSeconds =       params['exitTimeSeconds'] 
-        quantity =              params['positionQuantity']
-        k =                     params['stopLossCoefficient']
-        marginsByHour =         params['positionMargin']
-        correctionByHour =      params['correction']
-        spreadByHour =          params['spread']
-        smallDelta =            params['smallDelta']
-        limitToAcceptFallingOfPrice = params['limitToAcceptFallingOfPrice']
-
-        moscowTimeZone = pytz.timezone('Europe/Moscow')                    
-        moscowTime = dt.datetime.now(moscowTimeZone)
-        moscowHour = moscowTime.hour
-        
-        spread =        spreadByHour[str(moscowHour)]
-        correction =    correctionByHour[str(moscowHour)]
-        deltaForExit =  marginsByHour[str(moscowHour)]
-
-        exitTime = moscowTime + dt.timedelta(seconds = exitTimeSeconds)
-        stoploss = 0.0
-        exitPrice =  0.0
-        entryPrice =  0.0
-        
-        status = 0
-        predictions = copy.deepcopy(security['predictions'][longestPeriod])    
-        byMarket = False            
-        fluctuation = predictions[-1]
-        numWindowSize = fluctuation['samplingWindow'].shape[0]
-        indexPenultimate = numWindowSize - 2
-                
-        indexLastPeak = fluctuation['peak_idx'][-1] if fluctuation['peak_idx'].any() else 0
-        indexLastValley = fluctuation['valley_idx'][-1] if fluctuation['valley_idx'].any() else 0
-   
-        if indexLastPeak == indexPenultimate and indexLastPeak != indexLastValley :
-            status = 1
-        elif indexLastValley == indexPenultimate and indexLastPeak != indexLastValley :
-             status = -1
-        elif indexLastPeak  == indexLastValley: #if in the same point thera peak and valley
-             status = 0     
+        if (takePosition=="long"):
+            entryPricePV = currentClose + smallDelta
+        elif(takePosition=="short"):
+            entryPricePV = currentClose - smallDelta
         else:
-             status = 0  
-             
-        status = self.reviewForHigherfrequency( status, security )
-             
-        logging.info('last change was = ' + str(status) ) 
-        
-        takePosition = 'no-go'
-        
-        takePosition = self.takeDecisionPeaksAndValleys(
-            security, status, fluctuation, limitToAcceptFallingOfPrice
-        )
-        entryPrice = self.getEntryPrice(fluctuation, takePosition, smallDelta)
-            
-        if takePosition == 'long':
-            exitPrice = entryPrice  + deltaForExit
-            stoploss = entryPrice  - k * deltaForExit                
-        elif takePosition == 'short':
-            exitPrice = entryPrice  - deltaForExit
-            stoploss = entryPrice  + k * deltaForExit                
-            
-        nogoHours = [7,18,19,21]
-        if moscowHour in nogoHours:
-            logging.info('we are in a no-go hour ...')  
-            takePosition = 'no-go' 
-            
-        logging.info('exitPrice:  '+str(exitPrice))  
-        logging.info('entryPrice: '+str(entryPrice)) 
-        position = tp.Position(
-            takePosition, board, seccode, marketId, entryTimeSeconds, 
-            quantity, entryPrice, exitPrice , stoploss, decimals, exitTime,
-            correction, spread, byMarket
-        )
-        logging.info( 'dolph decides: ' + str(position))    
-            
-        return position
+            entryPricePV=currentClose 
+        return entryPricePV
     
-    def takeDecisionPeaksAndValleys(self, security, status,fluctuation, limitToAcceptFallingOfPrice ):
+  
+    def takeDecision(self, security, prediction ):
             
         seccode = security['seccode']
         openPosition = self.tp.isPositionOpen( seccode )
         lastClosePrice = self.getLastClosePrice(seccode)
         position = self.tp.getMonitoredPositionBySeccode(seccode)
-
         takePosition = 'no-go' 
+        prediction = prediction[-1]
         
-        if status == 1:
+        if prediction == 'long':
             if openPosition == True:
-                if (security['lastPositionTaken'] ==  'short'):
+                if (security['lastPositionTaken'] == 'short'):
                     takePosition = 'no-go'
                 else:
                     takePosition = 'close-counterPosition'  
@@ -498,9 +233,9 @@ class Dolph:
                 takePosition= 'short' 
                 security['lastPositionTaken'] = takePosition
 
-        elif status == -1:
+        elif prediction == 'short':
             if openPosition == True:
-                if (security['lastPositionTaken'] ==  'long'):
+                if (security['lastPositionTaken'] == 'long'):
                     takePosition = 'no-go'
                 else:
                     takePosition = 'close-counterPosition' 
@@ -509,72 +244,105 @@ class Dolph:
                 takePosition= 'long' 
                 security['lastPositionTaken'] = takePosition
         
-        elif status == 0:
+        elif prediction == 'no-go':
             if openPosition == True and position is not None:
                 entryPrice = position.entryPrice
+                limitToAcceptFallingOfPrice = entryPrice * 0.015
                 if ( abs( entryPrice - lastClosePrice ) < limitToAcceptFallingOfPrice):
                     takePosition = 'no-go' 
                 else:
                     takePosition = 'close-counterPosition'
-                    logging.info('entryprice' + str(entryPrice))
-                    logging.info('lastClosePrice' + str(lastClosePrice))
-                    logging.info('AVALANCHE has happened!')
         else:
-            logging.info("this should happen for " + seccode )
+            logging.error("this should not happen for " + seccode )
             
+        m = f'{takePosition}: lastClosePrice:{lastClosePrice}'
+        logging.info(m)
         return takePosition
   
     
-    def getOnlyLastClosePrice (self,fluctuation):
-        dataInSamplinWindow = fluctuation['samplingWindow']
-        currentClose = dataInSamplinWindow.iloc[-1].EndPrice
-        return currentClose
-    
-    
-    def getEntryPrice(self,fluctuation, takePosition,smallDelta ):  
-   
-        dataInSamplinWindow = fluctuation['samplingWindow']
-        currentClose = dataInSamplinWindow.iloc[-1].EndPrice
-        currentMin = dataInSamplinWindow.iloc[-1].MinPrice
-        currentMax = dataInSamplinWindow.iloc[-1].MaxPrice
-
-        if (takePosition=="long"):
-            entryPricePV = currentClose + smallDelta
-        elif(takePosition=="short"):
-            entryPricePV = currentClose - smallDelta
-        else:
-            entryPricePV=currentClose 
-        return entryPricePV
+    def get_evaluation_parameters(self, security):
         
+        longestPeriod = self.periods[-1]
+        board, seccode, params = security['board'], security['seccode'], security['params']
+        currentClose = self.getLastClosePrice( seccode)
+        byMarket, entryTimeSeconds = params['entryByMarket'], params['entryTimeSeconds']
+        exitTimeSeconds = params.get('exitTimeSeconds', 36000)
+        # FIXME: Are these parameters automatically calculated?
+        quantity = params['positionQuantity'] 
+        margin = currentClose * 0.01
+        k, margin = params['stopLossCoefficient'], params.get('positionMargin',margin)
+        correction, spread = params.get('correction',0.0), params.get('spread',0.0)
+        # FIXME: Are these parameters automatically calculated?
+        decimals, marketId = self.ds.getSecurityInfo(security) 
+        decimals = int(decimals)                   
+        ct = self.tp.getTradingPlatformTime()
+        exitTime = ct + dt.timedelta(seconds=exitTimeSeconds)
+       
+        return (longestPeriod, board, seccode, byMarket, entryTimeSeconds, exitTimeSeconds, 
+                quantity, k, decimals, marketId, spread, correction, margin, exitTime )
+
+
+    def evaluatePosition (self, security):        
+
+        (longestPeriod, board, seccode, byMarket, entryTimeSeconds, exitTimeSeconds, 
+         quantity, k, decimals, marketId, spread, correction, margin, exitTime ) = self.get_evaluation_parameters(security)
+            
+        prediction = copy.deepcopy(security['predictions'][longestPeriod])
+        takePosition = self.takeDecision( security, prediction)
+        entryPrice = self.getEntryPrice(seccode, takePosition )        
+        stoploss = entryPrice
+        exitPrice = entryPrice
+        
+        if takePosition == 'long':
+            exitPrice = entryPrice  + margin
+            stoploss = entryPrice  - k * margin                
+        elif takePosition == 'short':
+            exitPrice = entryPrice  - margin
+            stoploss = entryPrice  + k * margin                
+       
+        position = tp.Position(
+            takePosition, board, seccode, marketId, entryTimeSeconds, 
+            quantity, entryPrice, exitPrice, stoploss, decimals, exitTime,
+            correction, spread, byMarket 
+        )
+        logging.info( 'dolph decides: ' + str(position))    
+            
+        return position
     
     
     def takePosition (self):
         
         for sec in self.securities:            
+            
             position = self.evaluatePosition(sec)            
-            action = position.takePosition
+            action = position.takePosition            
             if action not in ['long','short','close','close-counterPosition']:
                 logging.info( action + ' position, nothing to do')
                 continue            
-            if self.MODE == 'OPERATIONAL' :
-                logging.info('sending a "' + action +'" to Trading platform ...')
-                self.tp.processPosition(position)              
-        
+
+            logging.info('sending a "' + action +'" to Trading platform ...')
+            self.tp.processPosition(position)  
            
     
 if __name__== "__main__":
 
-    securities = [] 
-    securities.append( {'board':'FUT', 'seccode':'SRU1', 'label': 'SBERBANK'} )
-    # securities.append( {'board':'FUT', 'seccode':'GZM1'} ) 
-    # securities.append( {'board':'FUT', 'seccode':'SiM1'} ) 
-
-    dolph = Dolph( securities )
+    dolph = Dolph()
 
     while True:
+        
         dolph.dataAcquisition()
         dolph.predict()
-        # dolph.displayPredictions()
-        dolph.takePosition()         
+        dolph.displayPredictions()
+        dolph.takePosition()    
+    
+    # dolph = Dolph()       
+    # # filePath = "../TradingPlatforms/Alpaca/AlpacaTickers.json"
+    # # dolph.ds.insert_alpaca_tickers(filePath) 
+            
+       
+    # for sec in dolph.securities:                 
+    #     candles = dolph.tp.get_candles(sec, dolph.since, dolph.until, period = '1Min')
+    #     dolph.ds.store_candles(candles,sec) 
+       
         
         
