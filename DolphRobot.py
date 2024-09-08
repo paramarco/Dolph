@@ -57,7 +57,8 @@ class Dolph:
     def _init_logging(self):
         
         logging.basicConfig(            
-            level = logging.DEBUG , #level = logging.INFO , 
+            #level = logging.DEBUG , #
+            level = logging.INFO , 
             format = '%(asctime)s | %(levelname)s | %(funcName)s |%(message)s',
             handlers=[  
                 logging.FileHandler("./log/Dolph.log"),
@@ -95,11 +96,11 @@ class Dolph:
     def getLastClosePrice(self, seccode):
         # Get the 1-minute data
         dataFrame_1min = self.data['1Min']
-        logging.debug(dataFrame_1min.head)
+        #logging.debug(dataFrame_1min.head)
         
         # Filter the data for the specified security code
         df_1min = dataFrame_1min[dataFrame_1min['mnemonic'] == seccode]
-        logging.debug(df_1min.head)
+        #logging.debug(df_1min.head)
         
         # Check if df_1min is empty
         if df_1min.empty:
@@ -212,51 +213,47 @@ class Dolph:
             entryPricePV=currentClose 
         return entryPricePV
     
+    def isBetterToClosePosition(self, security):
+        
+        seccode = security['seccode']
+        position = self.tp.getMonitoredPositionBySeccode(seccode)
+        lastClosePrice = self.getLastClosePrice(seccode)
+
+        entryPrice = position.entryPrice
+        limitToAcceptFallingOfPrice = entryPrice * 0.015 #TODO
+        decision = False
+        if ( abs( entryPrice - lastClosePrice ) > limitToAcceptFallingOfPrice):
+            decision = True
+            logging.info(f'entryPrice: {entryPrice},lastClosePrice: {lastClosePrice}')
+        
+        return decision
+    
   
     def takeDecision(self, security, prediction ):
             
         seccode = security['seccode']
         openPosition = self.tp.isPositionOpen( seccode )
-        lastClosePrice = self.getLastClosePrice(seccode)
-        position = self.tp.getMonitoredPositionBySeccode(seccode)
         takePosition = 'no-go' 
         prediction = prediction[-1]
-        
-        if prediction == 'long':
-            if openPosition == True:
-                if (security['lastPositionTaken'] == 'short'):
-                    takePosition = 'no-go'
-                else:
-                    takePosition = 'close-counterPosition'  
-                    security['lastPositionTaken'] = None
-            else:
-                takePosition= 'short' 
-                security['lastPositionTaken'] = takePosition
+                
+        if openPosition and security['lastPositionTaken'] == prediction :
 
-        elif prediction == 'short':
-            if openPosition == True:
-                if (security['lastPositionTaken'] == 'long'):
-                    takePosition = 'no-go'
-                else:
-                    takePosition = 'close-counterPosition' 
-                    security['lastPositionTaken'] = None
-            else:             
-                takePosition= 'long' 
-                security['lastPositionTaken'] = takePosition
+            takePosition = 'no-go'
+                     
+        elif openPosition and prediction == 'no-go' and self.isBetterToClosePosition(security):
+            
+            takePosition = 'close'
+            security['lastPositionTaken'] = takePosition
         
-        elif prediction == 'no-go':
-            if openPosition == True and position is not None:
-                entryPrice = position.entryPrice
-                limitToAcceptFallingOfPrice = entryPrice * 0.015
-                if ( abs( entryPrice - lastClosePrice ) < limitToAcceptFallingOfPrice):
-                    takePosition = 'no-go' 
-                else:
-                    takePosition = 'close-counterPosition'
+        elif not openPosition:
+            
+            takePosition = prediction
+            security['lastPositionTaken'] = takePosition
+
         else:
             logging.error("this should not happen for " + seccode )
-            
-        m = f'{takePosition}: lastClosePrice:{lastClosePrice}'
-        logging.info(m)
+                    
+        logging.info(f'{takePosition}')
         return takePosition
   
     

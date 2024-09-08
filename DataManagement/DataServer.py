@@ -451,7 +451,7 @@ class DataServer:
             log.error(str(inst.args))
 
     def syncData(self, data):
-        log.info("Synchronizing database...")
+        #log.info("Synchronizing database...")
 
         if not data:
             data.update(self.searchData(self.since))
@@ -472,7 +472,7 @@ class DataServer:
                 try:
                     dfs = self.searchData(since)
                     if dfs:
-                        log.info("Data found for synchronization.")
+                        log.debug("Data found for synchronization.")
                     else:
                         log.error("No data returned for synchronization.")
                 except Exception as e:
@@ -582,10 +582,10 @@ class DataServer:
                 synced = True
                 self.lastUpdate = timelastPeriod
 
-            logging.debug(f'TimelastPeriod: {timelastPeriod}')
-            logging.debug(f'Timelast1Min: {timelast1Min}')
-            logging.debug(f'TimeAux: {timeAux}')
-            logging.debug(f'Period synced: {synced}')
+            #logging.debug(f'TimelastPeriod: {timelastPeriod}')
+            #logging.debug(f'Timelast1Min: {timelast1Min}')
+            #logging.debug(f'TimeAux: {timeAux}')
+            #logging.debug(f'Period synced: {synced}')
 
         return synced
 
@@ -595,8 +595,8 @@ class DataServer:
         untilDate = ""
         if until is not None:
             untilDate = until.strftime('%Y-%m-%d %H:%M:%S%z')
-        log.debug(f"Since: {date}")
-        log.debug(f"Until: {untilDate}" if untilDate else "Until: None")
+        #log.debug(f"Since: {date}")
+        #log.debug(f"Until: {untilDate}" if untilDate else "Until: None")
     
         try:
             conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host)
@@ -1309,6 +1309,60 @@ class DataServer:
                 conn.close()
                 log.info("Database connection closed")    
    
+
+
+    def store_positions_to_db(self, positions_json):
+        """
+        Store the list of monitored positions in the database.
+        """
+        try:
+            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host)
+            cursor = conn.cursor()
+
+            # Clear existing entries (assuming you want to reset the monitored positions on each disconnect)
+            cursor.execute("DELETE FROM monitored_positions;")
+
+            # Insert each JSON position
+            for pos_json in positions_json:
+                cursor.execute("INSERT INTO monitored_positions (position_data) VALUES (%s);", (pos_json,))
+
+            conn.commit()
+            cursor.close()
+            log.info("Monitored positions have been stored in the database.")
+            
+        except psycopg2.Error as error:
+            log.error(f"Failed to store positions in the database: {error}")
+            
+        finally:
+            if conn:
+                conn.close()
+
+    def load_positions_from_db(self):
+        """
+        Load the list of monitored positions from the database.
+        """
+        positions_json = []
+        try:
+            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host)
+            cursor = conn.cursor()
+
+            cursor.execute("SELECT position_data FROM monitored_positions;")
+            result = cursor.fetchall()
+
+            positions_json = [row[0] for row in result]
+
+            cursor.close()
+            log.info("Monitored positions have been loaded from the database.")
+            
+        except psycopg2.Error as error:
+            log.error(f"Failed to load positions from the database: {error}")
+        finally:
+            if conn:
+                conn.close()
+
+        return positions_json
+
+
 
 
 

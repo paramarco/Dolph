@@ -1,6 +1,6 @@
 # TradingPlatform.py
 
-import threading
+import json
 import asyncio
 from abc import ABC, abstractmethod
 import logging
@@ -22,13 +22,15 @@ class Position:
     
     def __init__(self, takePosition, board, seccode, marketId, entryTimeSeconds,
                  quantity, entryPrice, exitPrice, stoploss, 
-                 decimals, exitTime, correction, spread, bymarket = False ):
+                 decimals, exitTime, correction=None, spread=None, bymarket = False, 
+                 entry_id=None, exit_id=None, exit_order_no=None , union = None, 
+                 expdate = None,  client = None, buysell = None , stopOrderRequested = None) :
         
         # id:= transactionid of the first order, "your entry" of the Position
         # will be assigned once upon successful entry of the Position
-        self.entry_id = None
+        self.entry_id = entry_id  # Add entry_id field
         # will be assigned once upon successful entry of the Position
-        self.exit_id = None
+        self.exit_id = exit_id    # Add exit_id field
         # takePosition:= long | short | no-go
         self.takePosition = takePosition
         self.board = board
@@ -62,11 +64,11 @@ class Position:
         self.expdate = None
         # exit_order_no := it's the number Transaq gives to the order which is 
         # automatically triggered by a tp_executed or sl_executed 
-        self.exit_order_no = None
+        self.exit_order_no = exit_order_no  # Add exit_order_no field
 
     def __str__(self):
         
-        fmt = "%d.%m.%Y %H:%M:%S"
+        #fmt = "%d.%m.%Y %H:%M:%S"
         msg = ' takePosition='+ self.takePosition 
         msg += ' board=' + self.board 
         msg += ' seccode=' + self.seccode
@@ -81,7 +83,7 @@ class Position:
         msg += ' entry_id=' + str(self.entry_id)
         msg += ' exit_id=' + str(self.exit_id)
         msg += ' exit_order_no=' + str(self.exit_order_no)
-        msg += ' exitTime=' + self.exitTime.strftime(fmt)
+        #msg += ' exitTime=' + str(self.exitTime.strftime(fmt))
         
         return msg
 
@@ -117,7 +119,8 @@ class TradingPlatform(ABC):
         self.candlesUpdateThread = None
         self.candlesUpdateTask = None
         self.fmt = "%d.%m.%Y %H:%M:%S"
-
+        
+        self.loadMonitoredPositions() 
 
     def _init_configuration(self):
         
@@ -140,7 +143,6 @@ class TradingPlatform(ABC):
     def connect(self):
         pass
     
-
     @abstractmethod
     def disconnect(self):
         pass
@@ -181,98 +183,88 @@ class TradingPlatform(ABC):
     def cancellAllStopOrders(self):
         pass
         
-       
-    # Common methods  
     
-    # def connect_handler(self):
-    #     """ Universal connect method to be called by the main class (Dolph). """
-    #     if asyncio.iscoroutinefunction(self.connect):
-    #         log.info("Detected async connect. Creating task in a new thread...")
-    #         self._start_async_connect()  # Start the async connection without blocking the loop
-    #     else:
-    #         log.info("Using synchronous connect.")
-    #         connection_result = self.connect()
-    #         if connection_result:
-    #             self.on_successful_connection()
-
-    # async def test_async_task(self):
-    #     log.info("Test async task running...")
-    #     await asyncio.sleep(2)
-    #     log.info("Test async task completed.")
-
-    # def connect_handler(self):
-    #     if asyncio.iscoroutinefunction(self.async_connect):
-    #         loop = asyncio.get_event_loop()
-    #         if loop.is_running():
-    #             log.info("Existing event loop detected, scheduling async connect...")
-    #             loop.create_task(self.async_connect())
-    #             loop.create_task(self.test_async_task())  # Test coroutine
-    #         else:
-    #             log.info("Starting new event loop for async connect...")
-    #             asyncio.run(self.async_connect())
-    #     else:
-    #         self.connect()
-    
-    async def async_connect(self):
-        await self.connect()
-
-    def connect_handler(self):
-        if asyncio.iscoroutinefunction(self.async_connect):
-            asyncio.create_task(self.async_connect())
-        else:
-            self.connect()   
-    
-
-    # def _start_async_connect(self):
-    #     """Start the async connect in an event loop, handling existing loops."""
-    #     loop = asyncio.get_event_loop()
-    #     if loop.is_running():
-    #         log.info("Existing event loop detected, scheduling async connect...")
-    #         asyncio.create_task(self.async_connect())  # Properly schedule the task within the loop
-    #     else:
-    #         loop.run_until_complete(self.async_connect())
-
-    # async def async_connect(self):
-    #     """ Asynchronous connect method. By default, calls the sync connect. """
-    #     await self.connect()  # Awaiting the async connect
-
-    def on_successful_connection(self):
-        """ Actions to take upon a successful connection. """
-        log.info("Connection successful. Retrieving initial candles.")
-        self.retrieve_and_store_initial_candles()
-
-
-    def retrieve_and_store_initial_candles(self):
-        """ Retrieve and store candles for the past 4 months for each security. """
-        log.info("Retrieving and storing initial candles...")
-        
-        now = self.getTradingPlatformTime()
-        four_months_ago = now - datetime.timedelta(days=4*30)
-        
-        for sec in self.securities:
-            candles = self.get_candles(sec, four_months_ago, now, period='1Min')
-            self.ds.store_candles(candles, sec)
-        
-        log.info("Initial candle retrieval and storage complete.")
-
-
-    def openPosition ( self, position):        
+    @abstractmethod   
+    def openPosition ( self, position): 
+        pass
      
-         position.expdate = self.getExpDate(position.seccode)
-         price = round(position.entryPrice , position.decimals)
-         price = "{0:0.{prec}f}".format(price,prec=position.decimals)        
-         
-         res = self.tc.new_order(
-             position.board,position.seccode,position.client,position.union,
-             position.buysell, position.expdate, position.union, 
-             position.quantity,price, position.bymarket,False
-         )
-         log.debug(repr(res))
-         if res.success == True:
-             position.entry_id = res.id
-             self.monitoredPositions.append(position)                                
-         else:
-             logging.error( "position has not been processed by transaq")
+    @abstractmethod
+    def triggerStopOrder(self, order, monitoredPosition):
+        pass
+
+    @abstractmethod
+    def closeExit(self, mp, mso):  
+        pass
+    
+    @abstractmethod
+    def set_exit_order_no_to_MonitoredPosition (self, stopOrder):
+        pass
+    
+    @abstractmethod
+    def getPositionByOrder(self, order):
+        pass
+    
+    @abstractmethod
+    def removeMonitoredPositionByExit(self, order):
+        pass
+
+
+    
+    ################ Common methods    #######################################
+    
+    def storeMonitoredPositions(self):
+        """
+        This method stores each monitored position in the database as a JSON string.
+        """
+        positions_json = [json.dumps(mp.__dict__) for mp in self.monitoredPositions]
+
+        try:
+            self.ds.store_positions_to_db(positions_json)  # Save the list of positions as JSON in the database
+        except Exception as e:
+            log.error(f"Failed to store monitored positions: {e}")
+        log.info("Monitored positions have been stored successfully.")
+
+
+    def loadMonitoredPositions(self):
+        """
+        This method loads previously stored monitored positions from the database and restores them.
+        """
+        try:
+            positions_json = self.ds.load_positions_from_db()  # Load the list of JSON positions from the database
+            for pos_data in positions_json:
+                # Since pos_data is already a dictionary, we don't need to call json.loads
+                if isinstance(pos_data, str):
+                    pos_dict = json.loads(pos_data)  # This won't be needed if it's already a dict
+                else:
+                    pos_dict = pos_data  # Already a dictionary
+    
+                pos = Position(**pos_dict)  # Create Position object from dictionary
+                self.monitoredPositions.append(pos)
+        except Exception as e:
+            log.error(f"Failed to load monitored positions: {e}")
+        log.info("Monitored positions have been loaded successfully.")
+
+
+    def processPosition(self, position):
+     
+        self.reportCurrentOpenPositions()
+        log.info(str(position))
+        
+        if not self.processingCheck(position):
+            return       
+        
+        if position.takePosition in ["long", "short"]:        
+            self.openPosition(position)
+        elif position.takePosition == "close":
+            self.closePosition(position)
+        elif position.takePosition == "close-counterPosition":
+            self.closePosition(position, withCounterPosition=True)
+        else:
+            logging.error("takePosition must be either long, short or close")
+            raise Exception(position.takePosition)
+        
+        self.reportCurrentOpenPositions()
+
     
     def cancellAllOrders(self):
         for mo in self.monitoredOrders:
@@ -280,8 +272,7 @@ class TradingPlatform(ABC):
             log.debug(repr(res))
         log.debug('finished!')
           
-    
-    
+        
     def addClientAccount(self, clientAccount):
         self.clientAccounts.append(clientAccount)
     
@@ -292,49 +283,21 @@ class TradingPlatform(ABC):
                 return c.id
         raise Exception("market "+str(marketId)+" not found")     
 
+
     def getUnionIdByMarket(self, marketId):        
         for c in self.clientAccounts:
             if c.market == marketId:
                 return c.union
         raise Exception("market "+marketId+" not found") 
 
-    def triggerStopOrder(self, order, monitoredPosition):
-        
-        buysell = "S" if monitoredPosition.buysell == "B" else "B"
-        
-        trigger_price_tp = "{0:0.{prec}f}".format(
-            round(monitoredPosition.exitPrice, monitoredPosition.decimals),
-            prec=monitoredPosition.decimals
-        )
-        trigger_price_sl = "{0:0.{prec}f}".format(
-            round(monitoredPosition.stoploss, monitoredPosition.decimals),
-            prec=monitoredPosition.decimals
-        )
-        
-        monitoredPosition.quantity = abs(order.quantity - order.balance)
-                 
-        res = self.new_stoporder(
-            order.board, order.seccode, order.client, buysell, 
-            monitoredPosition.quantity, trigger_price_sl, trigger_price_tp,
-            monitoredPosition.correction, monitoredPosition.spread, 
-            monitoredPosition.bymarket, False 
-        )
-        log.info(repr(res))
-        if res.success:
-            monitoredPosition.stopOrderRequested = True
-            monitoredPosition.exit_id = res.id                
-            if order in self.monitoredOrders:
-                self.monitoredOrders.remove(order)
-            m = f"stopOrder of order {order.id} successfully requested, deleted from monitored Orders"
-            logging.info(m)
-        else:
-            monitoredPosition.stopOrderRequested = False
-            logging.error("takeprofit hasn't been processed by transaq")      
         
     def triggerWhenMatched(self, order):
+        
         trigger = False
         transactionId = None
         position = None
+        
+        logging.debug(repr(order))
         
         for cp in self.counterPositions:
             transactionId, position = cp
@@ -351,89 +314,79 @@ class TradingPlatform(ABC):
         
         
     def processOrderStatus(self, order):
-    
-        logging.info(repr(order))
-        clone = copy.deepcopy(order)
+        """ common """
+        logging.debug(repr(order))  
+        # clone = {'id': order.id, 'status': order.status} ;  self.triggerWhenMatched(clone) if s in cm.statusOrderExecuted   
         s = order.status
-        monitoredPosition = None
-
-        if s == 'matched':          
-            for m in self.monitoredPositions:
-                if m.entry_id == order.id or m.exit_id == order.id or m.exit_order_no == order.order_no:
-                   monitoredPosition = m
-                   break
+        try:
+            if s in cm.statusOrderExecuted : 
+                
+                monitoredPosition = self.getPositionByOrder(order)                        
+                if monitoredPosition is None:                    
+                    if order in self.monitoredOrders:
+                        self.monitoredOrders.remove(order)
+                        logging.info(f'already processed before, deleting: {repr(order.id)}')
                     
-            if monitoredPosition is None:
-                m = f'already processed, deleting: {repr(order)}'
-                logging.info(m)
+                elif not monitoredPosition.stopOrderRequested:
+                    logging.info(f'Order is Filled-Monitored wo stopOrderRequested: {repr(order.id)}')
+                    self.triggerStopOrder(order, monitoredPosition)                
+                else:
+                    self.removeMonitoredPositionByExit(order)
+                    if order in self.monitoredOrders:
+                        self.monitoredOrders.remove(order)
+                    logging.info(f"exit complete: {str(monitoredPosition)}")                                   
+                
+            elif s in cm.statusOrderForwarding :
+                
+                if order not in self.monitoredOrders:
+                    self.monitoredOrders.append(order)
+                    logging.info(f'order {order.id} in status:{s} added to monitoredOrders')   
+                    
+            elif s in cm.statusOrderCanceled :
                 if order in self.monitoredOrders:
                     self.monitoredOrders.remove(order)
+                    self.cancel_order(order.id)                
+                self.monitoredPositions = [p for p in self.monitoredPositions if p.entry_id != order.id]
+                logging.info(f'order {order.id} with status: {s} deleted from monitoredOrders')
                 
-            elif not monitoredPosition.stopOrderRequested:
-                self.triggerStopOrder(order, monitoredPosition)                
-            else:
-                self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_order_no != order.order_no]                
-                if order in self.monitoredOrders:
-                    self.monitoredOrders.remove(order)
-                m = f"exit complete: {str(monitoredPosition)}"
-                logging.info(m)
-                
-            self.triggerWhenMatched(clone)    
-            
-        elif s in ['watching', 'active', 'forwarding']:
-            if order not in self.monitoredOrders:
-                if order.time is None:
-                    order.time = self.getTradingPlatformTime()
-                self.monitoredOrders.append(order)
-                m = f'order {order.id} with status: {s} added to monitoredOrders'
-                logging.info(m)   
-                
-        elif s in ['rejected', 'expired', 'denied', 'cancelled', 'removed']:
-            if order in self.monitoredOrders:
-                self.monitoredOrders.remove(order)
-                self.cancel_order(order.id)                
-            self.monitoredPositions = [p for p in self.monitoredPositions if p.entry_id != order.id]
-            m = f'order {order.id} with status: {s} deleted from monitoredOrders'
-            logging.info(m)
-            
-        else:
-            others = '"none","inactive","wait","disabled","failed","refused"'
-            m = f'status: {s}, belongs to: {others}'
-            logging.info(m)
-            
-        self.reportCurrentOpenPositions()
-        
+            else:                
+                logging.info(f'order {order.id} in status: {s} ')
+           
+        except Exception as e:
+            log.error(f"Failed to processOrderStatus: {e}")
+      
 
     def processStopOrderStatus(self, stopOrder):
-        
-        logging.info(repr(stopOrder))       
+        """common"""        
+        logging.debug(repr(stopOrder))       
         s = stopOrder.status
         m = ''
         
-        if s in ['tp_guardtime', 'tp_forwarding', 'watching', 'sl_forwarding', 'sl_guardtime']:
+        if s in cm.statusOrderForwarding:
+            
             if stopOrder not in self.monitoredStopOrders:
                 self.monitoredStopOrders.append(stopOrder)
                 m = f'stopOrder {stopOrder.id} with status: {s} added to monitoredStopOrders'
-        elif s in ['tp_executed', 'sl_executed']:
-            for mp in self.monitoredPositions:
-                if mp.exit_id == stopOrder.id and stopOrder.order_no is not None: 
-                    mp.exit_order_no = stopOrder.order_no
-                    break
+                
+        elif s in cm.statusStopOrderExecuted :  
+            
+            self.set_exit_order_no_to_MonitoredPosition(stopOrder)                      
             if stopOrder in self.monitoredStopOrders:
                 self.monitoredStopOrders.remove(stopOrder)
-            m = f'id: {stopOrder.id} with status: {s} deleted from monitoredStopOrders'
-            self.updatePortfolioPerformance(s)            
-        elif s in ['cancelled', 'denied', 'disabled', 'expired', 'failed', 'rejected']:
+            m = f'stopOrder: {stopOrder.id} in status: {s} deleted from monitoredStopOrders'
+            
+        elif s in cm.statusOrderCanceled:
+            
             self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_id != stopOrder.id] 
             if stopOrder in self.monitoredStopOrders:
                 self.monitoredStopOrders.remove(stopOrder)
             m = f'id: {stopOrder.id} with status: {s} deleted from monitoredStopOrders'
+            
         else:
-            others = '"linkwait","tp_correction","tp_correction_guardtime"'
-            m = f'status: {s} skipped, belongs to: {others}'
+            m = f'status: {s} skipped, belongs to: {cm.statusOrderOthers}'
         
         logging.info(m)
-        self.reportCurrentOpenPositions()
+
         
         
     def isPositionOpen(self, seccode):
@@ -469,7 +422,9 @@ class TradingPlatform(ABC):
     
     
     def getExpDate(self, seccode):
-        nSec = next((sec['params']['ActiveTimeSeconds'] for sec in self.securities if seccode == sec['seccode']), 0)
+        #nSec = next((sec['params']['ActiveTimeSeconds'] for sec in self.securities if seccode == sec['seccode']), 0)
+        #TODO        
+        nSec = 1000
         if nSec == 0:
             log.error('this shouldn\'t happen')
             return None
@@ -485,8 +440,7 @@ class TradingPlatform(ABC):
         monitoredStopOrder = self.getMonitoredStopOrderBySeccode(code)
         
         if monitoredPosition is None or monitoredStopOrder is None:
-            logging.error("position Not found, recheck this case")
-            
+            logging.error("position Not found, recheck this case")            
         else:
             log.info('close action received, closing position...')
             cloneMP = copy.deepcopy(monitoredPosition)
@@ -514,43 +468,21 @@ class TradingPlatform(ABC):
             logging.info('we are in a no-go Trading hour ...')  
             return False
 
-        if not self.tc.connected:
-            log.warning('wait!, not connected to TRANSAQ yet...')
-            return False
+        # Only check self.tc if it's relevant, e.g., for platforms that use tc
+        if hasattr(self, 'tc') and self.tc is not None and self.tc.connected:
+            position.client = self.getClientIdByMarket(position.marketId)
+            position.union = self.getUnionIdByMarket(position.marketId)
+        
         
         if self.isPositionOpen(position.seccode) and position.takePosition not in ['close', 'close-counterPosition']:
             msg = f'there is a position opened for {position.seccode}'            
             logging.warning(msg)
             return False
         
-        logging.info('processing"'+ position.takePosition +'" at Trading platform ...')
+        logging.info('processing "'+ position.takePosition +'" at Trading platform ...')
         return True
     
-    
-    def processPosition(self, position):
-        
-        if not self.processingCheck(self, position): return       
-
-        position.client = self.getClientIdByMarket(position.marketId)
-        position.union = self.getUnionIdByMarket(position.marketId)
-        
-        if position.takePosition == "long":           
-            position.buysell = "B"
-            self.openPosition(position)
-        elif position.takePosition == "short":
-            position.buysell = "S"
-            self.openPosition(position)
-        elif position.takePosition == "close":
-            self.closePosition(position)
-        elif position.takePosition == "close-counterPosition":
-            self.closePosition(position, withCounterPosition=True)
-        else:
-            logging.error("takePosition must be either long, short or close")
-            raise Exception(position.takePosition)
-        
-        self.reportCurrentOpenPositions()
-        
-
+ 
     def cancelTimedoutEntries(self):
         
         tradingPlatformTime = self.getTradingPlatformTime()
@@ -616,43 +548,6 @@ class TradingPlatform(ABC):
         return self.profitBalance
     
     
-    def closeExit(self, mp, mso):  
-        
-        tradingPlatformTime = self.getTradingPlatformTime()
-        list2cancel = []
-        tid = None
-        res = self.cancel_stoploss(mso.id)
-        log.debug(repr(res))
-        if res.success:
-            list2cancel.append(mso)
-            localTime = tradingPlatformTime.strftime(self.fmt)
-            exitTime = mp.exitTime.strftime(self.fmt)
-            msg = f'localTime: {localTime} exit timedouts at: {exitTime} {repr(mso)}'
-            log.info(msg)
-            res = self.new_order(
-                mp.board, mp.seccode, mp.client, mp.union, mso.buysell,
-                mp.expdate, mp.quantity, price=0, bymarket=True, usecredit=False
-               
-            )
-            log.debug(repr(res))
-            if res.success:
-                log.info('exit request was successfully processed')
-                tid = res.id
-            else:
-                log.error('exit request was erroneously processed')
-        
-        else:
-            logging.error("cancel stop-order error by transaq")
-        
-        for mso in list2cancel:
-            if mso in self.monitoredStopOrders:
-                self.monitoredStopOrders.remove(mso)
-        
-            self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_id != mso.id] 
-        
-        return tid
-        
-    
     def cancelHangingOrders(self):        
         
         tradingPlatformTime = self.getTradingPlatformTime()
@@ -712,6 +607,8 @@ class TradingPlatform(ABC):
         
         return monitoredStopOrder
 
+
+##############################################################################
 
 class candleUpdateTask:
       
@@ -811,6 +708,7 @@ class FinamTradingPlatform(TradingPlatform):
         return self.tc.cancel_order(order_id)
 
     def new_stoporder(self, board, seccode, client, buysell, quantity, trigger_price_sl, trigger_price_tp, correction, spread, bymarket, is_market):
+        """Transaq"""
         return self.tc.new_stoporder(board, seccode, client, buysell, quantity, trigger_price_sl, trigger_price_tp, correction, spread, bymarket, is_market)
 
     def cancel_stoploss(self, stop_order_id):
@@ -883,7 +781,128 @@ class FinamTradingPlatform(TradingPlatform):
             log.debug('finished!')
         else:
             log.warning('wait!, not connected to TRANSAQ yet...')  
+                              
+        
+    def openPosition ( self, position): 
+        """
+        TRANSAQ
+        """    
+        if position.takePosition == "long":           
+            position.buysell = "B"
+        elif position.takePosition == "short":
+            position.buysell = "S"
+        
+        position.expdate = self.getExpDate(position.seccode)
+        price = round(position.entryPrice , position.decimals)
+        price = "{0:0.{prec}f}".format(price,prec=position.decimals)        
+        
+        res = self.new_order(
+            position.board,position.seccode,position.client,position.union,
+            position.buysell, position.expdate, position.quantity,price, position.bymarket,False
+        )
+        log.debug(repr(res))
+        if res.success == True:
+            position.entry_id = res.id
+            self.monitoredPositions.append(position)                                
+        else:
+            logging.error( "position has not been processed by transaq")       
+          
 
+    def triggerStopOrder(self, order, monitoredPosition):
+        """  TRANSAQ  """
+        
+        buysell = "S" if monitoredPosition.buysell == "B" else "B"
+        
+        trigger_price_tp = "{0:0.{prec}f}".format(
+            round(monitoredPosition.exitPrice, monitoredPosition.decimals), prec=monitoredPosition.decimals
+        )
+        trigger_price_sl = "{0:0.{prec}f}".format(
+            round(monitoredPosition.stoploss, monitoredPosition.decimals), prec=monitoredPosition.decimals
+        )
+        
+        monitoredPosition.quantity = abs(order.quantity - order.balance)
+                 
+        res = self.new_stoporder(
+            order.board, order.seccode, order.client, buysell, 
+            monitoredPosition.quantity, trigger_price_sl, trigger_price_tp,
+            monitoredPosition.correction, monitoredPosition.spread, 
+            monitoredPosition.bymarket, False 
+        )
+        log.info(repr(res))
+        if res.success:
+            monitoredPosition.stopOrderRequested = True
+            m = f"stopOrder of order {order.id} successfully requested"
+            logging.info(m)
+        else:
+            monitoredPosition.stopOrderRequested = False
+            logging.error("takeprofit hasn't been processed by transaq")      
+        
+    
+    def closeExit(self, mp, mso):
+        """ Transaq """
+        
+        tradingPlatformTime = self.getTradingPlatformTime()
+        list2cancel = []
+        tid = None
+        res = self.cancel_stoploss(mso.id)
+        log.debug(repr(res))
+        if res.success:
+            list2cancel.append(mso)
+            localTime = tradingPlatformTime.strftime(self.fmt)
+            exitTime = mp.exitTime.strftime(self.fmt)
+            msg = f'localTime: {localTime} exit timedouts at: {exitTime} {repr(mso)}'
+            log.info(msg)
+            res = self.new_order(
+                mp.board, mp.seccode, mp.client, mp.union, mso.buysell,
+                mp.expdate, mp.quantity, price=0, bymarket=True, usecredit=False
+               
+            )
+            log.debug(repr(res))
+            if res.success:
+                log.info('exit request was successfully processed')
+                tid = res.id
+            else:
+                log.error('exit request was erroneously processed')
+        
+        else:
+            logging.error("cancel stop-order error by transaq")
+        
+        for mso in list2cancel:
+            if mso in self.monitoredStopOrders:
+                self.monitoredStopOrders.remove(mso)
+        
+            self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_id != mso.id] 
+        
+        return tid
+        
+    
+    def set_exit_order_no_to_MonitoredPosition (self, stopOrder):
+        """ Transaq """
+        for mp in self.monitoredPositions: #TODO  
+            if mp.exit_id == stopOrder.id and stopOrder.order_no is not None: 
+                mp.exit_order_no = stopOrder.order_no
+                break  
+        
+
+    def getPositionByOrder(self, order):
+        """Transaq"""
+        monitoredPosition = None
+        for m in self.monitoredPositions:
+            if order.id in [ m.entry_id, m.exit_id ] or  m.exit_order_no == order.order_no:
+               monitoredPosition = m
+               break
+        return monitoredPosition
+        
+    
+    def removeMonitoredPositionByExit(self, order):
+        """Transaq"""
+        self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_order_no != order.order_no] 
+    
+    
+        
+    
+    
+##############################################################################
 
 class barUpdateTask:
     
@@ -892,10 +911,12 @@ class barUpdateTask:
         self.tp = tp
         log.debug('barUpdateTask Thread initialized...')
 
+
     def terminate(self):
         self._running = False
         log.debug('thread barUpdateTask terminated...')
-
+        
+        
     def run(self, securities):
         log.debug('Running thread barUpdateTask...')
         loop = asyncio.new_event_loop()
@@ -911,8 +932,7 @@ class barUpdateTask:
             log.info(f"Subscribing to 1-minute bars for {seccode} ...")
             self.tp.stream.subscribe_bars(self.tp.on_bar, seccode)
         
-        log.info("Starting the Alpaca stream loop...")
-        
+        log.info("Starting the Alpaca stream loop...")        
         try:
             loop.run_until_complete(self.tp.stream._run_forever())
         except Exception as e:
@@ -921,7 +941,67 @@ class barUpdateTask:
             loop.close()
 
 
+class OrderStatusUpdateTask:
+    
+    def __init__(self, tp):
+        self._running = True
+        self.tp = tp
+        log.debug('OrderStatusUpdateTask Thread initialized...')
 
+
+    def terminate(self):
+        self._running = False
+        log.debug('thread OrderStatusUpdateTask terminated...')
+        
+        
+    def run(self):
+        """
+        Polls order updates every minute. Handles exceptions to prevent
+        maximum recursion errors and logs them properly.
+        """
+        time.sleep(15) 
+        while self._running:
+            self.tp.reportCurrentOpenPositions()
+            try:
+                # Fetch open orders or recent orders from Alpaca
+                orders = list( self.tp.api.list_orders(status='all') )  # Fetches open orders; you can adjust the status as needed ('open', 'closed', etc.)
+             
+                log.debug(repr(orders))
+                
+                for order in orders:
+                    # Process regular orders (market/limit)
+                    if order.type in ['limit', 'market']:
+                        self.tp.processOrderStatus(order)  
+                    # Process stop or stop-limit orders
+                    elif order.type in ['stop', 'stop_limit']:
+                        self.tp.processStopOrderStatus(order)  
+                    else:
+                        log.error(f"Unknown Order type : {order}")                        
+            
+            except Exception as e:
+                log.error(f"Failed to poll order updates: {e}")
+            
+            self.tp.reportCurrentOpenPositions()
+            # Sleep for 5 seconds before the next poll
+            time.sleep(5) 
+
+
+
+# Handling Alpaca Statuses the possible statuses for orders are:
+#     new: The order is new and waiting for execution.
+#     partially_filled: The order has been partially filled.
+#     filled: The order has been completely filled.
+#     done_for_day: The order will no longer be filled for the day.
+#     canceled: The order was canceled before it was filled.
+#     expired: The order expired before it could be filled.
+#     rejected: The order was rejected by the trading venue.
+#     pending_cancel: The order is being canceled.
+#     pending_replace: The order is being replaced with a new order.
+#     stopped: The order has been stopped.
+#     suspended: The order has been suspended and cannot be filled.
+#     calculated: The order is being calculated but is not yet open for execution.
+#     accepted: The order has been accepted by the exchange or venue.
+#     pending_new: The order has been submitted but not yet acknowledged.
 
 class AlpacaTradingPlatform(TradingPlatform):
     
@@ -972,6 +1052,14 @@ class AlpacaTradingPlatform(TradingPlatform):
             )
             t.start()  
             
+            self.ordersStatusUpdateTask = OrderStatusUpdateTask(self)
+            t2 = Thread(
+                target = self.ordersStatusUpdateTask.run, 
+                args = ( )
+            )
+            t2.start()  
+            
+            
         except Exception as e:
             log.error(f"Failed to connect to Alpaca: {e}")              
         
@@ -982,12 +1070,15 @@ class AlpacaTradingPlatform(TradingPlatform):
         if self.stream:
             self.stream.stop()
         self.barsUpdateTask.terminate()
-
+        self.ordersStatusUpdateTask.terminate()
+        self.storeMonitoredPositions()
+  
 
     def getTradingPlatformTimeZone(self):
         return pytz.timezone('America/New_York')  # Example: New York timezone
 
     def get_history(self, board, seccode, period, count, reset=True):
+        
         end_dt = self.getTradingPlatformTime()
         start_dt = end_dt - datetime.timedelta(minutes=period * count)
         barset = self.api.get_barset(seccode, 'minute', start=start_dt.isoformat(), end=end_dt.isoformat(), limit=count)
@@ -995,7 +1086,21 @@ class AlpacaTradingPlatform(TradingPlatform):
 
 
     def new_order(self, board, seccode, client, union, buysell, expdate, quantity, price, bymarket, usecredit):
-        return self.api.submit_order(symbol=seccode, qty=quantity, side=buysell.lower(), type='limit', time_in_force='gtc', limit_price=price)
+
+        try:
+            # Submit the order to Alpaca using the correct endpoint
+            logging.info(f"Placing {buysell} order for {seccode} at {price}...")
+            return self.api.submit_order(
+                symbol=seccode,
+                qty=quantity,
+                side=buysell.lower(),  # Use the mapped side
+                type='limit',
+                time_in_force='gtc',
+                limit_price=price
+            )
+        except Exception as e:
+            logging.error(f"Failed to place order: {e}")
+            raise
 
 
     def cancel_order(self, order_id):
@@ -1003,9 +1108,8 @@ class AlpacaTradingPlatform(TradingPlatform):
 
 
     def new_stoporder(self, board, seccode, client, buysell, quantity, trigger_price_sl, trigger_price_tp, correction, spread, bymarket, is_market):
-        # Alpaca specific method to create a stop order
-        stop_price = trigger_price_sl if buysell.lower() == 'sell' else trigger_price_tp
-        return self.api.submit_order(symbol=seccode, qty=quantity, side=buysell.lower(), type='stop', time_in_force='gtc', stop_price=stop_price)
+        """Alpaca"""
+        return self.api.submit_order(symbol=seccode, qty=quantity, side=buysell.lower(), type='stop', time_in_force='gtc', stop_price=trigger_price_tp)
 
 
     def cancel_stoploss(self, stop_order_id):
@@ -1049,15 +1153,11 @@ class AlpacaTradingPlatform(TradingPlatform):
 
     def cancellAllStopOrders(self):
         pass
-    
-    
+        
    
     async def on_bar(self, bar):
-        """
-        Asynchronous callback function to handle bar updates.
-        """
-        log.info(f"Received a bar update for {bar.symbol}")
-    
+        """  Asynchronous callback function to handle bar updates. """
+        log.info(f"Received a bar update for {bar.symbol}")    
         seccode = bar.symbol
     
         # Convert the timestamp from Unix time (nanoseconds) to a timezone-aware datetime
@@ -1076,7 +1176,126 @@ class AlpacaTradingPlatform(TradingPlatform):
         # Store the bar data using the existing store_bar method
         self.ds.store_bar(seccode, bar_data)
         log.info("Bar stored successfully.")
+
+
+    def openPosition(self, position):
+        """ Alpaca """
+
+        if position.takePosition == "long":           
+            position.buysell = "buy"
+        elif position.takePosition == "short":
+            position.buysell = "sell"
+            
+        position.expdate = self.getExpDate(position.seccode)
+        price = round(position.entryPrice, position.decimals)
+        price = "{0:0.{prec}f}".format(price, prec=position.decimals)
+    
+        res = self.new_order(
+            position.board, position.seccode, position.client, position.union,
+            position.buysell, position.expdate, position.quantity, price, position.bymarket, False
+        )    
+        log.debug(repr(res))
+    
+        if res.status in cm.statusOrderForwarding :
+            position.entry_id = res.id  # Capture the order ID from Alpaca
+            self.monitoredPositions.append(position)
+            logging.info(f"entry Order placed successfully. Order ID: {res.id}")
+        else:
+            logging.error(f"Order failed or in invalid state: {res.status}")
+
+
+    def triggerStopOrder(self, order, monitoredPosition):
+        """ Alpaca """
+        logging.info('triggering stopOrder...')
+        buysell = "sell" if monitoredPosition.buysell == "buy" else "buy"
         
+        trigger_price_tp = "{0:0.{prec}f}".format(
+            round(monitoredPosition.exitPrice, monitoredPosition.decimals), prec=monitoredPosition.decimals
+        )
+        trigger_price_sl = "{0:0.{prec}f}".format(
+            round(monitoredPosition.stoploss, monitoredPosition.decimals), prec=monitoredPosition.decimals
+        )  
+        #TODO order. quatity? balance?
+        #monitoredPosition.quantity = abs(order.quantity - order.balance)
+        #monitoredPosition.quantity = order.qty
+                 
+        res = self.new_stoporder(
+            order.board, order.seccode, order.client, buysell, 
+            monitoredPosition.quantity, trigger_price_sl, trigger_price_tp,
+            monitoredPosition.correction, monitoredPosition.spread, 
+            monitoredPosition.bymarket, False 
+        )
+        log.info(repr(res))
+           
+        # Alpaca doesn't have a 'success' flag, so let's check the status
+        if res.status in ['new', 'pending_new']:
+            monitoredPosition.stopOrderRequested = True
+            monitoredPosition.exit_id = res.id                
+            if order in self.monitoredOrders:
+                self.monitoredOrders.remove(order)
+            
+            logging.info(f"stopOrder {order.id} successfully requested in Alpaca")
+        else:
+            logging.error(f"stopOrder {order.id} failed in status: {res.status}")
+       
+        
+    
+    def closeExit(self, mp, mso):
+        """ Alpaca """
+        tradingPlatformTime = self.getTradingPlatformTime()
+        list2cancel = []
+        tid = None
+        res = self.cancel_stoploss(mso.id)
+        log.debug(repr(res))
+        if res.status in ['new', 'pending_new']:
+            list2cancel.append(mso)
+            localTime = tradingPlatformTime.strftime(self.fmt)
+            exitTime = mp.exitTime.strftime(self.fmt)
+            msg = f'localTime: {localTime} exit timedouts at: {exitTime} {repr(mso)}'
+            log.info(msg)
+            res = self.new_order(
+                mp.board, mp.seccode, mp.client, mp.union, mso.buysell,
+                mp.expdate, mp.quantity, price=0, bymarket=True, usecredit=False
+            )
+            log.debug(repr(res))
+            if res.status in ['new', 'pending_new']:
+                log.info('exit request was successfully processed')
+                tid = res.id
+            else:
+                log.error('exit request was erroneously processed')
+        else:
+            logging.error("cancel stop-order error by transaq")
+        
+        for mso in list2cancel:
+            if mso in self.monitoredStopOrders:
+                self.monitoredStopOrders.remove(mso)
+        
+            self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_id != mso.id] 
+        
+        return tid
+        
+
+    def set_exit_order_no_to_MonitoredPosition (self, stopOrder):
+        """ Alpaca """
+        pass
+            
+    def getPositionByOrder(self, order):
+        """ Alpaca """
+        monitoredPosition = None
+        for m in self.monitoredPositions:
+            if order.id in [ m.entry_id, m.exit_id ] :
+               monitoredPosition = m
+               break
+        return monitoredPosition
+
+    def removeMonitoredPositionByExit(self, order):
+        """Alpaca"""
+        self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_id != order.id]                
+
+
+
+        
+##############################################################################
 
 class IBTradingPlatform(TradingPlatform):
 

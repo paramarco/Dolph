@@ -18,6 +18,10 @@ import logging
 gc.collect()
 log = logging.getLogger("PredictionModel")
 
+# Set matplotlib logging level to WARNING (suppress DEBUG and INFO)
+matplotlib_logger = logging.getLogger('matplotlib')
+matplotlib_logger.setLevel(logging.WARNING)
+
 
 class Predictions:
     def __init__(self, predictions, training_set):
@@ -884,9 +888,9 @@ class PeaksAndValleysModel:
     def findPeaksValleys(self, dataframe, sec, p):
         numWindowSize = 20
         if p == '1Min':
-            numWindowSize = 60
-        elif p == '30Min':
             numWindowSize = 100
+        elif p == '30Min':
+            numWindowSize = 160
         else:
             print('be careful')
             numWindowSize = 100
@@ -906,6 +910,12 @@ class PeaksAndValleysModel:
         fluctuation = {}
         df = dataframe.copy()
         df['calcdatetime'] = dataframe.index
+        
+        #TODO temporarily
+        df['calcdatetime'] = df['calcdatetime'].dt.tz_convert('America/New_York')
+        #print(df['calcdatetime'])
+        #print(df.index)
+        
         fluctuation['samplingwindow'] = df[['calcdatetime','startprice','maxprice','minprice','endprice']]
     
         seriesAvg = (df['endprice'] + df['maxprice'] + df['minprice'] + df['startprice']) / 4
@@ -924,7 +934,7 @@ class PeaksAndValleysModel:
         filtered2, _ = signal.lfilter(b, a, filtered, zi=zi*filtered[0])
         y = signal.filtfilt(b, a, seriesAvg)
     
-        print('from ' + str(times.iloc[0]) + ' to ' + str(times.iloc[-1]))
+        #print('from ' + str(times.iloc[0]) + ' to ' + str(times.iloc[-1]))
     
         peak_idx_filtered, _ = find_peaks(y, distance=self.bestDistancePeak)
         valley_idx_filtered, _ = find_peaks(-y, distance=self.bestDistanceValley)
@@ -939,13 +949,13 @@ class PeaksAndValleysModel:
         fluctuation['valley_idx'] = valley_idx
     
         # Commented out AMPD-related code for now
-        # peaksAMPD = ampd.find_peaks(seriesAvg, numWindowSize)
-        # valleysAMPD = ampd.find_peaks(-seriesAvg, numWindowSize)
-        # plt.plot(seriesAvg, 'b')
-        # plt.plot(seriesAvg[peaksAMPD], 'k^', markersize=5)
-        # plt.plot(seriesAvg[valleysAMPD], 'rv', markersize=5)
-        # plt.title('Prediction for ' + p)
-        # plt.show()
+        peaksAMPD = ampd.find_peaks(seriesAvg, numWindowSize)
+        valleysAMPD = ampd.find_peaks(-seriesAvg, numWindowSize)
+        plt.plot(seriesAvg, 'b')
+        plt.plot(seriesAvg[peaksAMPD], 'k^', markersize=5)
+        plt.plot(seriesAvg[valleysAMPD], 'rv', markersize=5)
+        plt.title('Prediction for ' + p)
+        plt.show()
     
         return fluctuation
     
@@ -1013,12 +1023,11 @@ class PeaksAndValleysModel:
     def predict( self, df, sec, p):       
         
         #FIXME bada bada bda
-        status = 'no-go' 
-        return status
+        # status = 'no-go' 
+        # return status
         
         fluctuation = self.findPeaksValleys(df, sec, p)        
         numWindowSize = fluctuation['samplingwindow'].shape[0]  
-        params = sec['params']  
         indexPenultimate = numWindowSize - 2
         indexLastPeak = fluctuation['peak_idx'][-1] if fluctuation['peak_idx'].any() else 0
         indexLastValley = fluctuation['valley_idx'][-1] if fluctuation['valley_idx'].any() else 0
@@ -1033,6 +1042,7 @@ class PeaksAndValleysModel:
              status = 'no-go' 
              
         #status = self.reviewForHigherfrequency(status, sec)             
-       
+        #FIXME test
+        #status = 'long'
         return status
 

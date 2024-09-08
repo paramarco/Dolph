@@ -17,7 +17,7 @@ securities.append({'board': 'EQTY', 'seccode': 'AAPL'})
 # securities.append( {'board':'FUT', 'seccode':'GZZ0'} ) 
 # securities.append( {'board':'FUT', 'seccode':'SRZ0'} ) 
 
-MODE = 'TEST_ONLINE' # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
+MODE = 'OPERATIONAL' # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
 periods = ['1Min'] #periods = ['1Min','30Min']
 
 current_tz = pytz.timezone('America/New_York')
@@ -28,7 +28,7 @@ between_time = (
     current_tz.localize(dt.datetime.strptime('07:00', '%H:%M')).time(),
     current_tz.localize(dt.datetime.strptime('23:40', '%H:%M')).time()
 )
-nogoTradingHours = [7,18,19,21]
+nogoTradingHours = [7,21]
 
 numTestSample = 100
 TrainingHour = 10  # 10:00 
@@ -41,3 +41,9 @@ host='localhost'
 
 transaqConnectorPort = 13000
 transaqConnectorHost = '127.0.0.1'
+
+statusOrderForwarding = ['watching', 'active', 'forwarding', 'new', 'pending_new', 'accepted', 'tp_guardtime', 'tp_forwarding', 'sl_forwarding', 'sl_guardtime' ]
+statusOrderExecuted = ['tp_executed', 'sl_executed','filled','matched']
+statusOrderCanceled = ['cancelled', 'denied', 'disabled', 'expired', 'failed', 'rejected', 'canceled', 'removed', 'done_for_day']
+statusOrderOthers = ["linkwait","tp_correction","tp_correction_guardtime","none","inactive","wait","disabled","failed","refused","pending_cancel", "pending_replace", "stopped", "suspended", "calculated" ]
+statusStopOrderExecuted = ['tp_executed', 'sl_executed','filled','matched','triggered']
