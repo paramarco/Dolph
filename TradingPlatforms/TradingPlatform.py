@@ -15,6 +15,7 @@ import alpaca_trade_api as tradeapi
 from ib_insync import IB, Stock, LimitOrder, StopOrder
 from DataManagement import DataServer as ds
 from Configuration import Conf as cm
+from TradingPlatforms.Alpaca.Alpaca_Order import OrderAlpaca
 
 log = logging.getLogger("TradingPlatform")
 
@@ -22,7 +23,7 @@ class Position:
     
     def __init__(self, takePosition, board, seccode, marketId, entryTimeSeconds,
                  quantity, entryPrice, exitPrice, stoploss, 
-                 decimals, exitTime, correction=None, spread=None, bymarket = False, 
+                 decimals, exitTime=None, correction=None, spread=None, bymarket = False, 
                  entry_id=None, exit_id=None, exit_order_no=None , union = None, 
                  expdate = None,  client = None, buysell = None , stopOrderRequested = None) :
         
@@ -48,12 +49,12 @@ class Position:
         self.decimals = decimals
         # stoploss := price you want to exit if your prediction was wrong        
         self.stoploss = stoploss
-        self.stopOrderRequested = False
+        self.stopOrderRequested = False if exit_id is None else True
         # to be assigned when position is being proccessed by Tradingplatform
-        self.buysell = None
+        self.buysell = buysell if buysell else None
         # exitTime := time for a emergency exit, close current position at 
         # this time by market if the planned exit is not executed yet
-        self.exitTime = exitTime
+        self.exitTime = exitTime if exitTime else datetime.datetime.now()   # Default to current time if None
         
         self.correction = correction
         self.spread = spread               
@@ -216,14 +217,18 @@ class TradingPlatform(ABC):
         """
         This method stores each monitored position in the database as a JSON string.
         """
-        positions_json = [json.dumps(mp.__dict__) for mp in self.monitoredPositions]
+        def default_serializer(obj):
+            if isinstance(obj, datetime.datetime):
+                return obj.isoformat()  # Convert datetime to ISO format
+            raise TypeError(f"Object of type {obj.__class__.__name__} is not JSON serializable")
 
         try:
+            positions_json = [json.dumps(mp.__dict__, default=default_serializer) for mp in self.monitoredPositions]
             self.ds.store_positions_to_db(positions_json)  # Save the list of positions as JSON in the database
         except Exception as e:
             log.error(f"Failed to store monitored positions: {e}")
         log.info("Monitored positions have been stored successfully.")
-
+    
 
     def loadMonitoredPositions(self):
         """
@@ -234,15 +239,24 @@ class TradingPlatform(ABC):
             for pos_data in positions_json:
                 # Since pos_data is already a dictionary, we don't need to call json.loads
                 if isinstance(pos_data, str):
-                    pos_dict = json.loads(pos_data)  # This won't be needed if it's already a dict
+                    pos_dict = json.loads(pos_data)  # Only necessary if the data is a string
                 else:
-                    pos_dict = pos_data  # Already a dictionary
+                    pos_dict = pos_data  # Already a dictionary from the JSONB column
     
-                pos = Position(**pos_dict)  # Create Position object from dictionary
+                # Parse the 'exitTime' field from string to datetime if it's in string format
+                if 'exitTime' in pos_dict and isinstance(pos_dict['exitTime'], str):
+                    pos_dict['exitTime'] = datetime.datetime.fromisoformat(pos_dict['exitTime'])
+    
+                # Construct Position object and append to monitoredPositions
+                pos = Position(**pos_dict)
                 self.monitoredPositions.append(pos)
         except Exception as e:
             log.error(f"Failed to load monitored positions: {e}")
-        log.info("Monitored positions have been loaded successfully.")
+        
+        log.info("Monitored positions have been loaded successfully")
+        for mp in self.monitoredPositions:
+            log.info(str(mp))
+            
 
 
     def processPosition(self, position):
@@ -334,7 +348,7 @@ class TradingPlatform(ABC):
                     self.removeMonitoredPositionByExit(order)
                     if order in self.monitoredOrders:
                         self.monitoredOrders.remove(order)
-                    logging.info(f"exit complete: {str(monitoredPosition)}")                                   
+                        logging.info(f"exit complete: {str(monitoredPosition)}")                                   
                 
             elif s in cm.statusOrderForwarding :
                 
@@ -343,14 +357,15 @@ class TradingPlatform(ABC):
                     logging.info(f'order {order.id} in status:{s} added to monitoredOrders')   
                     
             elif s in cm.statusOrderCanceled :
+
+                self.monitoredPositions = [p for p in self.monitoredPositions if p.entry_id != order.id]
                 if order in self.monitoredOrders:
                     self.monitoredOrders.remove(order)
                     self.cancel_order(order.id)                
-                self.monitoredPositions = [p for p in self.monitoredPositions if p.entry_id != order.id]
-                logging.info(f'order {order.id} with status: {s} deleted from monitoredOrders')
+                    logging.info(f'order {order.id} with status: {s} deleted from monitoredOrders')
                 
             else:                
-                logging.info(f'order {order.id} in status: {s} ')
+                logging.debug(f'order {order.id} in status: {s} ')
            
         except Exception as e:
             log.error(f"Failed to processOrderStatus: {e}")
@@ -373,19 +388,28 @@ class TradingPlatform(ABC):
             self.set_exit_order_no_to_MonitoredPosition(stopOrder)                      
             if stopOrder in self.monitoredStopOrders:
                 self.monitoredStopOrders.remove(stopOrder)
-            m = f'stopOrder: {stopOrder.id} in status: {s} deleted from monitoredStopOrders'
+                m = f'stopOrder: {stopOrder.id} in status: {s} deleted from monitoredStopOrders'
             
+        elif s in cm.statusStopOrderFilled :
+            
+            self.removeMonitoredPositionByExit(stopOrder)
+            if stopOrder in self.monitoredStopOrders:
+                self.monitoredStopOrders.remove(stopOrder)
+                m = f'stopOrder: {stopOrder.id} in status: {s} deleted from monitoredStopOrders'
+            
+        
         elif s in cm.statusOrderCanceled:
             
             self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_id != stopOrder.id] 
             if stopOrder in self.monitoredStopOrders:
                 self.monitoredStopOrders.remove(stopOrder)
-            m = f'id: {stopOrder.id} with status: {s} deleted from monitoredStopOrders'
+                m = f'id: {stopOrder.id} with status: {s} deleted from monitoredStopOrders'
             
         else:
-            m = f'status: {s} skipped, belongs to: {cm.statusOrderOthers}'
+            logging.debug(f'status: {s} skipped, belongs to: {cm.statusOrderOthers}')
         
-        logging.info(m)
+        if m != "":
+            logging.info(m)
 
         
         
@@ -675,7 +699,7 @@ class FinamTradingPlatform(TradingPlatform):
         
 
     def disconnect(self):
-        
+        """Transaq"""
         log.info('stopping candlesUpdateTask ...')
         if self.candlesUpdateTask is not None:
             self.candlesUpdateTask.terminate()
@@ -702,7 +726,8 @@ class FinamTradingPlatform(TradingPlatform):
         time.sleep(2) 
 
     def new_order(self, board, seccode, client, union, buysell, expdate, quantity, price, bymarket, usecredit):
-        return self.tc.new_order(board, seccode, client, union, buysell, expdate, union, quantity, price, bymarket, usecredit)
+         """Transaq"""
+         return self.tc.new_order(board, seccode, client, union, buysell, expdate, union, quantity, price, bymarket, usecredit)
 
     def cancel_order(self, order_id):
         return self.tc.cancel_order(order_id)
@@ -966,9 +991,9 @@ class OrderStatusUpdateTask:
                 # Fetch open orders or recent orders from Alpaca
                 orders = list( self.tp.api.list_orders(status='all') )  # Fetches open orders; you can adjust the status as needed ('open', 'closed', etc.)
              
-                log.debug(repr(orders))
-                
-                for order in orders:
+                for order_data in orders:
+                    #order = Order(order_data)
+                    order = OrderAlpaca(order_data._raw)
                     # Process regular orders (market/limit)
                     if order.type in ['limit', 'market']:
                         self.tp.processOrderStatus(order)  
@@ -1065,7 +1090,7 @@ class AlpacaTradingPlatform(TradingPlatform):
         
 
     def disconnect(self):
-        
+        """Alpaca"""
         logging.info('Disconnecting from Alpaca...')
         if self.stream:
             self.stream.stop()
@@ -1086,7 +1111,7 @@ class AlpacaTradingPlatform(TradingPlatform):
 
 
     def new_order(self, board, seccode, client, union, buysell, expdate, quantity, price, bymarket, usecredit):
-
+        """Alpaca"""
         try:
             # Submit the order to Alpaca using the correct endpoint
             logging.info(f"Placing {buysell} order for {seccode} at {price}...")
@@ -1181,10 +1206,11 @@ class AlpacaTradingPlatform(TradingPlatform):
     def openPosition(self, position):
         """ Alpaca """
 
+        buysell = ""
         if position.takePosition == "long":           
-            position.buysell = "buy"
+            buysell = "buy"
         elif position.takePosition == "short":
-            position.buysell = "sell"
+            buysell = "sell"
             
         position.expdate = self.getExpDate(position.seccode)
         price = round(position.entryPrice, position.decimals)
@@ -1192,7 +1218,7 @@ class AlpacaTradingPlatform(TradingPlatform):
     
         res = self.new_order(
             position.board, position.seccode, position.client, position.union,
-            position.buysell, position.expdate, position.quantity, price, position.bymarket, False
+            buysell, position.expdate, position.quantity, price, position.bymarket, False
         )    
         log.debug(repr(res))
     
@@ -1207,7 +1233,7 @@ class AlpacaTradingPlatform(TradingPlatform):
     def triggerStopOrder(self, order, monitoredPosition):
         """ Alpaca """
         logging.info('triggering stopOrder...')
-        buysell = "sell" if monitoredPosition.buysell == "buy" else "buy"
+        buysell = "sell" if monitoredPosition.takePosition == "long" else "buy"
         
         trigger_price_tp = "{0:0.{prec}f}".format(
             round(monitoredPosition.exitPrice, monitoredPosition.decimals), prec=monitoredPosition.decimals
@@ -1218,12 +1244,16 @@ class AlpacaTradingPlatform(TradingPlatform):
         #TODO order. quatity? balance?
         #monitoredPosition.quantity = abs(order.quantity - order.balance)
         #monitoredPosition.quantity = order.qty
-                 
+
+       # def new_stoporder(self, board, seccode, client, buysell, quantity, trigger_price_sl, trigger_price_tp, correction, spread, bymarket, is_market):
+       #      """Alpaca"""
+       #      return self.api.submit_order(symbol=seccode, qty=quantity, side=buysell.lower(), type='stop', time_in_force='gtc', stop_price=trigger_price_tp)
+        
+         
         res = self.new_stoporder(
-            order.board, order.seccode, order.client, buysell, 
+            None, order.symbol, None, buysell, 
             monitoredPosition.quantity, trigger_price_sl, trigger_price_tp,
-            monitoredPosition.correction, monitoredPosition.spread, 
-            monitoredPosition.bymarket, False 
+            None, None, None, False 
         )
         log.info(repr(res))
            
@@ -1290,9 +1320,15 @@ class AlpacaTradingPlatform(TradingPlatform):
 
     def removeMonitoredPositionByExit(self, order):
         """Alpaca"""
+        # log.info(f"my order id : {order.id}")
+        # log.info(f"my monitoredPositions before: ")
+        # for mp in self.monitoredPositions:
+        #     log.info(str(mp))
         self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_id != order.id]                
 
-
+        # log.info(f"my monitoredPositions after: ")
+        # for mp in self.monitoredPositions:
+        #     log.info(str(mp))
 
         
 ##############################################################################

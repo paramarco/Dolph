@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 import datetime as dt
 import pytz
+import logging
+
 
 securities = []
 securities.append({'board': 'EQTY', 'seccode': 'AAPL'})
@@ -16,7 +18,8 @@ securities.append({'board': 'EQTY', 'seccode': 'AAPL'})
 # securities.append( {'board':'FUT', 'seccode':'GZZ0'} )
 # securities.append( {'board':'FUT', 'seccode':'GZZ0'} ) 
 # securities.append( {'board':'FUT', 'seccode':'SRZ0'} ) 
-
+#logLevel = logging.DEBUG 
+logLevel = logging.INFO
 MODE = 'OPERATIONAL' # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
 periods = ['1Min'] #periods = ['1Min','30Min']
 
@@ -46,4 +49,5 @@ statusOrderForwarding = ['watching', 'active', 'forwarding', 'new', 'pending_new
 statusOrderExecuted = ['tp_executed', 'sl_executed','filled','matched']
 statusOrderCanceled = ['cancelled', 'denied', 'disabled', 'expired', 'failed', 'rejected', 'canceled', 'removed', 'done_for_day']
 statusOrderOthers = ["linkwait","tp_correction","tp_correction_guardtime","none","inactive","wait","disabled","failed","refused","pending_cancel", "pending_replace", "stopped", "suspended", "calculated" ]
-statusStopOrderExecuted = ['tp_executed', 'sl_executed','filled','matched','triggered']
+statusStopOrderExecuted = ['tp_executed', 'sl_executed','matched','triggered']
+statusStopOrderFilled = ['filled']

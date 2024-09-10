@@ -4,6 +4,7 @@
 import logging
 import sys
 import signal
+import time
 import gc; gc.collect()
 import datetime as dt
 import copy
@@ -57,8 +58,7 @@ class Dolph:
     def _init_logging(self):
         
         logging.basicConfig(            
-            #level = logging.DEBUG , #
-            level = logging.INFO , 
+            level = cm.logLevel ,
             format = '%(asctime)s | %(levelname)s | %(funcName)s |%(message)s',
             handlers=[  
                 logging.FileHandler("./log/Dolph.log"),
@@ -72,6 +72,7 @@ class Dolph:
         
         def signalHandler( signum, frame):
             self.tp.disconnect()
+            time.sleep(2.5) 
             print ('hasta la vista!')
             sys.exit()
         

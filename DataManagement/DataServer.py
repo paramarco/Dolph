@@ -489,7 +489,7 @@ class DataServer:
     def searchData(self, since, until=None):
         securities = self.securities
         periods = self.periods
-        log.info(f"Searching into database..{since} til {until}")
+        log.debug(f"Searching into database..{since} til {until}")
         tb, te = self.between_time
         agg_dict = {
             'minprice': 'min',
