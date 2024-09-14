@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dolph-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dolph-app
+  template:
+    metadata:
+      labels:
+        app: dolph-app
+    spec:
+      containers:
+      - name: dolph-container
+        image: 8xv7t7tg.c1.de1.container-registry.ovh.net/e1256adf-9c74-4b6c-a238-86bbfc8fe1f9/dolph-container:latest
+        ports:
+        - containerPort: 5432
+        volumeMounts:
+        - mountPath: /home/dolph_user/data
+          name: data-dolph
+        - mountPath: /var/lib/postgresql/14/main
+          name: pgdata
+        command: ["/bin/sh"]
+        args: ["/usr/local/bin/entrypoint.sh"]
+      imagePullSecrets:
+      - name: ovh-registry-secret
+      volumes:
+      - name: data-dolph
+        persistentVolumeClaim:
+          claimName: data-dolph-pvc
+      - name: pgdata
+        persistentVolumeClaim:
+          claimName: pgdata-pvc
+

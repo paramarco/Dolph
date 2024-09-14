@@ -45,7 +45,9 @@ class DataServer:
 
     def __createDBtables(self):
         try:
-            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host)
+            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host , sslmode="disable")
+                      
+           
             cursor = conn.cursor()
             log.info("Connected to PostgreSQL database")
             cursor.execute("BEGIN TRANSACTION;")
@@ -99,7 +101,7 @@ class DataServer:
 
     def __normalizeVolume(self, security_id):
         try:
-            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host)
+            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host , sslmode="disable")
             cursor = conn.cursor()
             log.info("Connected to PostgreSQL database")
 
@@ -121,7 +123,7 @@ class DataServer:
 
     def __deleteOlder(self, date):
         try:
-            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host)
+            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host , sslmode="disable")
             cursor = conn.cursor()
             log.info("Connected to PostgreSQL database")
 
@@ -142,7 +144,7 @@ class DataServer:
 
     def __deleteTableDuplicates(self):
         try:
-            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host)
+            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host , sslmode="disable")
             cursor = conn.cursor()
             log.info("Connected to PostgreSQL database")
 
@@ -168,7 +170,7 @@ class DataServer:
 
     def __showTablesInfo(self):
         try:
-            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host)
+            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host , sslmode="disable")
             cursor = conn.cursor()
             log.info("Connected to PostgreSQL database")
 
@@ -198,7 +200,7 @@ class DataServer:
     def __buildQueryFromOneSecCode(self, securities):
         try:
             seccode = securities[0]['seccode']
-            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host)
+            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host , sslmode="disable")
             cursor = conn.cursor()
             query = """
                 SELECT id 
@@ -243,7 +245,7 @@ class DataServer:
             return self.__buildQueryFromOneSecCode(securities)
 
         try:
-            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host)
+            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host , sslmode="disable")
             cursor = conn.cursor()
 
             seccodes = [s['seccode'] for s in securities]
@@ -298,7 +300,7 @@ class DataServer:
         log.info(f"Since: {date}")
 
         try:
-            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host)
+            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host , sslmode="disable")
             cursor = conn.cursor()
 
             seccodes = [s['seccode'] for s in securities]
@@ -375,7 +377,7 @@ class DataServer:
             name_dict[f"{seccode}_VOL"] = None
 
         try:
-            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host)
+            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host , sslmode="disable")
             data = pd.read_sql_query(
                 query,
                 conn,
@@ -403,7 +405,7 @@ class DataServer:
         errMsg = f"__getSecurityIdSQL: {security['seccode']} not found"
 
         try:
-            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host)
+            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host , sslmode="disable")
             cursor = conn.cursor()
             query = """
                 SELECT DECIMALS, MARKET
@@ -428,7 +430,7 @@ class DataServer:
         errMsg = f"{security['seccode']} not found"
 
         try:
-            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host)
+            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host , sslmode="disable")
             cursor = conn.cursor()
             query = """
                 SELECT ALG_PARAMETERS
@@ -501,7 +503,7 @@ class DataServer:
             'numberoftrades': 'sum'
         }    
         try:
-            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host)
+            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host , sslmode="disable")
             data = {}
             for p in periods:
                 list_df = []
@@ -599,7 +601,7 @@ class DataServer:
         #log.debug(f"Until: {untilDate}" if untilDate else "Until: None")
     
         try:
-            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host)
+            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host , sslmode="disable")
             cursor = conn.cursor()
     
             query = """
@@ -652,7 +654,7 @@ class DataServer:
         
         errMsg = f"__getSecurityIdSQL: seccode: {seccode} not found"
         try:
-            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host)
+            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host , sslmode="disable")
             cursor = conn.cursor()
             query = """
                 SELECT id 
@@ -679,7 +681,7 @@ class DataServer:
         security_id = self.__getSecurityIdSQL(board, seccode)
 
         try:
-            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host)
+            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host , sslmode="disable")
             cursor = conn.cursor()
             cursor.execute("BEGIN")
 
@@ -743,7 +745,7 @@ class DataServer:
         previous_security_id = 4
 
         try:
-            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host)
+            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host , sslmode="disable")
             cursor = conn.cursor()
 
             query = f"""
@@ -842,7 +844,7 @@ class DataServer:
                 name_dict[f"{seccode}_VOL"] = None
     
             log.info("Reading from database...")
-            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host)
+            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host , sslmode="disable")
             data = pd.read_sql_query(
                 query,
                 conn,
@@ -937,7 +939,7 @@ class DataServer:
             security_id = self.__getSecurityIdSQL(board, seccode)
     
             log.info("Writing to database...")
-            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host)
+            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host , sslmode="disable")
             cursor = conn.cursor()
             cursor.execute("BEGIN")
     
@@ -1074,7 +1076,7 @@ class DataServer:
         print("Having security_id: " + str(security_id))
     
         try:
-            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host)
+            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host , sslmode="disable")
             cursor = conn.cursor()
     
             with open(fileName, 'r') as f:
@@ -1119,7 +1121,7 @@ class DataServer:
         errMsg = f"{security['seccode']} not found"
     
         try:
-            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host)
+            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host , sslmode="disable")
             cursor = conn.cursor()
     
             query = """
@@ -1152,7 +1154,7 @@ class DataServer:
             seccode = security['seccode']
             board = security['board']
             
-            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host)
+            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host , sslmode="disable")
             cursor = conn.cursor()
             cursor.execute("BEGIN")
             
@@ -1232,7 +1234,7 @@ class DataServer:
             }
             
             # Establish database connection
-            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host)
+            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host , sslmode="disable")
             cursor = conn.cursor()
         
             # Iterate over the tickers and insert the valid ones
@@ -1274,7 +1276,7 @@ class DataServer:
         Store the incoming quote data into the database or update in-memory storage.
         """
         try:
-            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host)
+            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host , sslmode="disable")
             cursor = conn.cursor()
             log.info(f"Storing quote for {seccode}...")
 
@@ -1316,7 +1318,7 @@ class DataServer:
         Store the list of monitored positions in the database.
         """
         try:
-            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host)
+            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host , sslmode="disable")
             cursor = conn.cursor()
 
             # Clear existing entries (assuming you want to reset the monitored positions on each disconnect)
@@ -1343,7 +1345,7 @@ class DataServer:
         """
         positions_json = []
         try:
-            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host)
+            conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host , sslmode="disable")
             cursor = conn.cursor()
 
             cursor.execute("SELECT position_data FROM monitored_positions;")

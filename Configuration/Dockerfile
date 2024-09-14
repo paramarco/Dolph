@@ -26,6 +26,9 @@ ENV PATH="/opt/conda/bin:$PATH"
 RUN /opt/conda/bin/conda create -y -n py37 python=3.7.0 && \
     /opt/conda/bin/conda clean -afy
 
+# Ensure bash is explicitly called
+SHELL ["/bin/bash", "-c"]
+
 # Activate the environment by default
 RUN echo "source activate py37" >> ~/.bashrc
 
@@ -64,8 +67,15 @@ COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # Set entrypoint
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+ENTRYPOINT ["/bin/bash", "/usr/local/bin/entrypoint.sh"]
 
 # Expose necessary ports
 EXPOSE 5432
+
+# Set environment variables for PostgreSQL
+ENV PGDATA /var/lib/postgresql/14/main
+ENV PATH /usr/lib/postgresql/14/bin:$PATH
+
+# Keep the container alive by running bash as the final command
+CMD ["bash"]
 

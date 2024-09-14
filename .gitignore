@@ -151,3 +151,5 @@ dmypy.json
 # Ignore README.md in the Configuration directory
 /Configuration/README.md
 
+# Ignore kubeconfig.yml in the Configuration directory
+/Configuration/kubeconfig.yml
