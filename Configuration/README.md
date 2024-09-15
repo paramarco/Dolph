@@ -33,36 +33,29 @@ sudo docker exec -it --user dolph_user dolph-container /bin/bash
   
 # Manual steps to be done just once in the container to check the persistency
 
-cp /home/dolph_user/*sql /var/lib/postgresql/
+root@container:/#  cp /home/dolph_user/*sql /var/lib/postgresql/
 
- (venv) root@fab8a9af1e12:/# su - postgres
-postgres@fab8a9af1e12:~$ vi create_user_db.sql
-postgres@fab8a9af1e12:~$ psql -U postgres -f create_user_db.sql
+ (venv) root@container:/# su - postgres
+postgres@container:~$ vi create_user_db.sql
+postgres@container:~$ psql -U postgres -f create_user_db.sql
 CREATE ROLE
 CREATE DATABASE
 GRANT
 
- (venv) root@fab8a9af1e12:/# su - postgres
-postgres@fab8a9af1e12:~$ vi create_tables.sql
-postgres@fab8a9af1e12:~$ psql -U postgres -d dolph_db -f create_tables.sql 
+ (venv) root@container:/# su - postgres
+postgres@container:~$ vi create_tables.sql
+postgres@container:~$ psql -U postgres -d dolph_db -f create_tables.sql 
 CREATE TABLE
 CREATE TABLE
-
-(venv) root@81558de95eac:/# sudo -u postgres psql
-psql (14.12 (Ubuntu 14.12-0ubuntu0.22.04.1))
-Type "help" for help.
-
-postgres=# ALTER USER postgres PASSWORD 'new_password';
-ALTER ROLE
 
 Steps to Export/Import the Table Security into PostgreSQL,in development container
-su - postgres
-pg_dump -U dolph_user -d dolph_db -t security --data-only -f dump.sql
+root@container:/#   su - postgres
+postgres@container:~$ pg_dump -U dolph_user -d dolph_db -t security --data-only -f dump.sql
 
 Switch to the postgres user in the Kubernetes container
 (since the PostgreSQL process runs as the postgres user):
-su - postgres
-psql -U postgres -d dolph_db -f dump.sql
+root@container:/#  su - postgres
+postgres@container:~$ psql -U postgres -d dolph_db -f dump.sql
 
 # Manual step to access the data
 
@@ -78,25 +71,18 @@ dolph_user@dolph-deployment-5b4d776645-6thmq:~$ . /opt/venv/bin/activate
 (venv) dolph_user@dolph-deployment-5b4d776645-6thmq:~$ python /home/dolph_user/Dolph/DolphRobot.py
 
 
-###############################################################################
+#Deployment steps
 Kubernetes Registry
 
 Generating new identification details
 Please note down the information you need to log in to the Harbor user interface.
-
-New login:
-iIHLLctxeZ
-
-New password:
-814gT5G29703Lo6S
 
 $ sudo docker images
 $ sudo docker login 8xv7t7tg.c1.de1.container-registry.ovh.net
 $ sudo docker tag dolph-container:latest 8xv7t7tg.c1.de1.container-registry.ovh.net/e1256adf-9c74-4b6c-a238-86bbfc8fe1f9/dolph-container:latest
 $ sudo docker push 8xv7t7tg.c1.de1.container-registry.ovh.net/e1256adf-9c74-4b6c-a238-86bbfc8fe1f9/dolph-container:latest
 
-###############################################################################
-Update Kubernetes Deployment to Pull the Image
+#Update Kubernetes Deployment to Pull the Image
 
 In your deployment.yml, make sure you update the image section to reference 
 the image in your OVH registry:
@@ -116,9 +102,7 @@ containers:
 imagePullSecrets:
 - name: ovh-registry-secret
 
-###############################################################################
-
-Create the Kubernetes Secret to Access the Private OVH Registry
+#Create the Kubernetes Secret to Access the Private OVH Registry
 
 Install kubectl on
 Download the Latest Version of kubectl
@@ -138,46 +122,22 @@ $ echo "export KUBECONFIG=~/Dolph/Configuration/kubeconfig.yml" >> ~/.bashrc
 $ source ~/.bashrc
 $ kubectl create secret docker-registry ovh-registry-secret \
   --docker-server=8xv7t7tg.c1.de1.container-registry.ovh.net \
-  --docker-username=iIHLLctxeZ \
-  --docker-password=814gT5G29703Lo6S \
-  --docker-email=marco.vereda@instaltic.com
+  --docker-username=<Loggin_Kubernetes_Registry_OVH.sql> \
+  --docker-password=<Loggin_Kubernetes_Registry_OVH.sql> \
+  --docker-email=<Loggin_Kubernetes_Registry_OVH.sql> 
 
-###############################################################################
-Create Persistent Volume (PV) and Persistent Volume Claim (PVC)
+#Create Persistent Volume (PV) and Persistent Volume Claim (PVC)
 To persist the data for the directories /home/dolph_user/data and 
 /var/lib/postgresql/14/main, you will create two PVCs.
-YAML for PVC (pvc.yml):
-------------------------------------------------------------------------------
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: data-dolph-pvc
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 10Gi  # Adjust the size according to your needs
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: pgdata-pvc
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 20Gi  # Adjust the size according to your needs
+YAML for PVC (pvc.yml)
 
------------------------------------------------------------------------------
 Now, apply the PVCs using kubectl:
 $ kubectl apply -f pvc.yml
 This will create the persistent volume claims for /home/dolph_user/data and 
 /var/lib/postgresql/14/main.
 $ kubectl get pvc
-##############################################################################
-Apply the Deployment
+
+#Apply the Deployment
 Now, apply the deployment YAML file:
 $ kubectl apply -f deployment.yml
 
@@ -188,37 +148,37 @@ $ kubectl get pods
 Check the services:
 $ kubectl get svc
 
-###############################################################################
+-----------------------------------------------------------------------------
+
 If the pods are not running or there are any issues, you can inspect the details
 of the pods by running
 $ kubectl describe pod <your-pod-name>
 $ kubectl apply -f service.yml
 $ kubectl logs -f <your-pod-name>
 
-##############################################################################
-Rebuild the Docker Image
+#Rebuild the Docker Image
 
 Once you modify the entrypoint.sh file, you’ll need to rebuild the Docker image
  and push it to your OVH registry:
  # Rebuild the image
 $ sudo docker build -t dolph-container:latest .
+
 # Tag the image for the OVH registry
 $ sudo docker tag dolph-container:latest 8xv7t7tg.c1.de1.container-registry.ovh.net/e1256adf-9c74-4b6c-a238-86bbfc8fe1f9/dolph-container:latest
 # Push the image to the OVH registry
 $ sudo docker push 8xv7t7tg.c1.de1.container-registry.ovh.net/e1256adf-9c74-4b6c-a238-86bbfc8fe1f9/dolph-container:latest
 
 
-Redeploy the Pod in Kubernetes
+# Redeploy the Pod in Kubernetes
 Once the image has been updated in the registry, you can redeploy the pod by 
 deleting the existing pod (Kubernetes will automatically recreate it):
 
 $ kubectl delete pod <your-pod-name>
 $ kubectl get pods -w
 
-###############################################################################
-
-To manually access the container and perform the necessary steps from within
- the container's console, you can use the kubectl exec command. This allows you 
+# To manually access the container 
+ And perform the necessary steps from within the container's console, 
+ you can use the kubectl exec command. This allows you 
  to execute commands inside the running container
  
  afrodita@afrodita:~/Dolph/Configuration$ kubectl get pods
@@ -228,11 +188,9 @@ dolph-deployment-5b4d776645-t8d6z   1/1     Running   0          12m
 To get an interactive shell inside the container, run:
 $ kubectl exec -it <pod-name> -- /bin/bash
 
-##############################################################################
-Find out which node your pod is running on, following command:
+#Find out which node your pod is running on, following command:
 
 kubectl get pod <pod-name> -o wide
-
 
 # To install pgAdmin on your client
 
