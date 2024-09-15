@@ -148,8 +148,5 @@ dmypy.json
 # Ignore all .sql files in the Configuration directory
 /Configuration/*.sql
 
-# Ignore README.md in the Configuration directory
-/Configuration/README.md
-
 # Ignore kubeconfig.yml in the Configuration directory
 /Configuration/kubeconfig.yml
