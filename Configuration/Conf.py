@@ -40,7 +40,7 @@ currentTestIndex = 0
 dbname='dolph_db'
 user='dolph_user'
 password='dolph_password'
-host='localhost'
+host='127.0.0.1'
 
 
 transaqConnectorPort = 13000

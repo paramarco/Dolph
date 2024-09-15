@@ -4,6 +4,8 @@
 chown -R postgres:postgres /var/lib/postgresql/14/main
 chown -R postgres:postgres /home/dolph_user/*sql
 
+ls -lart /home/dolph_user/
+
 # Check if the PostgreSQL data directory is initialized
 if [ "$(ls -A /var/lib/postgresql/14/main)" ]; then
     echo "PostgreSQL data directory already exists."
@@ -24,6 +26,11 @@ if [ -f /home/dolph_user/pg_hba.conf ]; then
     cp /home/dolph_user/postgresql.conf /var/lib/postgresql/14/main/postgresql.conf
     chown postgres:postgres /var/lib/postgresql/14/main/postgresql.conf
     chown postgres:postgres /var/lib/postgresql/14/main/pg_hba.conf
+    
+    cp /home/dolph_user/*sql /var/lib/postgresql/
+
+else
+    echo "there is something wrong there is no config in directory..."    
 fi
 
 # Remove stale PID file if it exists
@@ -34,14 +41,17 @@ fi
 
 # Start PostgreSQL
 echo "Starting PostgreSQL..."
+cp /var/lib/postgresql/14/main/pg_hba.conf /etc/postgresql/14/main/pg_hba.conf
 sudo -u postgres /usr/lib/postgresql/14/bin/pg_ctl -D /var/lib/postgresql/14/main -l /var/log/postgresql/postgresql-14-main.log start
 
 # Wait for PostgreSQL to start
+
 echo "Waiting for PostgreSQL to start..."
 while ! pg_isready -q -d postgres://localhost:5432; do
     sleep 1
 done
 echo "PostgreSQL started."
+
 
 # Activate the virtual environment
 if [ -f /opt/venv/bin/activate ]; then
