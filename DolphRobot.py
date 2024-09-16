@@ -266,7 +266,10 @@ class Dolph:
         byMarket, entryTimeSeconds = params['entryByMarket'], params['entryTimeSeconds']
         exitTimeSeconds = params.get('exitTimeSeconds', 36000)
         # FIXME: Are these parameters automatically calculated?
-        quantity = params['positionQuantity'] 
+        #quantity = params['positionQuantity']
+        cash_balance = self.tp.get_cash_balance()
+        cash_4_position = cash_balance * 0.3
+        quantity = round(cash_4_position / currentClose)
         margin = currentClose * 0.005
         k, margin = params['stopLossCoefficient'], params.get('positionMargin',margin)
         correction, spread = params.get('correction',0.0), params.get('spread',0.0)

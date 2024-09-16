@@ -209,6 +209,9 @@ class TradingPlatform(ABC):
     def removeMonitoredPositionByExit(self, order):
         pass
 
+    @abstractmethod
+    def get_cash_balance (self) :
+        pass
 
     
     ################ Common methods    #######################################
@@ -1336,6 +1339,16 @@ class AlpacaTradingPlatform(TradingPlatform):
         # log.info(f"my monitoredPositions after: ")
         # for mp in self.monitoredPositions:
         #     log.info(str(mp))
+
+    def get_cash_balance (self) :
+        """Alpaca"""
+        # Get account information
+        account = self.api.get_account()
+        
+        # Retrieve and print the cash balance
+        cash_balance = float(account.cash)
+        log.debug(f"Cash balance: ${cash_balance}")
+        return cash_balance
 
         
 ##############################################################################
