@@ -1134,7 +1134,14 @@ class AlpacaTradingPlatform(TradingPlatform):
 
     def new_stoporder(self, board, seccode, client, buysell, quantity, trigger_price_sl, trigger_price_tp, correction, spread, bymarket, is_market):
         """Alpaca"""
-        return self.api.submit_order(symbol=seccode, qty=quantity, side=buysell.lower(), type='stop', time_in_force='gtc', stop_price=trigger_price_tp)
+        return self.api.submit_order(
+            symbol=seccode, qty=quantity, 
+            side=buysell.lower(), 
+            type='stop_limit', 
+            time_in_force='gtc', 
+            stop_price=trigger_price_tp,
+            limit_price=trigger_price_tp
+        )
 
 
     def cancel_stoploss(self, stop_order_id):

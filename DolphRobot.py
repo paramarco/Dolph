@@ -267,7 +267,7 @@ class Dolph:
         exitTimeSeconds = params.get('exitTimeSeconds', 36000)
         # FIXME: Are these parameters automatically calculated?
         quantity = params['positionQuantity'] 
-        margin = currentClose * 0.01
+        margin = currentClose * 0.005
         k, margin = params['stopLossCoefficient'], params.get('positionMargin',margin)
         correction, spread = params.get('correction',0.0), params.get('spread',0.0)
         # FIXME: Are these parameters automatically calculated?
