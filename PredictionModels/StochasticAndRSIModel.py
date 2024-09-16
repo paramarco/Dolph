@@ -43,7 +43,7 @@ class StochasticAndRSIModel:
         Predict whether to go long, short, or no-go based on RSI and Stochastic indicators.
         """
         
-        current_step = 50
+        current_step = 50*60
         # Ensure the necessary columns are renamed to the correct price columns
         self.df = self.df.rename(columns={
             'startprice': 'open',
@@ -88,12 +88,14 @@ class StochasticAndRSIModel:
     
         # Buy conditions: RSI < 30 (oversold), Stochastic %K > %D (bullish momentum)
         if rsi < 30 and stoch_k > stoch_d:
+            print("preictor says long")
             return 'long'  # Buy signal
     
         # Sell conditions: RSI > 70 (overbought), Stochastic %K < %D (bearish momentum)
         elif rsi > 70 and stoch_k < stoch_d:
+            print("preictor says short")
             return 'short'  # Sell signal
-    
+        print("preictor says nogo")
         # No clear signal to buy or sell
         return 'no-go'
 
