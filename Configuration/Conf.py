@@ -20,7 +20,7 @@ securities.append({'board': 'EQTY', 'seccode': 'AAPL'})
 # securities.append( {'board':'FUT', 'seccode':'SRZ0'} ) 
 #logLevel = logging.DEBUG 
 logLevel = logging.INFO
-MODE = 'OPERATIONAL' # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
+MODE = 'TEST_OFFLINE' # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
 periods = ['1Min'] #periods = ['1Min','30Min']
 
 current_tz = pytz.timezone('America/New_York')
@@ -40,7 +40,7 @@ currentTestIndex = 0
 dbname='dolph_db'
 user='dolph_user'
 password='dolph_password'
-host='127.0.0.1'
+host='192.168.2.187'
 
 
 transaqConnectorPort = 13000

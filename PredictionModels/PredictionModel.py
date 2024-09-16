@@ -14,6 +14,7 @@ import joblib
 import pandas as pd
 from abc import ABC, abstractmethod
 import logging
+from PredictionModels.StochasticAndRSIModel import StochasticAndRSIModel
 
 gc.collect()
 log = logging.getLogger("PredictionModel")
@@ -49,6 +50,8 @@ def initPredictionModel(data, security ):
         return NeuronalNetV10Model(data, security)
     elif alg == 'peaks_and_valleys':
         return PeaksAndValleysModel(data, security)
+    elif alg == 'stochastic_and_rsi':
+        return StochasticAndRSIModel(data, security)
     else:
         raise ValueError(f"Algorithm '{alg}' not recognized")
 
@@ -105,6 +108,16 @@ class PredictionModel(ABC):
         # prediction = self.model.predict(X_future)
         # return prediction
     
+
+
+
+
+
+
+
+
+
+
 
 # NeuronalNet.py
 class NeuronalNetModel:

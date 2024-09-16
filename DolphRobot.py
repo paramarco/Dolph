@@ -46,6 +46,7 @@ class Dolph:
         
         for sec in self.securities: 
             sec['params'] = self.ds.getSecurityAlgParams( sec )
+            sec['params']['algorithm'] = 'stochastic_and_rsi'
             sec['models'] = {}
             sec['predictions'] = {}
             sec['lastPositionTaken'] = None
