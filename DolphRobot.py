@@ -230,7 +230,22 @@ class Dolph:
         
         return decision
     
-  
+    def isMadePercent(self, security):
+        
+        seccode = security['seccode']
+        position = self.tp.getMonitoredPositionBySeccode(seccode)
+        lastClosePrice = self.getLastClosePrice(seccode)
+    
+        entryPrice = position.entryPrice
+        limitToAcceptFallingOfPrice = entryPrice * 0.01  # 1% limit
+    
+        # Check if the difference exceeds 1%
+        decision = False
+        if abs(entryPrice - lastClosePrice) > limitToAcceptFallingOfPrice:
+            decision = True
+            logging.info(f'entryPrice: {entryPrice}, lastClosePrice: {lastClosePrice}')
+        
+        return decision
     def takeDecision(self, security, prediction ):
             
         seccode = security['seccode']
@@ -242,7 +257,7 @@ class Dolph:
 
             takePosition = 'no-go'
                      
-        elif openPosition and prediction == 'no-go' and self.isBetterToClosePosition(security):
+        elif openPosition and prediction == 'short' and self.isMadePercent(security):
             
             takePosition = 'close'
             security['lastPositionTaken'] = takePosition

@@ -43,7 +43,8 @@ class StochasticAndRSIModel:
         Predict whether to go long, short, or no-go based on RSI and Stochastic indicators.
         """
         
-        current_step = 50*60
+        current_step = len(self.df) - 1  # This will always point to the latest row
+
         # Ensure the necessary columns are renamed to the correct price columns
         self.df = self.df.rename(columns={
             'startprice': 'open',
@@ -78,14 +79,20 @@ class StochasticAndRSIModel:
         
         # Ensure you're only working with the renamed price columns ('close', 'open', 'high', 'low')
         try:
-            current_price = self.df['close'].iloc[current_step]
+            print(f"Total number of rows in the DataFrame: {len(self.df)}")
+
             rsi = self.df['RSI'].iloc[current_step]
             stoch_k = self.df['Stochastic_K'].iloc[current_step]
             stoch_d = self.df['Stochastic_D'].iloc[current_step]
         except KeyError as e:
             print(f"KeyError: {e}. Check if the dataframe has the correct price columns.")
             raise
-    
+        print("RSI", rsi )
+        print("stoch_k", stoch_k )
+        print("stoch_d", stoch_d )
+        print(f"RSI: {self.df['RSI'].iloc[-1]}")
+        print(f"%K: {self.df['Stochastic_K'].iloc[-1]}, %D: {self.df['Stochastic_D'].iloc[-1]}")
+
         # Buy conditions: RSI < 30 (oversold), Stochastic %K > %D (bullish momentum)
         if rsi < 30 and stoch_k > stoch_d:
             print("preictor says long")
