@@ -1,5 +1,10 @@
 [
     {
+        "OriginTicker": "AAPL",
+        "AlpacaTicker": "AAPL",
+        "CompanyName": "Apple Inc"
+    },
+    {
         "OriginTicker": "ADS.DE",
         "AlpacaTicker": "ADDYY",
         "CompanyName": "Adidas AG"

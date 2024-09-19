@@ -241,7 +241,7 @@ class Dolph:
 
             takePosition = 'no-go'
                      
-        elif openPosition and prediction == 'no-go' and self.isBetterToClosePosition(security):
+        elif openPosition and self.isBetterToClosePosition(security):
             
             takePosition = 'close'
             security['lastPositionTaken'] = takePosition

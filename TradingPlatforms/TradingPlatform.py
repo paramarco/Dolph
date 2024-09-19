@@ -1115,16 +1115,21 @@ class AlpacaTradingPlatform(TradingPlatform):
 
     def new_order(self, board, seccode, client, union, buysell, expdate, quantity, price, bymarket, usecredit):
         """Alpaca"""
+        
+        orderType = 'limit'
+        if price == 0 or bymarket == True:
+            orderType = 'market'
+        
         try:
             # Submit the order to Alpaca using the correct endpoint
             logging.info(f"Placing {buysell} order for {seccode} at {price}...")
             return self.api.submit_order(
-                symbol=seccode,
-                qty=quantity,
-                side=buysell.lower(),  # Use the mapped side
-                type='limit',
+                symbol = seccode,
+                qty = quantity,
+                side = buysell.lower(),  # Use the mapped side
+                type = orderType,
                 time_in_force='gtc',
-                limit_price=price
+                limit_price = price
             )
         except Exception as e:
             logging.error(f"Failed to place order: {e}")
@@ -1228,7 +1233,7 @@ class AlpacaTradingPlatform(TradingPlatform):
     
         res = self.new_order(
             position.board, position.seccode, position.client, position.union,
-            buysell, position.expdate, position.quantity, price, position.bymarket, False
+            buysell, position.expdate, position.quantity, price, bymarket=False, usecredit=False
         )    
         log.debug(repr(res))
     
@@ -1282,30 +1287,23 @@ class AlpacaTradingPlatform(TradingPlatform):
     
     def closeExit(self, mp, mso):
         """ Alpaca """
+        
         tradingPlatformTime = self.getTradingPlatformTime()
         list2cancel = []
         tid = None
         res = self.cancel_stoploss(mso.id)
         log.debug(repr(res))
-        if res.status in ['new', 'pending_new']:
-            list2cancel.append(mso)
-            localTime = tradingPlatformTime.strftime(self.fmt)
-            exitTime = mp.exitTime.strftime(self.fmt)
-            msg = f'localTime: {localTime} exit timedouts at: {exitTime} {repr(mso)}'
-            log.info(msg)
-            res = self.new_order(
-                mp.board, mp.seccode, mp.client, mp.union, mso.buysell,
-                mp.expdate, mp.quantity, price=0, bymarket=True, usecredit=False
-            )
-            log.debug(repr(res))
-            if res.status in ['new', 'pending_new']:
-                log.info('exit request was successfully processed')
-                tid = res.id
-            else:
-                log.error('exit request was erroneously processed')
-        else:
-            logging.error("cancel stop-order error by transaq")
-        
+        list2cancel.append(mso)
+        localTime = tradingPlatformTime.strftime(self.fmt)
+        exitTime = mp.exitTime.strftime(self.fmt)
+        msg = f'localTime: {localTime} exit timedouts at: {exitTime} {repr(mso)}'
+        log.info(msg)
+        res = self.new_order(
+            mp.board, mp.seccode, mp.client, mp.union, mso.buysell,
+            mp.expdate, mp.quantity, price=0, bymarket=True, usecredit=False
+        )            
+        log.debug(repr(res))
+        tid = res.id        
         for mso in list2cancel:
             if mso in self.monitoredStopOrders:
                 self.monitoredStopOrders.remove(mso)
