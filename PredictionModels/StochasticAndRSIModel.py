@@ -43,7 +43,6 @@ class StochasticAndRSIModel:
         Predict whether to go long, short, or no-go based on RSI and Stochastic indicators.
         """
         
-        current_step = len(self.df) - 1  # This will always point to the latest row
 
         # Ensure the necessary columns are renamed to the correct price columns
         self.df = self.df.rename(columns={
@@ -81,9 +80,9 @@ class StochasticAndRSIModel:
         try:
             print(f"Total number of rows in the DataFrame: {len(self.df)}")
 
-            rsi = self.df['RSI'].iloc[current_step]
-            stoch_k = self.df['Stochastic_K'].iloc[current_step]
-            stoch_d = self.df['Stochastic_D'].iloc[current_step]
+            rsi = self.df['RSI'].iloc[-1]
+            stoch_k = self.df['Stochastic_K'].iloc[-1]
+            stoch_d = self.df['Stochastic_D'].iloc[-1]
         except KeyError as e:
             print(f"KeyError: {e}. Check if the dataframe has the correct price columns.")
             raise
