@@ -99,7 +99,6 @@ class TrendViewer:
             self.showPrediction = self.displayNothing
         else:
             self.showPrediction = self.displayNothing
-            raise ValueError(f"Algorithm '{alg}' not recognized")
     
     
     def setDataTest(self, inputData):
