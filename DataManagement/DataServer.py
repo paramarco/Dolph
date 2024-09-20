@@ -1211,7 +1211,7 @@ class DataServer:
             # Prepare the common data fields
             period = 1
             board = "EQTY"
-            decimals = 3
+            decimals = 2
             market = "NASDAQ"
             alg_parameters = {
                 "algorithm": "peaks_and_valleys",
@@ -1227,9 +1227,9 @@ class DataServer:
             platform = {
                 "name": "alpaca",
                 "secrets": {
-                    "api_key": "AK2FP97N6GXE19GZ3FGK",
-                    "api_secret": "5oJkbjdAXoeYn4aKLKLn2dgSY8AUFRC4no2hhKYc",
-                    "endpoint": "https://api.alpaca.markets"
+                    "api_key": "PK0XNQ1EFZQQWGWEN0AA",
+                    "api_secret": "FT2y1LfOMrPnQcIevRGIwI7AxsbR8OS3o82Avron",
+                    "endpoint": "https://paper-api.alpaca.markets"
                 }
             }
             

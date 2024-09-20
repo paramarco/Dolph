@@ -1233,7 +1233,7 @@ class AlpacaTradingPlatform(TradingPlatform):
     
         res = self.new_order(
             position.board, position.seccode, position.client, position.union,
-            buysell, position.expdate, position.quantity, price, bymarket=False, usecredit=False
+            buysell, position.expdate, position.quantity, price, position.bymarket, False
         )    
         log.debug(repr(res))
     

@@ -201,6 +201,8 @@ $ sudo docker push 8xv7t7tg.c1.de1.container-registry.ovh.net/e1256adf-9c74-4b6c
     
     To get an interactive shell inside the container, run:
     $ kubectl exec -it <pod-name> -- /bin/bash
+    
+    $ kubectl exec -it <pod-name> --user=dolph_user -- /bin/bash
 
 #Find out which node your pod is running on, following command:
 

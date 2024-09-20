@@ -93,12 +93,12 @@ class StochasticAndRSIModel:
         print(f"%K: {self.df['Stochastic_K'].iloc[-1]}, %D: {self.df['Stochastic_D'].iloc[-1]}")
 
         # Buy conditions: RSI < 30 (oversold), Stochastic %K > %D (bullish momentum)
-        if rsi < 30 and stoch_k > stoch_d:
+        if rsi < 30 :
             print("preictor says long")
             return 'long'  # Buy signal
     
         # Sell conditions: RSI > 70 (overbought), Stochastic %K < %D (bearish momentum)
-        elif rsi > 70 and stoch_k < stoch_d:
+        elif rsi > 70 :
             print("preictor says short")
             return 'short'  # Sell signal
         print("preictor says nogo")
