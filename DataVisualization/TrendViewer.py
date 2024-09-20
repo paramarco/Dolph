@@ -98,6 +98,7 @@ class TrendViewer:
         elif alg == 'peaks_and_valleys':
             self.showPrediction = self.displayNothing
         else:
+            self.showPrediction = self.displayNothing
             raise ValueError(f"Algorithm '{alg}' not recognized")
     
     
