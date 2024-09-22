@@ -276,3 +276,25 @@ To install pgAdmin on your laptop (running Debian 11) and connect it to your Pos
       
      sudo apt-get update && sudo apt-get install -y net-tools
 
+#Development procedures
+
+    source Dolph/myenv/bin/activate
+    
+    spyder3 &
+
+    sudo docker ps -a
+    
+    sudo docker rm <ID>
+    
+    sudo docker run -it --name dolph-container --entrypoint /usr/local/bin/entrypoint.sh \
+    -v ~/data-dolph-container:/home/dolph_user/data -v ~/pgdata:/var/lib/postgresql/14/main \
+    -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix -p 5432:5432  dolph-container /bin/bash
+
+    git commit -am "Dolph can alles"
+
+    cat ~/*tok*
+    
+    git push origin main
+
+
+    kubectl exec -it dolph-deployment-5b4d776645-6thmq -- /bin/bash

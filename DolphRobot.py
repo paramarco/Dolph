@@ -258,6 +258,21 @@ class Dolph:
         return takePosition
   
     
+    def positionExceedsBalance (self, position):
+        
+        exceeds = True if position.quantity == 0 else False
+        
+        cash_balance = self.tp.get_cash_balance()
+        positions = self.tp.get_PositionsByCode(position.seccode)
+        
+        cash_positions = position.quantity * position.entryPrice
+        for p in positions :
+            cash_positions += p.quantity * p.entryPrice
+            
+        if cash_positions > cash_balance : exceeds = True 
+        
+        return exceeds 
+    
     def get_evaluation_parameters(self, security):
         
         longestPeriod = self.periods[-1]
@@ -268,9 +283,9 @@ class Dolph:
         # FIXME: Are these parameters automatically calculated?
         #quantity = params['positionQuantity']
         cash_balance = self.tp.get_cash_balance()
-        cash_4_position = cash_balance * 0.3
+        cash_4_position = cash_balance * cm.factorPosition_Balance
         quantity = round(cash_4_position / currentClose)
-        margin = currentClose * 0.005
+        margin = currentClose * cm.factorMargin_Position
         k, margin = params['stopLossCoefficient'], params.get('positionMargin',margin)
         correction, spread = params.get('correction',0.0), params.get('spread',0.0)
         # FIXME: Are these parameters automatically calculated?
@@ -306,6 +321,10 @@ class Dolph:
             quantity, entryPrice, exitPrice, stoploss, decimals, exitTime,
             correction, spread, byMarket 
         )
+        
+        if self.positionExceedsBalance(position):
+            position.takePosition = 'no-go'
+        
         logging.info( 'dolph decides: ' + str(position))    
             
         return position
@@ -337,9 +356,8 @@ if __name__== "__main__":
         dolph.takePosition()    
     
     # dolph = Dolph()       
-    # # filePath = "../TradingPlatforms/Alpaca/AlpacaTickers.json"
-    # # dolph.ds.insert_alpaca_tickers(filePath) 
-            
+    # filePath = "../TradingPlatforms/Alpaca/AlpacaTickers.json"
+    # dolph.ds.insert_alpaca_tickers(filePath)             
        
     # for sec in dolph.securities:                 
     #     candles = dolph.tp.get_candles(sec, dolph.since, dolph.until, period = '1Min')

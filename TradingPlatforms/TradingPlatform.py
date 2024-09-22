@@ -212,10 +212,17 @@ class TradingPlatform(ABC):
     @abstractmethod
     def get_cash_balance (self) :
         pass
+    
 
     
     ################ Common methods    #######################################
     
+    def get_PositionsByCode (self, seccode) :
+
+        positions = [p for p in self.monitoredPositions if p.seccode != seccode ]
+
+        return positions 
+
     def storeMonitoredPositions(self):
         """
         This method stores each monitored position in the database as a JSON string.
@@ -633,6 +640,8 @@ class TradingPlatform(ABC):
             logging.error( "monitoredStopOrder Not found, recheck this case")
         
         return monitoredStopOrder
+
+
 
 
 ##############################################################################
