@@ -17,15 +17,15 @@ securities = [
     # {'board': 'EQTY', 'seccode': 'PG'},
     # {'board': 'EQTY', 'seccode': 'KO'}
 ]
-#logLevel = logging.DEBUG 
-logLevel = logging.INFO
-MODE = 'OPERATIONAL' # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
-#MODE = 'TEST_ONLINE'
+logLevel = logging.DEBUG 
+#logLevel = logging.INFO
+#MODE = 'OPERATIONAL' # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
+MODE = 'TEST_OFFLINE'
 periods = ['1Min'] #periods = ['1Min','30Min']
 
 current_tz = pytz.timezone('America/New_York')
 # Localize the 'since' and 'until' datetime objects to the specified timezone
-since = current_tz.localize(dt.datetime(year=2022, month=8, day=7, hour=7, minute=0))
+since = current_tz.localize(dt.datetime(year=2022, month=8, day=8, hour=10, minute=0))
 until = current_tz.localize(dt.datetime(year=2024, month=9, day=18, hour=10, minute=0))
 between_time = (
     current_tz.localize(dt.datetime.strptime('07:00', '%H:%M')).time(),
@@ -33,7 +33,7 @@ between_time = (
 )
 nogoTradingHours = [7,21]
 
-numTestSample = 100
+numTestSample = 500
 TrainingHour = 10  # 10:00 
 currentTestIndex = 0  
 

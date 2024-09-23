@@ -455,18 +455,21 @@ class DataServer:
     def syncData(self, data):
         #log.info("Synchronizing database...")
 
-        if not data:
-            data.update(self.searchData(self.since))
-            return
-
         self.since = self.since + dt.timedelta(minutes=1)
         self.until = self.since + dt.timedelta(minutes=self.numTestSample)
+        
+        if not data and self.MODE in ['TEST_ONLINE', 'OPERATIONAL']:
+            data.update(self.searchData(self.since))
+            return
+        elif not data and self.MODE == 'TEST_OFFLINE':
+            data.update(self.searchData(self.since, self.until))
+            return
 
         if self.MODE == 'TRAIN_OFFLINE':
             data.update(self.searchData(self.since))
 
         elif self.MODE == 'TEST_OFFLINE':
-            data.update(self.searchData(self.since, self.until))
+            data.update(self.searchData(self.since, self.until) )
 
         elif self.MODE in ['TEST_ONLINE', 'OPERATIONAL']:
             since = dt.datetime.now() - dt.timedelta(days=5)
@@ -597,8 +600,8 @@ class DataServer:
         untilDate = ""
         if until is not None:
             untilDate = until.strftime('%Y-%m-%d %H:%M:%S%z')
-        #log.debug(f"Since: {date}")
-        #log.debug(f"Until: {untilDate}" if untilDate else "Until: None")
+        log.debug(f"Since: {date}")
+        log.debug(f"Until: {untilDate}" if untilDate else "Until: None")
     
         try:
             conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host ,  sslmode="disable")
