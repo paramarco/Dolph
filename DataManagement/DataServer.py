@@ -1116,9 +1116,12 @@ class DataServer:
     
     
     def getPlatformDetails(self, securities):
-        
+
+        errMsg = f" securities not found"        
+        if not securities:
+            return None
+            
         security = securities[0]
-        errMsg = f"{security['seccode']} not found"
     
         try:
             conn = psycopg2.connect(dbname=cm.dbname, user=cm.user, password=cm.password, host=cm.host ,  sslmode="disable")
@@ -1133,6 +1136,7 @@ class DataServer:
             result = cursor.fetchone()
     
             if result is None:
+                errMsg = f"{security['seccode']} not found"
                 raise RuntimeError(errMsg)
     
             conn.close()
@@ -1215,6 +1219,7 @@ class DataServer:
             market = "NASDAQ"
             alg_parameters = {
                 "algorithm": "peaks_and_valleys",
+                #"algorithm": "stochastic_and_rsi",
                 "entryByMarket": False,
                 "entryTimeSeconds": 180,
                 "positionQuantity": 1,
@@ -1227,8 +1232,10 @@ class DataServer:
             platform = {
                 "name": "alpaca",
                 "secrets": {
-                    "api_key": "PK0XNQ1EFZQQWGWEN0AA",
-                    "api_secret": "FT2y1LfOMrPnQcIevRGIwI7AxsbR8OS3o82Avron",
+                    #"api_key": "PK0XNQ1EFZQQWGWEN0AA",
+                    "api_key": "PK4HMXAXA2IZXF33JDFN",
+                    #"api_secret": "FT2y1LfOMrPnQcIevRGIwI7AxsbR8OS3o82Avron",
+                    "api_secret": "XfVJyIaBDMlhsum5p17Oq5ln9sGmSsD3RKm7rATt",
                     "endpoint": "https://paper-api.alpaca.markets"
                 }
             }

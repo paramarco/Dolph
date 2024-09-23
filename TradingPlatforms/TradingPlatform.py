@@ -92,10 +92,11 @@ class Position:
 def initTradingPlatform( onCounterPosition ):
            
     platform  = ds.DataServer().getPlatformDetails(cm.securities)
-
     logging.debug(str(platform))
 
-    if platform["name"] == 'finam':
+    if platform is None :
+        return None
+    elif platform["name"] == 'finam':
         return FinamTradingPlatform( onCounterPosition )
     elif platform["name"] == 'alpaca':
         return AlpacaTradingPlatform( onCounterPosition )
@@ -137,7 +138,7 @@ class TradingPlatform(ABC):
         self.ds = ds.DataServer()
         platform  = self.ds.getPlatformDetails(cm.securities)    
         self.secrets = platform["secrets"] 
-        self.connectOnInit = self.MODE in ['TEST_ONLINE', 'OPERATIONAL']
+        self.connectOnInit = self.MODE in ['OPERATIONAL']
 
 
     @abstractmethod
@@ -1056,9 +1057,10 @@ class AlpacaTradingPlatform(TradingPlatform):
         self.api_key = self.secrets.get("api_key")
         self.api_secret = self.secrets.get("api_secret")
         self.endpoint = self.secrets.get("endpoint")
+        
+        self.api = tradeapi.REST(self.api_key, self.api_secret, base_url=self.endpoint)
 
         if self.connectOnInit :
-            self.api = tradeapi.REST(self.api_key, self.api_secret, base_url=self.endpoint)
             self.connect()
 
     def connect(self):

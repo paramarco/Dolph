@@ -1,4 +1,8 @@
 import pandas as pd
+import logging
+
+log = logging.getLogger("StochasticAndRSIModel")
+
 
 class StochasticAndRSIModel:
     
@@ -74,7 +78,7 @@ class StochasticAndRSIModel:
         self.df.dropna(inplace=True)
         
         # Print column names to ensure correct dataframe structure
-        print("Columns in DataFrame before prediction:", self.df.columns)
+        log.debug("Columns in DataFrame before prediction:", self.df.columns)
         
         # Ensure you're only working with the renamed price columns ('close', 'open', 'high', 'low')
         try:
@@ -86,22 +90,22 @@ class StochasticAndRSIModel:
         except KeyError as e:
             print(f"KeyError: {e}. Check if the dataframe has the correct price columns.")
             raise
-        print("RSI", rsi )
-        print("stoch_k", stoch_k )
-        print("stoch_d", stoch_d )
-        print(f"RSI: {self.df['RSI'].iloc[-1]}")
-        print(f"%K: {self.df['Stochastic_K'].iloc[-1]}, %D: {self.df['Stochastic_D'].iloc[-1]}")
+        log.info("RSI", rsi )
+        log.info("stoch_k", stoch_k )
+        log.info("stoch_d", stoch_d )
+        log.info(f"RSI: {self.df['RSI'].iloc[-1]}")
+        log.info(f"%K: {self.df['Stochastic_K'].iloc[-1]}, %D: {self.df['Stochastic_D'].iloc[-1]}")
 
         # Buy conditions: RSI < 30 (oversold), Stochastic %K > %D (bullish momentum)
         if rsi < 30 :
-            print("preictor says long")
+            log.info("preictor says long")
             return 'long'  # Buy signal
     
         # Sell conditions: RSI > 70 (overbought), Stochastic %K < %D (bearish momentum)
         elif rsi > 70 :
-            print("preictor says short")
+            log.info("preictor says short")
             return 'short'  # Sell signal
-        print("preictor says nogo")
+        log.info("preictor says nogo")
         # No clear signal to buy or sell
         return 'no-go'
 

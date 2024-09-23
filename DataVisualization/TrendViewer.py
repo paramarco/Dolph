@@ -75,6 +75,10 @@ class TrendViewer:
 
     def set_display_prediction_method(self):
         
+        if not cm.securities:
+            self.showPrediction = self.displayNothing
+            return
+        
         sec = cm.securities[0]
         params = ds.DataServer().getSecurityAlgParams( sec )
         alg = params["algorithm"]

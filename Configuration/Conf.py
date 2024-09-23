@@ -6,21 +6,21 @@ import logging
 
 
 securities = []
-securities.append({'board': 'EQTY', 'seccode': 'AAPL'})
-# securities.append({'board': 'EQTY', 'seccode': 'ADDYY'}) 
-# securities.append({'board': 'EQTY', 'seccode': 'ALIZY'})
-# securities.append({'board': 'EQTY', 'seccode': 'BASFY'})
-# securities.append({'board': 'EQTY', 'seccode': 'BAYRY'})
-# securities.append({'board': 'EQTY', 'seccode': 'BEINY'})
-# securities.append({'board': 'EQTY', 'seccode': 'BMWYY'})
-# securities.append({'board': 'EQTY', 'seccode': 'DTEGY'})
-# securities.append({'board': 'EQTY', 'seccode': 'SAP'})
-# securities.append( {'board':'FUT', 'seccode':'GZZ0'} )
-# securities.append( {'board':'FUT', 'seccode':'GZZ0'} ) 
-# securities.append( {'board':'FUT', 'seccode':'SRZ0'} ) 
-#logLevel = logging.DEBUG 
-logLevel = logging.INFO
+securities = [
+    {'board': 'EQTY', 'seccode': 'AAPL'}
+    # ,
+    # {'board': 'EQTY', 'seccode': 'BASFY'},
+    # {'board': 'EQTY', 'seccode': 'BAYRY'},
+    # {'board': 'EQTY', 'seccode': 'VERB'},
+    # {'board': 'EQTY', 'seccode': 'ONCO'},
+    # {'board': 'EQTY', 'seccode': 'KAPA'},
+    # {'board': 'EQTY', 'seccode': 'PG'},
+    # {'board': 'EQTY', 'seccode': 'KO'}
+]
+logLevel = logging.DEBUG 
+#logLevel = logging.INFO
 MODE = 'OPERATIONAL' # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
+#MODE = 'TEST_ONLINE'
 periods = ['1Min'] #periods = ['1Min','30Min']
 
 current_tz = pytz.timezone('America/New_York')

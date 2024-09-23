@@ -5,16 +5,6 @@
         "CompanyName": "Apple Inc"
     },
     {
-        "OriginTicker": "ADS.DE",
-        "AlpacaTicker": "ADDYY",
-        "CompanyName": "Adidas AG"
-    },
-    {
-        "OriginTicker": "ALV.DE",
-        "AlpacaTicker": "ALIZY",
-        "CompanyName": "Allianz SE"
-    },
-    {
         "OriginTicker": "BAS.DE",
         "AlpacaTicker": "BASFY",
         "CompanyName": "BASF SE"
@@ -25,123 +15,28 @@
         "CompanyName": "Bayer AG"
     },
     {
-        "OriginTicker": "BEI.DE",
-        "AlpacaTicker": "BEINY",
-        "CompanyName": "Beiersdorf AG"
+        "OriginTicker": "VERB",
+        "AlpacaTicker": "VERB",
+        "CompanyName": "Verb Technology Company, Inc"
     },
     {
-        "OriginTicker": "BMW.DE",
-        "AlpacaTicker": "BMWYY",
-        "CompanyName": "BMW AG"
+        "OriginTicker": "ONCO",
+        "AlpacaTicker": "ONCO",
+        "CompanyName": "Onconetix, Inc"
     },
     {
-        "OriginTicker": "CON.DE",
-        "AlpacaTicker": null,
-        "CompanyName": "Continental AG"
+        "OriginTicker": "KAPA",
+        "AlpacaTicker": "KAPA",
+        "CompanyName": "Kairos Pharma, Ltd"
     },
     {
-        "OriginTicker": "1COV.DE",
-        "AlpacaTicker": null,
-        "CompanyName": "Covestro AG"
+        "OriginTicker": "PG",
+        "AlpacaTicker": "PG",
+        "CompanyName": "Procter & Gamble"
     },
     {
-        "OriginTicker": "DHER.DE",
-        "AlpacaTicker": null,
-        "CompanyName": "Delivery Hero SE"
-    },
-    {
-        "OriginTicker": "DTE.DE",
-        "AlpacaTicker": "DTEGY",
-        "CompanyName": "Deutsche Telekom AG"
-    },
-    {
-        "OriginTicker": "EOAN.DE",
-        "AlpacaTicker": null,
-        "CompanyName": "E.ON SE"
-    },
-    {
-        "OriginTicker": "FRE.DE",
-        "AlpacaTicker": null,
-        "CompanyName": "Fresenius SE & Co. KGaA"
-    },
-    {
-        "OriginTicker": "FME.DE",
-        "AlpacaTicker": null,
-        "CompanyName": "Fresenius Medical Care AG & Co. KGaA"
-    },
-    {
-        "OriginTicker": "HEI.DE",
-        "AlpacaTicker": null,
-        "CompanyName": "HeidelbergCement AG"
-    },
-    {
-        "OriginTicker": "HEN3.DE",
-        "AlpacaTicker": null,
-        "CompanyName": "Henkel AG & Co. KGaA"
-    },
-    {
-        "OriginTicker": "IFX.DE",
-        "AlpacaTicker": null,
-        "CompanyName": "Infineon Technologies AG"
-    },
-    {
-        "OriginTicker": "LIN.DE",
-        "AlpacaTicker": null,
-        "CompanyName": "Linde plc"
-    },
-    {
-        "OriginTicker": "MRK.DE",
-        "AlpacaTicker": null,
-        "CompanyName": "Merck KGaA"
-    },
-    {
-        "OriginTicker": "MTX.DE",
-        "AlpacaTicker": null,
-        "CompanyName": "MTU Aero Engines AG"
-    },
-    {
-        "OriginTicker": "MUV2.DE",
-        "AlpacaTicker": null,
-        "CompanyName": "Münchener Rückversicherungs-Gesellschaft AG"
-    },
-    {
-        "OriginTicker": "RWE.DE",
-        "AlpacaTicker": null,
-        "CompanyName": "RWE AG"
-    },
-    {
-        "OriginTicker": "SAP.DE",
-        "AlpacaTicker": "SAP",
-        "CompanyName": "SAP SE"
-    },
-    {
-        "OriginTicker": "SIE.DE",
-        "AlpacaTicker": null,
-        "CompanyName": "Siemens AG"
-    },
-    {
-        "OriginTicker": "VOW3.DE",
-        "AlpacaTicker": null,
-        "CompanyName": "Volkswagen AG"
-    },
-    {
-        "OriginTicker": "VNA.DE",
-        "AlpacaTicker": null,
-        "CompanyName": "Vonovia SE"
-    },
-    {
-        "OriginTicker": "DB1.DE",
-        "AlpacaTicker": null,
-        "CompanyName": "Deutsche Börse AG"
-    },
-    {
-        "OriginTicker": "ZAL.DE",
-        "AlpacaTicker": null,
-        "CompanyName": "Zalando SE"
-    },
-    {
-        "OriginTicker": "PUM.DE",
-        "AlpacaTicker": null,
-        "CompanyName": "Puma SE"
+        "OriginTicker": "KO",
+        "AlpacaTicker": "KO",
+        "CompanyName": "Coca-Cola"
     }
 ]

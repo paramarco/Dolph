@@ -3,6 +3,7 @@
 
 import logging
 import sys
+import os
 import signal
 import time
 import gc; gc.collect()
@@ -21,12 +22,14 @@ class Dolph:
         
         self._init_configuration()        
         self._init_logging()
-        self._init_signaling()
         self.ds = ds.DataServer()
         self._init_securities() 
         self.tp = tp.initTradingPlatform( self.onCounterPosition )   
         self.tv = tv.TrendViewer( self.evaluatePosition )
         self.data = {}
+        self.initDB()                 
+        self._init_signaling()
+
         
 
     def _init_configuration(self):
@@ -39,7 +42,7 @@ class Dolph:
         self.TrainingHour = cm.TrainingHour
         self.periods = cm.periods
         self.securities = cm.securities
-        self.currentTestIndex = cm.currentTestIndex                 
+        self.currentTestIndex = cm.currentTestIndex
     
 
     def _init_securities(self):
@@ -204,6 +207,8 @@ class Dolph:
     def getEntryPrice(self, seccode, takePosition ):    
         
         currentClose = self.getLastClosePrice( seccode)
+        if currentClose is None:
+            return None
         smallDelta = currentClose * 0.001
     
         if (takePosition=="long"):
@@ -229,6 +234,18 @@ class Dolph:
         
         return decision
     
+    def isPredictionInOppositeDirection(self, prediction, security ) :
+        
+        inOppositeDirection = False
+        
+        if security['lastPositionTaken'] == 'long' and prediction == 'short':
+            inOppositeDirection = True
+        
+        if security['lastPositionTaken'] == 'short' and prediction == 'long':
+            inOppositeDirection = True
+        
+        return inOppositeDirection
+    
   
     def takeDecision(self, security, prediction ):
             
@@ -236,12 +253,14 @@ class Dolph:
         openPosition = self.tp.isPositionOpen( seccode )
         takePosition = 'no-go' 
         prediction = prediction[-1]
+        isBetterToClose = self.isBetterToClosePosition(security)
+        isPredictionSwap = self.isPredictionInOppositeDirection(prediction, security)
                 
         if openPosition and security['lastPositionTaken'] == prediction :
 
             takePosition = 'no-go'
                      
-        elif openPosition and self.isBetterToClosePosition(security):
+        elif openPosition and isPredictionSwap and isBetterToClose:
             
             takePosition = 'close'
             security['lastPositionTaken'] = takePosition
@@ -275,24 +294,29 @@ class Dolph:
     
     def get_evaluation_parameters(self, security):
         
-        longestPeriod = self.periods[-1]
-        board, seccode, params = security['board'], security['seccode'], security['params']
-        currentClose = self.getLastClosePrice( seccode)
-        byMarket, entryTimeSeconds = params['entryByMarket'], params['entryTimeSeconds']
-        exitTimeSeconds = params.get('exitTimeSeconds', 36000)
-        # FIXME: Are these parameters automatically calculated?
-        #quantity = params['positionQuantity']
-        cash_balance = self.tp.get_cash_balance()
-        cash_4_position = cash_balance * cm.factorPosition_Balance
-        quantity = round(cash_4_position / currentClose)
-        margin = currentClose * cm.factorMargin_Position
-        k, margin = params['stopLossCoefficient'], params.get('positionMargin',margin)
-        correction, spread = params.get('correction',0.0), params.get('spread',0.0)
-        # FIXME: Are these parameters automatically calculated?
-        decimals, marketId = self.ds.getSecurityInfo(security) 
-        decimals = int(decimals)                   
-        ct = self.tp.getTradingPlatformTime()
-        exitTime = ct + dt.timedelta(seconds=exitTimeSeconds)
+        try:
+            longestPeriod = self.periods[-1]
+            board, seccode, params = security['board'], security['seccode'], security['params']
+            currentClose = self.getLastClosePrice( seccode)
+            byMarket, entryTimeSeconds = params['entryByMarket'], params['entryTimeSeconds']
+            exitTimeSeconds = params.get('exitTimeSeconds', 36000)
+            # FIXME: Are these parameters automatically calculated?
+            #quantity = params['positionQuantity']
+            cash_balance = self.tp.get_cash_balance()
+            cash_4_position = cash_balance * cm.factorPosition_Balance
+            quantity = round(cash_4_position / currentClose)
+            margin = currentClose * cm.factorMargin_Position
+            k, margin = params['stopLossCoefficient'], params.get('positionMargin',margin)
+            correction, spread = params.get('correction',0.0), params.get('spread',0.0)
+            # FIXME: Are these parameters automatically calculated?
+            decimals, marketId = self.ds.getSecurityInfo(security) 
+            decimals = int(decimals)                   
+            ct = self.tp.getTradingPlatformTime()
+            exitTime = ct + dt.timedelta(seconds=exitTimeSeconds)
+        
+        except Exception as e:
+            k = margin = quantity = correction = spread = decimals = marketId = ct = exitTime = 0
+            logging.error("Failed to get_evaluation_parameters: %s", e)
        
         return (longestPeriod, board, seccode, byMarket, entryTimeSeconds, exitTimeSeconds, 
                 quantity, k, decimals, marketId, spread, correction, margin, exitTime )
@@ -309,9 +333,13 @@ class Dolph:
         stoploss = entryPrice
         exitPrice = entryPrice
         
-        if takePosition == 'long':
+        if entryPrice is None:
+            takePosition == 'no-go'
+            
+        elif takePosition == 'long':
             exitPrice = entryPrice  + margin
             stoploss = entryPrice  - k * margin                
+            
         elif takePosition == 'short':
             exitPrice = entryPrice  - margin
             stoploss = entryPrice  + k * margin                
@@ -342,7 +370,27 @@ class Dolph:
 
             logging.info('sending a "' + action +'" to Trading platform ...')
             self.tp.processPosition(position)  
-           
+       
+        
+    def initDB (self):
+        
+        if self.MODE != 'TEST_ONLINE' : 
+            return
+        
+        filePath = "./TradingPlatforms/Alpaca/AlpacaTickers.json"
+        self.ds.insert_alpaca_tickers(filePath)             
+          
+        for sec in self.securities :
+            
+            logging.debug("getting candles ... ")
+            candles = self.tp.get_candles(sec, self.since, self.until, period = '1Min')
+            logging.debug("storing candles ... ")
+            self.ds.store_candles(candles,sec) 
+    
+        sys.exit(0)           
+        raise SystemExit("Stopping the program") 
+
+        
     
 if __name__== "__main__":
 
@@ -355,13 +403,4 @@ if __name__== "__main__":
         dolph.displayPredictions()
         dolph.takePosition()    
     
-    # dolph = Dolph()       
-    # filePath = "../TradingPlatforms/Alpaca/AlpacaTickers.json"
-    # dolph.ds.insert_alpaca_tickers(filePath)             
-       
-    # for sec in dolph.securities:                 
-    #     candles = dolph.tp.get_candles(sec, dolph.since, dolph.until, period = '1Min')
-    #     dolph.ds.store_candles(candles,sec) 
-       
-        
-        
+    
