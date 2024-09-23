@@ -1,7 +1,7 @@
 import pandas as pd
 import logging
 
-log = logging.getLogger("StochasticAndRSIModel")
+log = logging.getLogger("PredictionModel")
 
 
 class StochasticAndRSIModel:
@@ -78,21 +78,24 @@ class StochasticAndRSIModel:
         self.df.dropna(inplace=True)
         
         # Print column names to ensure correct dataframe structure
-        log.debug("Columns in DataFrame before prediction:", self.df.columns)
+        log.debug(f"Columns in DataFrame before prediction: {self.df.columns}")
         
         # Ensure you're only working with the renamed price columns ('close', 'open', 'high', 'low')
+        rsi = stoch_k = stoch_d = 0
         try:
-            print(f"Total number of rows in the DataFrame: {len(self.df)}")
-
+        
+            log.debug(f"Total number of rows in the DataFrame: {len(self.df)}")
             rsi = self.df['RSI'].iloc[-1]
             stoch_k = self.df['Stochastic_K'].iloc[-1]
             stoch_d = self.df['Stochastic_D'].iloc[-1]
+        
         except KeyError as e:
-            print(f"KeyError: {e}. Check if the dataframe has the correct price columns.")
+            log.debug(f"KeyError: {e}. Check if the dataframe has the correct price columns.")
             raise
-        log.info("RSI", rsi )
-        log.info("stoch_k", stoch_k )
-        log.info("stoch_d", stoch_d )
+       
+        log.info(f"RSI: {rsi} ")
+        log.info("stoch_k : {stoch_k}" )
+        log.info("stoch_d : {stoch_d}" )
         log.info(f"RSI: {self.df['RSI'].iloc[-1]}")
         log.info(f"%K: {self.df['Stochastic_K'].iloc[-1]}, %D: {self.df['Stochastic_D'].iloc[-1]}")
 

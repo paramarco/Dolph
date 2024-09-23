@@ -17,8 +17,8 @@ securities = [
     # {'board': 'EQTY', 'seccode': 'PG'},
     # {'board': 'EQTY', 'seccode': 'KO'}
 ]
-logLevel = logging.DEBUG 
-#logLevel = logging.INFO
+#logLevel = logging.DEBUG 
+logLevel = logging.INFO
 MODE = 'OPERATIONAL' # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
 #MODE = 'TEST_ONLINE'
 periods = ['1Min'] #periods = ['1Min','30Min']
