@@ -23,9 +23,9 @@ class Dolph:
         self._init_configuration()        
         self._init_logging()
         self.ds = ds.DataServer()
-        self._init_securities() 
         self.tp = tp.initTradingPlatform( self.onCounterPosition )   
         self.tv = tv.TrendViewer( self.evaluatePosition )
+        self._init_securities() 
         self.data = {}
         self.initDB()                 
         self._init_signaling()
@@ -51,10 +51,17 @@ class Dolph:
             sec['params'] = self.ds.getSecurityAlgParams( sec )
             sec['models'] = {}
             sec['predictions'] = {}
-            sec['lastPositionTaken'] = None
-            sec['savedEntryPrice'] = None
+            seccode = sec['seccode']
+            positions = self.tp.get_PositionsByCode(seccode)
+            if not positions:
+                sec['lastPositionTaken'] = None
+            else:
+              for p in positions :
+                  sec['lastPositionTaken'] = p.takePosition
+            
             for p in self.periods:
                 sec['predictions'][p] = []   
+            
             logging.info(str(sec))
 
     
