@@ -19,8 +19,8 @@ securities = [
 ]
 logLevel = logging.DEBUG 
 #logLevel = logging.INFO
-#MODE = 'OPERATIONAL' # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
-MODE = 'TEST_OFFLINE'
+MODE = 'OPERATIONAL' # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL'
+#MODE = 'TEST_OFFLINE'
 periods = ['1Min'] #periods = ['1Min','30Min']
 
 current_tz = pytz.timezone('America/New_York')
@@ -53,5 +53,11 @@ statusOrderOthers = ["linkwait","tp_correction","tp_correction_guardtime","none"
 statusStopOrderExecuted = ['tp_executed', 'sl_executed','matched','triggered']
 statusStopOrderFilled = ['filled']
 
+########### default-fallback values ##########################################
 factorPosition_Balance = 0.3
 factorMargin_Position  = 0.005
+entryTimeSeconds = 3600
+exitTimeSeconds = 36000
+stopLossCoefficient = 6
+correction = 0.0
+spread = 0.0

@@ -6,7 +6,7 @@ log = logging.getLogger("PredictionModel")
 
 class StochasticAndRSIModel:
     
-    def __init__(self, data, params):
+    def __init__(self, data, params, dolph):
         
         df = data['1Min']
        
@@ -25,6 +25,7 @@ class StochasticAndRSIModel:
             'endprice': 'close'
         })
         self.params = params
+        self.dolph = dolph
         # Calculate indicators for the dataframe
         self.df['SMA50'] = self.df['close'].rolling(window=50).mean()
         self.df['SMA200'] = self.df['close'].rolling(window=200).mean()
@@ -46,7 +47,20 @@ class StochasticAndRSIModel:
         """
         Predict whether to go long, short, or no-go based on RSI and Stochastic indicators.
         """
+        seccode = sec['seccode']
+        entryPrice = exitPrice = 0.0
+
+        lastClosePrice = self.dolph.getLastClosePrice( seccode)
+        openPosition = self.dolph.tp.isPositionOpen( seccode )
         
+        if openPosition:            
+            positions = self.dolph.tp.get_PositionsByCode(seccode)
+            for p in positions :
+                entryPrice = p.entryPrice
+                exitPrice = p.exitPrice 
+                
+        m = f"{seccode} last: {lastClosePrice}, entry: {entryPrice}, exit: {exitPrice}"                
+        log.debug(m)
 
         # Ensure the necessary columns are renamed to the correct price columns
         self.df = self.df.rename(columns={

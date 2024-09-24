@@ -29,7 +29,7 @@ class Predictions:
         self.predictions = predictions
         self.training_set = training_set
 
-def initPredictionModel(data, security ):
+def initPredictionModel(data, security, dolph):
     
     params = security["params"]
     
@@ -49,9 +49,9 @@ def initPredictionModel(data, security ):
     elif alg == 'NeuronalNet_v10':
         return NeuronalNetV10Model(data, security)
     elif alg == 'peaks_and_valleys':
-        return PeaksAndValleysModel(data, security)
+        return PeaksAndValleysModel(data, security, dolph)
     elif alg == 'stochastic_and_rsi':
-        return StochasticAndRSIModel(data, security)
+        return StochasticAndRSIModel(data, security, dolph)
     else:
         raise ValueError(f"Algorithm '{alg}' not recognized")
 
@@ -863,7 +863,7 @@ class NeuronalNetV10Model:
 
 class PeaksAndValleysModel:
     
-    def __init__(self, df, security):  
+    def __init__(self, df, security, dolph):  
         
         self.security = security
         params = security["params"]

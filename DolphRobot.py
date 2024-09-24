@@ -168,7 +168,7 @@ class Dolph:
     def _getPredictionModel(self, sec, period):
         
         sec['params']['period'] = period 
-        sec['models'][period] = pm.initPredictionModel( self.data, sec )
+        sec['models'][period] = pm.initPredictionModel( self.data, sec, self)
         msg = f"loading training & prediction params: {sec['params']}"
         logging.debug( msg )        
 
@@ -292,24 +292,34 @@ class Dolph:
         
         return exceeds 
     
+    
+    def calculateMarginQuatityOfPosition (self, security):
+        
+        seccode = security['seccode']
+        currentClose = self.getLastClosePrice( seccode)
+        cash_balance = self.tp.get_cash_balance()
+        cash_4_position = cash_balance * cm.factorPosition_Balance
+        quantity = round(cash_4_position / currentClose)
+        margin = currentClose * cm.factorMargin_Position
+
+        return quantity, margin
+    
     def get_evaluation_parameters(self, security):
         
         try:
             longestPeriod = self.periods[-1]
             board, seccode, params = security['board'], security['seccode'], security['params']
-            currentClose = self.getLastClosePrice( seccode)
-            byMarket, entryTimeSeconds = params['entryByMarket'], params['entryTimeSeconds']
-            exitTimeSeconds = params.get('exitTimeSeconds', 36000)
-            # FIXME: Are these parameters automatically calculated?
-            #quantity = params['positionQuantity']
-            cash_balance = self.tp.get_cash_balance()
-            cash_4_position = cash_balance * cm.factorPosition_Balance
-            quantity = round(cash_4_position / currentClose)
-            margin = currentClose * cm.factorMargin_Position
-            k, margin = params['stopLossCoefficient'], params.get('positionMargin',margin)
-            correction, spread = params.get('correction',0.0), params.get('spread',0.0)
-            # FIXME: Are these parameters automatically calculated?
+            quantity, margin = self.calculateMarginQuatityOfPosition(security)
+            # FIXME: Can the decimals be automatically calculated?
             decimals, marketId = self.ds.getSecurityInfo(security) 
+            # FIXME: Are these parameters automatically calculated?
+            entryTimeSeconds = params.get('entryTimeSeconds', cm.entryTimeSeconds)
+            exitTimeSeconds = params.get('exitTimeSeconds', cm.exitTimeSeconds)
+            margin = params.get('positionMargin', margin)
+            k = params.get('stopLossCoefficient', cm.stopLossCoefficient ) 
+            correction = params.get('correction', cm.correction) 
+            spread = params.get('spread', cm.spread)
+            
             decimals = int(decimals)                   
             ct = self.tp.getTradingPlatformTime()
             exitTime = ct + dt.timedelta(seconds=exitTimeSeconds)
@@ -318,18 +328,19 @@ class Dolph:
             k = margin = quantity = correction = spread = decimals = marketId = ct = exitTime = 0
             logging.error("Failed to get_evaluation_parameters: %s", e)
        
-        return (longestPeriod, board, seccode, byMarket, entryTimeSeconds, exitTimeSeconds, 
+        return (longestPeriod, board, seccode, entryTimeSeconds, exitTimeSeconds, 
                 quantity, k, decimals, marketId, spread, correction, margin, exitTime )
 
 
     def evaluatePosition (self, security):        
 
-        (longestPeriod, board, seccode, byMarket, entryTimeSeconds, exitTimeSeconds, 
+        (longestPeriod, board, seccode, entryTimeSeconds, exitTimeSeconds, 
          quantity, k, decimals, marketId, spread, correction, margin, exitTime ) = self.get_evaluation_parameters(security)
             
         prediction = copy.deepcopy(security['predictions'][longestPeriod])
         takePosition = self.takeDecision( security, prediction)
-        entryPrice = self.getEntryPrice(seccode, takePosition )        
+        entryPrice = self.getEntryPrice(seccode, takePosition )
+        byMarket = False
         stoploss = entryPrice
         exitPrice = entryPrice
         

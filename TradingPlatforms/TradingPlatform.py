@@ -220,7 +220,7 @@ class TradingPlatform(ABC):
     
     def get_PositionsByCode (self, seccode) :
 
-        positions = [p for p in self.monitoredPositions if p.seccode != seccode ]
+        positions = [p for p in self.monitoredPositions if p.seccode == seccode ]
 
         return positions 
 

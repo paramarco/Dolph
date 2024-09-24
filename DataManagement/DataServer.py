@@ -38,6 +38,7 @@ class DataServer:
         self.currentTestIndex = cm.currentTestIndex
         self.current_tz = cm.current_tz
         self.lastUpdate = None
+        self._init_securities()
 
     def _init_securities(self):
         for sec in self.securities:
@@ -1224,8 +1225,8 @@ class DataServer:
                 "algorithm": "peaks_and_valleys",
                 #"algorithm": "stochastic_and_rsi",
                 "entryByMarket": False,
-                "entryTimeSeconds": 180,
-                "positionQuantity": 1,
+                "entryTimeSeconds": 3600,
+                "exitTimeSeconds" : 36000,
                 "minNumPastSamples": 51,
                 "longPositionMargin": 10,
                 "shortPositionMargin": 10,
