@@ -253,7 +253,7 @@ class Dolph:
         openPosition = self.tp.isPositionOpen( seccode )
         takePosition = 'no-go' 
         prediction = prediction[-1]
-        isBetterToClose = self.isBetterToClosePosition(security)
+        isBetterToClose = self.isBetterToClosePosition(security) if openPosition else False
         isPredictionSwap = self.isPredictionInOppositeDirection(prediction, security)
                 
         if openPosition and security['lastPositionTaken'] == prediction :
