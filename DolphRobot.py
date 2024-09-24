@@ -223,8 +223,10 @@ class Dolph:
         
         seccode = security['seccode']
         position = self.tp.getMonitoredPositionBySeccode(seccode)
+        if position is None :
+            return True
+        
         lastClosePrice = self.getLastClosePrice(seccode)
-
         entryPrice = position.entryPrice
         limitToAcceptFallingOfPrice = entryPrice * 0.01  # 1% limit
         decision = False

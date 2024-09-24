@@ -106,12 +106,9 @@ class StochasticAndRSIModel:
         except KeyError as e:
             log.debug(f"KeyError: {e}. Check if the dataframe has the correct price columns.")
             raise
-       
-        log.info(f"RSI: {rsi} ")
-        log.info("stoch_k : {stoch_k}" )
-        log.info("stoch_d : {stoch_d}" )
-        log.info(f"RSI: {self.df['RSI'].iloc[-1]}")
-        log.info(f"%K: {self.df['Stochastic_K'].iloc[-1]}, %D: {self.df['Stochastic_D'].iloc[-1]}")
+
+        log.info(f"RSI: {rsi}")
+        log.info(f"%K: {stoch_k}, %D: {stoch_d}")
 
         # Buy conditions: RSI < 30 (oversold), Stochastic %K > %D (bullish momentum)
         if rsi < 30 :
