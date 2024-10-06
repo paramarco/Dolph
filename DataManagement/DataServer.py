@@ -1222,8 +1222,8 @@ class DataServer:
             decimals = 2
             market = "NASDAQ"
             alg_parameters = {
-                "algorithm": "peaks_and_valleys",
-                #"algorithm": "stochastic_and_rsi",
+                "algorithm": "stochastic_and_rsi",
+                #"algorithm": "peaks_and_valleys",                
                 "entryByMarket": False,
                 "entryTimeSeconds": 3600,
                 "exitTimeSeconds" : 36000,
@@ -1236,10 +1236,10 @@ class DataServer:
             platform = {
                 "name": "alpaca",
                 "secrets": {
-                    #"api_key": "PK0XNQ1EFZQQWGWEN0AA",
-                    "api_key": "PK4HMXAXA2IZXF33JDFN",
-                    #"api_secret": "FT2y1LfOMrPnQcIevRGIwI7AxsbR8OS3o82Avron",
-                    "api_secret": "XfVJyIaBDMlhsum5p17Oq5ln9sGmSsD3RKm7rATt",
+                    "api_key": "PK0XNQ1EFZQQWGWEN0AA",
+                    #"api_key": "PK4HMXAXA2IZXF33JDFN",
+                    "api_secret": "FT2y1LfOMrPnQcIevRGIwI7AxsbR8OS3o82Avron",
+                    #"api_secret": "XfVJyIaBDMlhsum5p17Oq5ln9sGmSsD3RKm7rATt",
                     "endpoint": "https://paper-api.alpaca.markets"
                 }
             }

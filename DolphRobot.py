@@ -397,6 +397,8 @@ class Dolph:
         if self.MODE != 'TEST_ONLINE' : 
             return
         
+        logging.info('init database according to Trading platform ...')
+
         filePath = "./TradingPlatforms/Alpaca/AlpacaTickers.json"
         self.ds.insert_alpaca_tickers(filePath)             
           

@@ -1144,7 +1144,8 @@ class AlpacaTradingPlatform(TradingPlatform):
             )
         except Exception as e:
             logging.error(f"Failed to place order: {e}")
-            raise
+            logging.exception("Failed to place order")
+            return None
 
 
     def cancel_order(self, order_id):
@@ -1311,7 +1312,7 @@ class AlpacaTradingPlatform(TradingPlatform):
         log.info(msg)
         res = self.new_order(
             mp.board, mp.seccode, mp.client, mp.union, mso.buysell,
-            mp.expdate, mp.quantity, price=0, bymarket=True, usecredit=False
+            mp.expdate, mp.quantity, price=mp.entryPrice, bymarket=True, usecredit=False
         )            
         log.debug(repr(res))
         tid = res.id        

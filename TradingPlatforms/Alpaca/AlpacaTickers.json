@@ -5,6 +5,11 @@
         "CompanyName": "Apple Inc"
     },
     {
+        "OriginTicker": "INTC",
+        "AlpacaTicker": "INTC",
+        "CompanyName": "Intel Corporation Common Stock"
+    },
+    {
         "OriginTicker": "BAS.DE",
         "AlpacaTicker": "BASFY",
         "CompanyName": "BASF SE"

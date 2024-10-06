@@ -8,9 +8,8 @@ import logging
 securities = []
 securities = [
     {'board': 'EQTY', 'seccode': 'AAPL'}
-    # ,
-    # {'board': 'EQTY', 'seccode': 'BASFY'},
-    # {'board': 'EQTY', 'seccode': 'BAYRY'},
+    , {'board': 'EQTY', 'seccode': 'INTC'}
+    , {'board': 'EQTY', 'seccode': 'ONCO'}
     # {'board': 'EQTY', 'seccode': 'VERB'},
     # {'board': 'EQTY', 'seccode': 'ONCO'},
     # {'board': 'EQTY', 'seccode': 'KAPA'},
@@ -55,7 +54,7 @@ statusStopOrderFilled = ['filled']
 
 ########### default-fallback values ##########################################
 factorPosition_Balance = 0.3
-factorMargin_Position  = 0.005
+factorMargin_Position  = 0.0035
 entryTimeSeconds = 3600
 exitTimeSeconds = 36000
 stopLossCoefficient = 6
