@@ -100,8 +100,8 @@ class StochasticAndRSIModel:
         
             log.debug(f"Total number of rows in the DataFrame: {len(self.df)}")
             rsi = self.df['RSI'].iloc[-1]
-            stoch_k = self.df['Stochastic_K'].iloc[-1]
-            stoch_d = self.df['Stochastic_D'].iloc[-1]
+            sma50 = self.df['SMA50'].iloc[-1]
+            sma200 = self.df['SMA200'].iloc[-1]
         
         except KeyError as e:
             log.debug(f"KeyError: {e}. Check if the dataframe has the correct price columns.")
@@ -110,13 +110,13 @@ class StochasticAndRSIModel:
         log.info(f"RSI: {rsi}")
         log.info(f"%K: {stoch_k}, %D: {stoch_d}")
 
-        # Buy conditions: RSI < 30 (oversold), Stochastic %K > %D (bullish momentum)
-        if rsi < 30 :
+        # Buy conditions: RSI < 30 (oversold),  SMA50 > SMA200 (bullish crossover)
+        if rsi < 30 and sma50 > sma200:
             log.info("preictor says long")
             return 'long'  # Buy signal
     
-        # Sell conditions: RSI > 70 (overbought), Stochastic %K < %D (bearish momentum)
-        elif rsi > 70 :
+        # Sell conditions: RSI > 70 (overbought),  SMA50 > SMA200 (bearish crossover)
+        elif rsi > 70 and sma50 < sma200 :
             log.info("preictor says short")
             return 'short'  # Sell signal
         log.info("preictor says nogo")
