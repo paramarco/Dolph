@@ -8,8 +8,8 @@ import logging
 securities = []
 securities = [
     {'board': 'EQTY', 'seccode': 'AAPL'}
-    , {'board': 'EQTY', 'seccode': 'INTC'}
-    , {'board': 'EQTY', 'seccode': 'ONCO'}
+    #, {'board': 'EQTY', 'seccode': 'INTC'}
+    #, {'board': 'EQTY', 'seccode': 'ONCO'}
     # {'board': 'EQTY', 'seccode': 'VERB'},
     # {'board': 'EQTY', 'seccode': 'ONCO'},
     # {'board': 'EQTY', 'seccode': 'KAPA'},
