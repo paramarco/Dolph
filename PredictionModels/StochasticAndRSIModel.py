@@ -95,29 +95,29 @@ class StochasticAndRSIModel:
         log.debug(f"Columns in DataFrame before prediction: {self.df.columns}")
         
         # Ensure you're only working with the renamed price columns ('close', 'open', 'high', 'low')
-        rsi = stoch_k = stoch_d = 0
+        rsi = sma50 = sma200 = 0
         try:
         
             log.debug(f"Total number of rows in the DataFrame: {len(self.df)}")
             rsi = self.df['RSI'].iloc[-1]
-            stoch_k = self.df['Stochastic_K'].iloc[-1]
-            stoch_d = self.df['Stochastic_D'].iloc[-1]
+            sma50 = self.df['SMA50'].iloc[-1]
+            sma200 = self.df['SMA200'].iloc[-1]
         
         except KeyError as e:
             log.debug(f"KeyError: {e}. Check if the dataframe has the correct price columns.")
             raise
 
         log.info(f"RSI: {rsi}")
-        log.info(f"%K: {stoch_k}, %D: {stoch_d}")
+        log.info(f"sma50: {sma50}, sma200: {sma200}")
 
         # Buy conditions: RSI < 30 (oversold), Stochastic %K > %D (bullish momentum)
-        if rsi < 30 :
-            log.info("preictor says long")
+        if rsi < 30 and sma50 > sma200:
+            log.info("predictor says long")
             return 'long'  # Buy signal
     
         # Sell conditions: RSI > 70 (overbought), Stochastic %K < %D (bearish momentum)
-        elif rsi > 70 :
-            log.info("preictor says short")
+        elif rsi > 70 and sma50 < sma200 :
+            log.info("predictor says short")
             return 'short'  # Sell signal
         log.info("preictor says nogo")
         # No clear signal to buy or sell
