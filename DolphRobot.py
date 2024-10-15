@@ -24,10 +24,10 @@ class Dolph:
         self._init_logging()
         self.ds = ds.DataServer()
         self.tp = tp.initTradingPlatform( self.onCounterPosition )   
-        self.tv = tv.TrendViewer( self.evaluatePosition )
+        self.initDB()
         self._init_securities() 
+        self.tv = tv.TrendViewer( self.evaluatePosition )
         self.data = {}
-        self.initDB()                 
         self._init_signaling()
 
         

@@ -25,7 +25,7 @@ periods = ['1Min'] #periods = ['1Min','30Min']
 current_tz = pytz.timezone('America/New_York')
 # Localize the 'since' and 'until' datetime objects to the specified timezone
 since = current_tz.localize(dt.datetime(year=2022, month=8, day=8, hour=10, minute=0))
-until = current_tz.localize(dt.datetime(year=2024, month=9, day=18, hour=10, minute=0))
+until = current_tz.localize(dt.datetime(year=2024, month=10, day=7, hour=10, minute=0))
 between_time = (
     current_tz.localize(dt.datetime.strptime('07:00', '%H:%M')).time(),
     current_tz.localize(dt.datetime.strptime('23:40', '%H:%M')).time()

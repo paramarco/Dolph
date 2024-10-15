@@ -1127,21 +1127,23 @@ class AlpacaTradingPlatform(TradingPlatform):
     def new_order(self, board, seccode, client, union, buysell, expdate, quantity, price, bymarket, usecredit):
         """Alpaca"""
         
-        orderType = 'limit'
-        if price == 0 or bymarket == True:
-            orderType = 'market'
+        params = {
+            'symbol': seccode,
+            'qty': quantity,
+            'side': buysell.lower(),  # Use the mapped side
+            'type': 'limit',
+            'time_in_force': 'gtc'
+        }
         
+        if price == 0 or bymarket:            
+            params['type'] = 'market'  # Set type to market
+        else:
+            params['limit_price'] = price  # Only set limit_price for limit orders
+                
         try:
-            # Submit the order to Alpaca using the correct endpoint
             logging.info(f"Placing {buysell} order for {seccode} at {price}...")
-            return self.api.submit_order(
-                symbol = seccode,
-                qty = quantity,
-                side = buysell.lower(),  # Use the mapped side
-                type = orderType,
-                time_in_force='gtc',
-                limit_price = price
-            )
+            return self.api.submit_order(**params)
+           
         except Exception as e:
             logging.error(f"Failed to place order: {e}")
             logging.exception("Failed to place order")
