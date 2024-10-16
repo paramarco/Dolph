@@ -1139,6 +1139,13 @@ class AlpacaTradingPlatform(TradingPlatform):
             params['type'] = 'market'  # Set type to market
         else:
             params['limit_price'] = price  # Only set limit_price for limit orders
+            
+        # Check if the order is a sell or short-sell, and handle short-selling
+        if buysell.lower() == 'sell':
+            asset = self.api.get_asset(seccode)
+            if not asset.shortable:
+                logging.error(f"Asset {seccode} is not shortable.")
+                return None    
                 
         try:
             logging.info(f"Placing {buysell} order for {seccode} at {price}...")
