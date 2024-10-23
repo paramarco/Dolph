@@ -278,10 +278,7 @@ class Dolph:
             
             takePosition = prediction
             security['lastPositionTaken'] = takePosition
-
-        else:
-            logging.error("this should not happen for " + seccode )
-                    
+                   
         logging.info(f'{takePosition}')
         return takePosition
   

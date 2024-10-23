@@ -99,7 +99,7 @@ class StochasticAndRSIModel:
         self.df.dropna(inplace=True)
         
         # Print column names to ensure correct dataframe structure
-        log.debug(f"Columns in DataFrame before prediction: {self.df.columns}")
+        #log.debug(f"Columns in DataFrame before prediction: {self.df.columns}")
         
         # Ensure you're only working with the renamed price columns ('close', 'open', 'high', 'low')
         rsi = sma50 = sma200 = 0
@@ -126,7 +126,7 @@ class StochasticAndRSIModel:
         elif rsi > 70 and sma50 < sma200 :
             log.info("predictor says short")
             return 'short'  # Sell signal
-        log.info("preictor says nogo")
+        log.info("predictor says nogo")
         # No clear signal to buy or sell
         return 'no-go'
 
