@@ -11,7 +11,7 @@ class StochasticAndRSIModel:
         df = data['1Min']
        
         # Exclude non-price columns ('mnemonic', 'hastrade', 'addedvolume', 'numberoftrades')
-        df = df.drop(columns=['mnemonic', 'hastrade', 'addedvolume', 'numberoftrades'], errors='ignore')
+        df = df.drop(columns=['hastrade', 'addedvolume', 'numberoftrades'], errors='ignore')
         
         # Ensure df has a datetime index
         if not isinstance(df.index, pd.DatetimeIndex):
@@ -62,6 +62,13 @@ class StochasticAndRSIModel:
         m = f"{seccode} last: {lastClosePrice}, entry: {entryPrice}, exit: {exitPrice}"                
         log.debug(m)
 
+        # Ensure df has a mnemonic column, and filter by seccode
+        if 'mnemonic' in df.columns:
+            df = df[df['mnemonic'] == seccode]
+        else:
+            log.error(f"DataFrame does not have a 'mnemonic' column.")
+            raise KeyError("DataFrame is missing 'mnemonic' column.")            
+
         # Ensure the necessary columns are renamed to the correct price columns
         self.df = self.df.rename(columns={
             'startprice': 'open',
@@ -71,7 +78,7 @@ class StochasticAndRSIModel:
         })
     
         # Exclude non-price columns ('mnemonic', 'hastrade', 'addedvolume', 'numberoftrades')
-        df = df.drop(columns=['mnemonic', 'hastrade', 'addedvolume', 'numberoftrades'], errors='ignore')
+        df = df.drop(columns=['hastrade', 'addedvolume', 'numberoftrades'], errors='ignore')
         
         # Ensure df has a datetime index
         if not isinstance(df.index, pd.DatetimeIndex):
