@@ -10,6 +10,11 @@
         "CompanyName": "Intel Corporation Common Stock"
     },
     {
+        "OriginTicker": "NVDA",
+        "AlpacaTicker": "NVDA",
+        "CompanyName": "NVIDIA Corporation Common Stock"
+    },    
+    {
         "OriginTicker": "BAS.DE",
         "AlpacaTicker": "BASFY",
         "CompanyName": "BASF SE"
