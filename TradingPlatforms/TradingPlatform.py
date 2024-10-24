@@ -500,7 +500,7 @@ class TradingPlatform(ABC):
         
         ct = self.getTradingPlatformTime()                            
         if ct.hour in cm.nogoTradingHours:
-            logging.info('we are in a no-go Trading hour ...')  
+            logging.info(f'we are in a no-go Trading hour: {ct.hour}...')  
             return False
 
         # Only check self.tc if it's relevant, e.g., for platforms that use tc
