@@ -37,10 +37,15 @@ numTestSample = 500
 TrainingHour = 10  # 10:00 
 currentTestIndex = 0  
 
-dbname='dolph_db'
-user='dolph_user'
-password='dolph_password'
-host='127.0.0.1'
+
+db_connection_params = {
+    "dbname" : "dolph_db",
+    "user" : "dolph_user",
+    "password" : "dolph_password",
+    "host" : "127.0.0.1",
+    "port" : 4713,
+    "sslmode" : "disable"    
+}
 
 
 transaqConnectorPort = 13000
