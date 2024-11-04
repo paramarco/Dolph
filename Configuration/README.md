@@ -11,6 +11,7 @@ sudo docker run -it --name dolph-container \
     -e DISPLAY=$DISPLAY \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
     -p 5432:5432 \
+    --privileged \
     dolph-container /bin/bash
 
 # To Start a New Shell as root

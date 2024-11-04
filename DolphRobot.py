@@ -288,6 +288,8 @@ class Dolph:
         exceeds = True if position.quantity == 0 else False
         
         cash_balance = self.tp.get_cash_balance()
+        if cash_balance == 0 : return True
+        
         positions = self.tp.get_PositionsByCode(position.seccode)
         
         cash_positions = position.quantity * position.entryPrice
@@ -304,6 +306,8 @@ class Dolph:
         seccode = security['seccode']
         currentClose = self.getLastClosePrice( seccode)
         cash_balance = self.tp.get_cash_balance()
+        if cash_balance == 0 : return 0 , 0 
+        
         cash_4_position = cash_balance * cm.factorPosition_Balance
         quantity = round(cash_4_position / currentClose)
         margin = currentClose * cm.factorMargin_Position
@@ -329,13 +333,18 @@ class Dolph:
             decimals = int(decimals)                   
             ct = self.tp.getTradingPlatformTime()
             exitTime = ct + dt.timedelta(seconds=exitTimeSeconds)
+            
+            return (longestPeriod, board, seccode, entryTimeSeconds, exitTimeSeconds, 
+                quantity, k, decimals, marketId, spread, correction, margin, exitTime )
         
         except Exception as e:
-            k = margin = quantity = correction = spread = decimals = marketId = ct = exitTime = 0
             logging.error("Failed to get_evaluation_parameters: %s", e)
-       
-        return (longestPeriod, board, seccode, entryTimeSeconds, exitTimeSeconds, 
+            k = margin = quantity = correction = spread = decimals = marketId = ct = exitTime = 0            
+            
+            return (longestPeriod, board, seccode, entryTimeSeconds, exitTimeSeconds, 
                 quantity, k, decimals, marketId, spread, correction, margin, exitTime )
+       
+
 
 
     def evaluatePosition (self, security):        
@@ -396,8 +405,8 @@ class Dolph:
         
         logging.info('init database according to Trading platform ...')
 
-        filePath = "./TradingPlatforms/Alpaca/AlpacaTickers.json"
-        self.ds.insert_alpaca_tickers(filePath)             
+        filePath = "./TradingPlatforms/InteractiveBrokers/IBTickers.json"
+        self.ds.insert_InteractiveBrokers_tickers(filePath)             
           
         for sec in self.securities :
             

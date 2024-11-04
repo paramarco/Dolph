@@ -1359,15 +1359,21 @@ class AlpacaTradingPlatform(TradingPlatform):
         # for mp in self.monitoredPositions:
         #     log.info(str(mp))
 
-    def get_cash_balance (self) :
+    def get_cash_balance (self) :      
         """Alpaca"""
-        # Get account information
-        account = self.api.get_account()
+        try:
+            # Get account information
+            account = self.api.get_account()
+            
+            # Retrieve and print the cash balance
+            cash_balance = float(account.cash)
+            log.debug(f"Cash balance: ${cash_balance}")
         
-        # Retrieve and print the cash balance
-        cash_balance = float(account.cash)
-        log.debug(f"Cash balance: ${cash_balance}")
-        return cash_balance
+            return cash_balance
+        
+        except Exception as e:
+            log.error(f"Failed to get cash balance: {e}")
+            return 0
 
         
 ##############################################################################
@@ -1379,6 +1385,7 @@ class IBTradingPlatform(TradingPlatform):
         super().__init__(onCounterPosition)
         self.ib = IB()
         self.ib.errorEvent += self.on_error
+        self.account_number = self.secrets.get("account_number")
 
     def initialize(self):
         # IB specific initialization if any

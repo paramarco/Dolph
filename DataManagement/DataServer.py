@@ -1374,6 +1374,81 @@ class DataServer:
                 conn.close()
 
         return positions_json
+    
+    
+    def insert_InteractiveBrokers_tickers(self, json_file_path):
+        conn = None  # Initialize conn to None to avoid UnboundLocalError
+        
+        try:
+            # Check if the JSON file exists
+            if not os.path.exists(json_file_path):
+                raise FileNotFoundError(f"No such file or directory: '{json_file_path}'")
+    
+            # Load the JSON data from the file
+            with open(json_file_path, 'r') as json_file:
+                tickers = json.load(json_file)
+            
+            # Prepare the common data fields
+            period = 1
+            board = "EQTY"
+            decimals = 2
+            market = "NASDAQ"
+            alg_parameters = {
+                "algorithm": "stochastic_and_rsi",
+                #"algorithm": "peaks_and_valleys",                
+                "entryByMarket": False,
+                "entryTimeSeconds": 3600,
+                "exitTimeSeconds" : 36000,
+                "minNumPastSamples": 51,
+                "longPositionMargin": 10,
+                "shortPositionMargin": 10,
+                "stopLossCoefficient": 6,
+                "acceptableTrainingError": 0.000192
+            }
+            platform = {
+                "name": "InteractiveBrokers",
+                "secrets": {
+                    "account_number": "DUD122645",
+                    "client_id": "dolphpaper"                    
+                }
+            }
+            
+            # Establish database connection
+            conn = psycopg2.connect(**cm.db_connection_params)
+            cursor = conn.cursor()
+        
+            # Iterate over the tickers and insert the valid ones
+            for ticker in tickers:
+                alpaca_ticker = ticker.get('AlpacaTicker')
+                
+                if alpaca_ticker:  # Only process entries with a valid AlpacaTicker
+                    query_insert = """
+                        INSERT INTO security
+                        (code, period, board, decimals, market, alg_parameters, platform)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (code) DO NOTHING;
+                    """
+        
+                    cursor.execute(query_insert, (
+                        alpaca_ticker,
+                        period,
+                        board,
+                        decimals,
+                        market,
+                        json.dumps(alg_parameters),  # Convert to JSONB format
+                        json.dumps(platform)         # Convert to JSONB format
+                    ))
+        
+            # Commit the changes
+            conn.commit()
+            cursor.close()
+        
+        except Exception as e:
+            log.error("Failed to insert Alpaca tickers: %s", e)
+        
+        finally:
+            if conn:
+                conn.close()
 
 
 

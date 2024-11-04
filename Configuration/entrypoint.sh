@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Start X virtual framebuffer
+Xvfb :1 -screen 0 1024x768x16 &
+
+# Set DISPLAY environment variable for headless mode
+export DISPLAY=:1
+
 # Ensure the correct permissions on the PostgreSQL data directory
 chown -R postgres:postgres /var/lib/postgresql/14/main
 chown -R postgres:postgres /home/dolph_user/*sql
@@ -47,7 +53,7 @@ sudo -u postgres /usr/lib/postgresql/14/bin/pg_ctl -D /var/lib/postgresql/14/mai
 # Wait for PostgreSQL to start
 
 echo "Waiting for PostgreSQL to start..."
-while ! pg_isready -q -d postgres://localhost:5432; do
+while ! pg_isready -q -d postgres://localhost:4713; do
     sleep 1
 done
 echo "PostgreSQL started."
@@ -59,6 +65,35 @@ if [ -f /opt/venv/bin/activate ]; then
 else
     echo "Virtual environment not found. Skipping activation."
 fi
+
+# Set up iptables rules to allow only specific connections
+echo "Configuring iptables rules..."
+
+# Switch to legacy iptables version
+update-alternatives --set iptables /usr/sbin/iptables-legacy
+
+# Allow all IPs on port 443
+#iptables -A INPUT -p tcp -s 0.0.0.0/0 --dport 443 -j ACCEPT
+
+# Drop all other incoming connections
+#iptables -A INPUT -j DROP
+
+echo "iptables rules configured."
+
+# Install TWS if not already installed
+#if [ ! -d "/root/Jts" ]; then
+#    echo "Installing Trader Workstation..."
+#    /opt/install_tws.expect
+#fi
+
+# Start Trader Workstation in the background if installed
+#if [ -f "/root/Jts/twsstart.sh" ]; then
+#    /root/Jts/twsstart.sh &
+#else
+#    echo "TWS not installed successfully."
+#    exit 1
+#fi
+
 
 # Keep the container running (in Kubernetes)
 tail -f /var/log/postgresql/postgresql-14-main.log

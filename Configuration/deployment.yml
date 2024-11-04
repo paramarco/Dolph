@@ -24,6 +24,11 @@ spec:
           name: pgdata
         command: ["/bin/sh"]
         args: ["/usr/local/bin/entrypoint.sh"]
+        securityContext:
+          capabilities:
+            add:
+              - NET_ADMIN
+              - NET_RAW
       imagePullSecrets:
       - name: ovh-registry-secret
       volumes:

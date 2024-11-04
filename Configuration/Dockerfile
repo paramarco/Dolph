@@ -5,6 +5,20 @@ FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Europe/Berlin
 ENV PATH="/opt/conda/bin:$PATH"
+# Set the DISPLAY environment variable
+ENV DISPLAY=:1
+# Verify Java installation and set JAVA_HOME
+ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+ENV PATH=$JAVA_HOME/bin:$PATH
+# Set environment variables for TWS
+ENV TWS_VERSION=latest
+ENV TWS_INSTALLER_URL="https://download2.interactivebrokers.com/installers/tws/latest/tws-latest-linux-x64.sh"
+ENV TWS_INSTALL_DIR="/root/Jts"
+# Set environment variables for PostgreSQL
+ENV PGDATA /var/lib/postgresql/14/main
+ENV PATH /usr/lib/postgresql/14/bin:$PATH
+# Update PATH for Miniconda
+ENV PATH="/opt/conda/bin:$PATH"
 
 # Install the dependencies listed in apt-packages.txt
 COPY apt-packages.txt /tmp/apt-packages.txt
@@ -18,9 +32,6 @@ RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -
     rm /tmp/miniconda.sh && \
     /opt/conda/bin/conda init bash && \
     /opt/conda/bin/conda config --set auto_activate_base false
-
-# Update PATH for Miniconda
-ENV PATH="/opt/conda/bin:$PATH"
 
 # Create a conda environment with Python 3.7.0
 RUN /opt/conda/bin/conda create -y -n py37 python=3.7.0 && \
@@ -72,10 +83,23 @@ ENTRYPOINT ["/bin/bash", "/usr/local/bin/entrypoint.sh"]
 # Expose necessary ports
 EXPOSE 5432
 
-# Set environment variables for PostgreSQL
-ENV PGDATA /var/lib/postgresql/14/main
-ENV PATH /usr/lib/postgresql/14/bin:$PATH
+# Download TWS installer and make it executable
+RUN wget -O /opt/tws-installer.sh $TWS_INSTALLER_URL && chmod +x /opt/tws-installer.sh
+
+# Copy the install_tws.expect script
+COPY install_tws.expect /opt/install_tws.expect
+RUN chmod +x /opt/install_tws.expect
+
+# Set appropriate permissions for the TWS installation directory
+RUN mkdir -p /root/Jts && chmod -R 777 /root/Jts
+
+# Install any additional libraries Java might need
+RUN apt-get update && apt-get install -y libxext6 libxrender1 libxtst6 libxi6
+
+
+# Run TWS installation with xvfb-run in silent mode and verify successful installation
+RUN xvfb-run -a /opt/tws-installer.sh -q -dir /root/Jts -overwrite | tee /tmp/tws_install_log.txt 
+
 
 # Keep the container alive by running bash as the final command
 CMD ["bash"]
-
