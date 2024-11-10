@@ -20,7 +20,7 @@ securities = [
 logLevel = logging.DEBUG 
 #logLevel = logging.INFO
 #MODE = 'OPERATIONAL' # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL' | 'INIT_DB'
-MODE = 'INIT_DB'
+MODE = 'OPERATIONAL'
 periods = ['1Min'] #periods = ['1Min','30Min']
 
 current_tz = pytz.timezone('America/New_York')
