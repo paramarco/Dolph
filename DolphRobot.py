@@ -418,12 +418,8 @@ class Dolph:
         filePath = "./TradingPlatforms/InteractiveBrokers/IBTickers.json"
         self.ds.insert_InteractiveBrokers_tickers(filePath)
           
-        for sec in self.securities :
-            
-            logging.debug("getting candles ... ")
-            candles = self.tp.get_candles(sec, self.since, self.until, period = '1Min')
-            logging.debug("storing candles ... ")
-            self.ds.store_candles(candles,sec) 
+        for sec in self.securities :           
+            pass
     
         sys.exit(0)           
         raise SystemExit("Stopping the program") 
