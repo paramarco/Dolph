@@ -32,7 +32,7 @@ spec:
       imagePullSecrets:
       - name: ovh-registry-secret
       volumes:
-      - name: data-dolph
+      - name: container-data
         persistentVolumeClaim:
           claimName: container-data-pvc
       - name: pgdata

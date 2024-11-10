@@ -3,13 +3,10 @@ kind: Service
 metadata:
   name: dolph-service
 spec:
-  type: LoadBalancer
+  type: ClusterIP  # Internal only; not accessible outside the cluster
   selector:
     app: dolph-app
-
-# 2024-11.01 not exposing ports anymore
-#  ports:
-#    - protocol: TCP
-#      port: 5432        # The port PostgreSQL listens on
-#      targetPort: 5432  # The container's port for PostgreSQL
-
+  ports:
+    - protocol: TCP
+      port: 80      # Placeholder; does not need to match any actual container port
+      targetPort: 80

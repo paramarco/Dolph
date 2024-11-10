@@ -143,6 +143,8 @@ $ kubectl create secret docker-registry ovh-registry-secret \
     This will create the persistent volume claims for /home/dolph_user/data and 
     /var/lib/postgresql/14/main.
     
+    ##Check the PVCs:
+    
     $ kubectl get pvc
 
 #Apply the Deployment
@@ -150,10 +152,6 @@ $ kubectl create secret docker-registry ovh-registry-secret \
 Now, apply the deployment YAML file:
 
     $ kubectl apply -f deployment.yml
-
-    ##Check the PVCs:
-    
-    $ 
     
     ##Check the pods:
     
@@ -175,14 +173,18 @@ Now, apply the deployment YAML file:
 #Rebuild the Docker Image
 
     Once you modify the entrypoint.sh file, you’ll need to rebuild the Docker image
-     and push it to your OVH registry:
+    and push it to your OVH registry:
      # Rebuild the image
+    
     $ sudo docker build -t dolph-container:latest .
 
 # Tag the image for the OVH registry
-$ sudo docker tag dolph-container:latest 8xv7t7tg.c1.de1.container-registry.ovh.net/e1256adf-9c74-4b6c-a238-86bbfc8fe1f9/dolph-container:latest
+
+    $ sudo docker tag dolph-container:latest 8xv7t7tg.c1.de1.container-registry.ovh.net/e1256adf-9c74-4b6c-a238-86bbfc8fe1f9/dolph-container:latest
+    
 # Push the image to the OVH registry
-$ sudo docker push 8xv7t7tg.c1.de1.container-registry.ovh.net/e1256adf-9c74-4b6c-a238-86bbfc8fe1f9/dolph-container:latest
+
+    $ sudo docker push 8xv7t7tg.c1.de1.container-registry.ovh.net/e1256adf-9c74-4b6c-a238-86bbfc8fe1f9/dolph-container:latest
 
 
 # Redeploy the Pod in Kubernetes
@@ -208,7 +210,7 @@ $ sudo docker push 8xv7t7tg.c1.de1.container-registry.ovh.net/e1256adf-9c74-4b6c
 
 #Find out which node your pod is running on, following command:
 
-kubectl get pod <pod-name> -o wide
+    $ kubectl get pod <pod-name> -o wide
 
 # To install pgAdmin on your client
 
