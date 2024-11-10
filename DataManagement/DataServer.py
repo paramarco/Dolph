@@ -1419,9 +1419,9 @@ class DataServer:
         
             # Iterate over the tickers and insert the valid ones
             for ticker in tickers:
-                alpaca_ticker = ticker.get('AlpacaTicker')
+                IB_ticker = ticker.get('Ticker')
                 
-                if alpaca_ticker:  # Only process entries with a valid AlpacaTicker
+                if IB_ticker:  # Only process entries with a valid Interactive Brokers tickers
                     query_insert = """
                         INSERT INTO security
                         (code, period, board, decimals, market, alg_parameters, platform)
@@ -1430,7 +1430,7 @@ class DataServer:
                     """
         
                     cursor.execute(query_insert, (
-                        alpaca_ticker,
+                        IB_ticker,
                         period,
                         board,
                         decimals,
@@ -1444,13 +1444,11 @@ class DataServer:
             cursor.close()
         
         except Exception as e:
-            log.error("Failed to insert Alpaca tickers: %s", e)
+            log.error("Failed to insert Interactive Brokers tickers: %s", e)
         
         finally:
             if conn:
                 conn.close()
-
-
 
 
 

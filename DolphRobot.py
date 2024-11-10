@@ -400,13 +400,23 @@ class Dolph:
         
     def initDB (self):
         
-        if self.MODE != 'TEST_ONLINE' : 
+        if self.MODE != 'INIT_DB' : 
             return
         
         logging.info('init database according to Trading platform ...')
 
+        filePath = "./TradingPlatforms/Alpaca/AlpacaTickers.json"
+        self.ds.insert_alpaca_tickers(filePath)
+          
+        for sec in self.securities :
+            
+            logging.debug("getting candles ... ")
+            candles = self.tp.get_candles(sec, self.since, self.until, period = '1Min')
+            logging.debug("storing candles ... ")
+            self.ds.store_candles(candles,sec) 
+            
         filePath = "./TradingPlatforms/InteractiveBrokers/IBTickers.json"
-        self.ds.insert_InteractiveBrokers_tickers(filePath)             
+        self.ds.insert_InteractiveBrokers_tickers(filePath)
           
         for sec in self.securities :
             

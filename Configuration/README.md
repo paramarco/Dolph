@@ -300,7 +300,6 @@ To install pgAdmin on your laptop (running Debian 11) and connect it to your Pos
     
     git push origin main
 
-
     kubectl exec -it dolph-deployment-5b4d776645-6thmq -- /bin/bash
     
     /usr/pgadmin4/bin/pgadmin4 &

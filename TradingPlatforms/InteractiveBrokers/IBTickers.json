@@ -1,22 +1,22 @@
 [
     {
         "OriginTicker": "AAPL",
-        "AlpacaTicker": "AAPL",
+        "Ticker": "AAPL",
         "CompanyName": "Apple Inc"
     },
     {
         "OriginTicker": "INTC",
-        "AlpacaTicker": "INTC",
+        "Ticker": "INTC",
         "CompanyName": "Intel Corporation Common Stock"
     },
     {
         "OriginTicker": "NVDA",
-        "AlpacaTicker": "NVDA",
+        "Ticker": "NVDA",
         "CompanyName": "NVIDIA Corporation Common Stock"
     },    
     {
         "OriginTicker": "ONCO",
-        "AlpacaTicker": "ONCO",
+        "Ticker": "ONCO",
         "CompanyName": "Onconetix, Inc"
     }
 ]
