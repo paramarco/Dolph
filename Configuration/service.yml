@@ -6,8 +6,10 @@ spec:
   type: LoadBalancer
   selector:
     app: dolph-app
-  ports:
-    - protocol: TCP
-      port: 5432        # The port PostgreSQL listens on
-      targetPort: 5432  # The container's port for PostgreSQL
+
+# 2024-11.01 not exposing ports anymore
+#  ports:
+#    - protocol: TCP
+#      port: 5432        # The port PostgreSQL listens on
+#      targetPort: 5432  # The container's port for PostgreSQL
 

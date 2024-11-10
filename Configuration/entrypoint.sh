@@ -9,6 +9,7 @@ export DISPLAY=:1
 # Ensure the correct permissions on the PostgreSQL data directory
 chown -R postgres:postgres /var/lib/postgresql/14/main
 chown -R postgres:postgres /home/dolph_user/*sql
+chown -R dolph_user:dolph_user /home/dolph_user/data
 
 ls -lart /home/dolph_user/
 
@@ -78,7 +79,7 @@ update-alternatives --set iptables /usr/sbin/iptables-legacy
 # Drop all other incoming connections
 #iptables -A INPUT -j DROP
 
-echo "iptables rules configured."
+#echo "iptables rules configured."
 
 # Install TWS if not already installed
 #if [ ! -d "/root/Jts" ]; then

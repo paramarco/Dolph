@@ -56,7 +56,7 @@ COPY requirements.txt /usr/local/bin/requirements.txt
 RUN /opt/venv/bin/pip install -r /usr/local/bin/requirements.txt
 
 # Add a user with a specified home directory
-RUN groupadd -r dolph_user && useradd -m -r -g dolph_user -d /home/dolph_user dolph_user
+RUN groupadd -r dolph_user && useradd -m -r -g dolph_user -d /home/dolph_user -s /bin/bash dolph_user
 
 # Copy all the files from the directory image to the new user's home directory
 COPY . /home/dolph_user/
@@ -80,8 +80,9 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 # Set entrypoint
 ENTRYPOINT ["/bin/bash", "/usr/local/bin/entrypoint.sh"]
 
+# 2024-11.01 not exposing ports anymore
 # Expose necessary ports
-EXPOSE 5432
+# EXPOSE 5432
 
 # Download TWS installer and make it executable
 RUN wget -O /opt/tws-installer.sh $TWS_INSTALLER_URL && chmod +x /opt/tws-installer.sh
@@ -96,10 +97,8 @@ RUN mkdir -p /root/Jts && chmod -R 777 /root/Jts
 # Install any additional libraries Java might need
 RUN apt-get update && apt-get install -y libxext6 libxrender1 libxtst6 libxi6
 
-
 # Run TWS installation with xvfb-run in silent mode and verify successful installation
 RUN xvfb-run -a /opt/tws-installer.sh -q -dir /root/Jts -overwrite | tee /tmp/tws_install_log.txt 
-
 
 # Keep the container alive by running bash as the final command
 CMD ["bash"]

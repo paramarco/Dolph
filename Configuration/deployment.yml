@@ -15,11 +15,11 @@ spec:
       containers:
       - name: dolph-container
         image: 8xv7t7tg.c1.de1.container-registry.ovh.net/e1256adf-9c74-4b6c-a238-86bbfc8fe1f9/dolph-container:latest
-        ports:
-        - containerPort: 5432
+        # ports: # 2024-11.01 not exposing ports anymore
+        # - containerPort: 5432
         volumeMounts:
         - mountPath: /home/dolph_user/data
-          name: data-dolph
+          name: container-data
         - mountPath: /var/lib/postgresql/14/main
           name: pgdata
         command: ["/bin/sh"]
@@ -34,7 +34,7 @@ spec:
       volumes:
       - name: data-dolph
         persistentVolumeClaim:
-          claimName: data-dolph-pvc
+          claimName: container-data-pvc
       - name: pgdata
         persistentVolumeClaim:
           claimName: pgdata-pvc
