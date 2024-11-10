@@ -94,9 +94,6 @@ RUN chmod +x /opt/install_tws.expect
 # Set appropriate permissions for the TWS installation directory
 RUN mkdir -p /root/Jts && chmod -R 777 /root/Jts
 
-# Install any additional libraries Java might need
-RUN apt-get update && apt-get install -y libxext6 libxrender1 libxtst6 libxi6
-
 # Run TWS installation with xvfb-run in silent mode and verify successful installation
 RUN xvfb-run -a /opt/tws-installer.sh -q -dir /root/Jts -overwrite | tee /tmp/tws_install_log.txt 
 

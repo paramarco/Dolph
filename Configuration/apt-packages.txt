@@ -102,4 +102,5 @@ net-tools
 iproute2
 iptables
 expect
+libxtst6
 openjdk-8-jre

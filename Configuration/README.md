@@ -149,11 +149,11 @@ $ kubectl create secret docker-registry ovh-registry-secret \
 
 Now, apply the deployment YAML file:
 
-$ kubectl apply -f deployment.yml
+    $ kubectl apply -f deployment.yml
 
     ##Check the PVCs:
     
-    $ kubectl get pvc
+    $ 
     
     ##Check the pods:
     
@@ -165,6 +165,7 @@ $ kubectl apply -f deployment.yml
 
 
 ##If the pods are not running or there are any issues, you can inspect the details of the pods by running
+
     $ kubectl describe pod <your-pod-name>
     
     $ kubectl apply -f service.yml
