@@ -1,0 +1,40 @@
+#!/usr/bin/expect -f
+
+set timeout -1
+
+# Start the installer
+spawn /opt/tws-installer.sh
+
+# Handle the "No suitable Java Virtual Machine could be found" prompt
+expect "No suitable Java Virtual Machine could be found on your system."
+send "n\r"
+
+# Handle the "Downloading JRE with wget ..." prompt
+expect "Downloading JRE with wget ..."
+send "\r"
+
+# Wait for the installer to start
+expect "Starting Installer ..."
+send "\r"
+
+# Handle the installation wizard prompts
+expect "Welcome to the Trader Workstation Setup Wizard"
+send "\r"
+
+expect "Please click Next to continue."
+send "\r"
+
+expect "Please click Next to continue."
+send "\r"
+
+expect "Please click Next to continue."
+send "\r"
+
+expect "Please click Next to continue."
+send "\r"
+
+expect "Please click Finish to exit the Setup Wizard."
+send "\r"
+
+# Wait for the process to complete
+expect eof
