@@ -73,6 +73,11 @@ echo "Configuring iptables rules..."
 # Switch to legacy iptables version
 update-alternatives --set iptables /usr/sbin/iptables-legacy
 
+
+# Starting IB Gateway in API mode (headless)
+echo "Starting IB Gateway in API mode.."
+xvfb-run -a /root/Jts/ibgateway -g -t -ibcApiOnly
+
 # Allow all IPs on port 443
 #iptables -A INPUT -p tcp -s 0.0.0.0/0 --dport 443 -j ACCEPT
 

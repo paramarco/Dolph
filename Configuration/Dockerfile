@@ -84,18 +84,27 @@ ENTRYPOINT ["/bin/bash", "/usr/local/bin/entrypoint.sh"]
 # Expose necessary ports
 # EXPOSE 5432
 
-# Download TWS installer and make it executable
-RUN wget -O /opt/tws-installer.sh $TWS_INSTALLER_URL && chmod +x /opt/tws-installer.sh
+# Download IB Gateway installation script
+ADD https://download2.interactivebrokers.com/installers/ibgateway/stable-standalone/ibgateway-stable-standalone-linux-x64.sh /opt/ibgateway-installer.sh
+RUN chmod +x /opt/ibgateway-installer.sh
 
-# Copy the install_tws.expect script
-COPY install_tws.expect /opt/install_tws.expect
-RUN chmod +x /opt/install_tws.expect
-
-# Set appropriate permissions for the TWS installation directory
+# Set appropriate permissions for the IB Gateway installation directory
 RUN mkdir -p /root/Jts && chmod -R 777 /root/Jts
 
-# Run TWS installation with xvfb-run in silent mode and verify successful installation
-RUN xvfb-run -a /opt/tws-installer.sh -q -dir /root/Jts -overwrite | tee /tmp/tws_install_log.txt 
+# Run IB Gateway installation with xvfb-run in silent mode
+RUN xvfb-run -a /opt/ibgateway-installer.sh -q -dir /root/Jts -overwrite | tee /tmp/ibgateway_install_log.txt
+
+# Cleanup installer after installation to reduce image size
+RUN rm -f /opt/ibgateway-installer.sh
+
+# Configure IB Gateway for headless and API mode
+RUN echo -e "-Dinstall4j.noSplash=true\n-Djava.awt.headless=true" >> /root/Jts/ibgateway.vmoptions
+
+# Copy the ibg.ini configuration file into the container
+COPY ibg.ini /root/Jts/ibg.ini
+
+# Set appropriate permissions if necessary
+RUN chmod -R 777 /root/Jts
 
 # Keep the container alive by running bash as the final command
 CMD ["bash"]

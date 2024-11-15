@@ -1255,7 +1255,8 @@ class AlpacaTradingPlatform(TradingPlatform):
         res = self.new_order(
             position.board, position.seccode, position.client, position.union,
             buysell, position.expdate, position.quantity, price, position.bymarket, False
-        )    
+        )
+        if res is None: return
         log.debug(repr(res))
     
         if res.status in cm.statusOrderForwarding :
