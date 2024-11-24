@@ -104,3 +104,11 @@ iptables
 expect
 libxtst6
 openjdk-8-jre
+rsyslog
+cron
+dbus-x11
+xauth
+tightvncserver
+xfce4
+xfce4-goodies
+locales

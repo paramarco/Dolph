@@ -3,10 +3,16 @@ kind: Service
 metadata:
   name: dolph-service
 spec:
-  type: ClusterIP  # Internal only; not accessible outside the cluster
+  type: NodePort  # Exposes the service externally on the specified nodePort
   selector:
     app: dolph-app
   ports:
     - protocol: TCP
-      port: 80      # Placeholder; does not need to match any actual container port
-      targetPort: 80
+      port: 5901       # Exposed Service port
+      targetPort: 5901 # Port inside the container
+      nodePort: 30901  # Port on the node (optional, defaults to a random port)
+
+#  ports:
+#    - protocol: TCP
+#      port: 80      # Placeholder; does not need to match any actual container port
+#      targetPort: 80

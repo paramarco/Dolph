@@ -3,16 +3,38 @@
 # To build the Image just once
 sudo docker build -t dolph-container .
     
-# every time the server has to be started    
+# Start Docker Container with X11 Support    
 sudo docker run -it --name dolph-container \
     --entrypoint /usr/local/bin/entrypoint.sh \
     -v ~/data-dolph-container:/home/dolph_user/data \
     -v ~/pgdata:/var/lib/postgresql/14/main \
     -e DISPLAY=$DISPLAY \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
-    -p 5432:5432 \
+    -p 5901:5901 \
     --privileged \
     dolph-container /bin/bash
+    
+## Run this command on the host to allow X11 forwarding for the Docker container:
+
+    $ xhost +local:docker
+    
+Use a VNC client (e.g., Remmina or RealVNC) on your host machine to connect to the container at:
+
+    $ sudo apt install -y remmina remmina-plugin-vnc
+
+    $ remmina
+    
+        Add a new connection.    
+        Choose the protocol VNC - Virtual Network Computing.            
+        Enter the VNC server address (e.g., localhost:5901 for a local container).        
+        Set the password and connect   
+    
+Use the external IP of your Kubernetes node (if any) or set up a NodePort service to access the VNC session
+    
+## Launch GNOME Applications: Inside the container, run
+This will open the GNOME terminal in your host's display.
+
+    $ gnome-terminal &
 
 # To Start a New Shell as root
 sudo docker exec -it --user root dolph-container /bin/bash

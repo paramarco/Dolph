@@ -25,6 +25,11 @@ COPY apt-packages.txt /tmp/apt-packages.txt
 RUN apt-get update && \
     xargs apt-get install -y < /tmp/apt-packages.txt && \
     rm -rf /var/lib/apt/lists/*
+ 
+# Add commands to configure dbus and the GNOME environment   
+RUN mkdir -p /var/run/dbus && \
+    dbus-uuidgen > /var/lib/dbus/machine-id
+
 
 # Install Miniconda
 RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh && \
@@ -73,17 +78,6 @@ VOLUME /home/dolph_user/
 # Define the PostgreSQL data volume
 VOLUME /var/lib/postgresql/14/main
 
-# Copy entrypoint script and make it executable
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
-
-# Set entrypoint
-ENTRYPOINT ["/bin/bash", "/usr/local/bin/entrypoint.sh"]
-
-# 2024-11.01 not exposing ports anymore
-# Expose necessary ports
-# EXPOSE 5432
-
 # Download IB Gateway installation script
 ADD https://download2.interactivebrokers.com/installers/ibgateway/stable-standalone/ibgateway-stable-standalone-linux-x64.sh /opt/ibgateway-installer.sh
 RUN chmod +x /opt/ibgateway-installer.sh
@@ -105,6 +99,13 @@ COPY ibg.ini /root/Jts/ibg.ini
 
 # Set appropriate permissions if necessary
 RUN chmod -R 777 /root/Jts
+
+# Copy entrypoint script and make it executable
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# Set entrypoint
+ENTRYPOINT ["/bin/bash", "/usr/local/bin/entrypoint.sh"]
 
 # Keep the container alive by running bash as the final command
 CMD ["bash"]

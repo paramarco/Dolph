@@ -1,0 +1,13 @@
+#!/usr/bin/expect
+
+# Start the IB Gateway installer
+spawn /opt/ibgateway-installer.sh
+
+# Handle prompts in the installation process
+expect "Do you agree to the license terms? (y/n):"
+send "y\r"
+
+# Customize any additional prompts required during installation
+
+# Wait for installation to finish
+expect eof

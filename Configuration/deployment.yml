@@ -15,8 +15,9 @@ spec:
       containers:
       - name: dolph-container
         image: 8xv7t7tg.c1.de1.container-registry.ovh.net/e1256adf-9c74-4b6c-a238-86bbfc8fe1f9/dolph-container:latest
-        # ports: # 2024-11.01 not exposing ports anymore
-        # - containerPort: 5432
+        ports:
+        - containerPort: 5901
+          hostPort: 5901  # Expose VNC port externally
         volumeMounts:
         - mountPath: /home/dolph_user/data
           name: container-data
