@@ -1370,6 +1370,9 @@ class AlpacaTradingPlatform(TradingPlatform):
             
             # Retrieve and print the cash balance
             cash_balance = float(account.cash)
+            
+            # Making simulation to 100.000 / 5 = 20.000 
+            cash_balance = cash_balance / 5
             log.debug(f"Cash balance: ${cash_balance}")
         
             return cash_balance

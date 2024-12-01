@@ -235,7 +235,7 @@ class Dolph:
         
         lastClosePrice = self.getLastClosePrice(seccode)
         entryPrice = position.entryPrice
-        limitToAcceptFallingOfPrice = entryPrice * 0.01  # 1% limit
+        limitToAcceptFallingOfPrice = entryPrice * cm.factorMargin_Position * cm.stopLossCoefficient
         decision = False
         if ( abs( entryPrice - lastClosePrice ) > limitToAcceptFallingOfPrice):
             decision = True

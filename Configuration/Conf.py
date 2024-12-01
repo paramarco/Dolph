@@ -11,7 +11,7 @@ securities = [
     {'board': 'EQTY', 'seccode': 'AAPL'}
     , {'board': 'EQTY', 'seccode': 'INTC'}
     , {'board': 'EQTY', 'seccode': 'NVDA'}
-    , {'board': 'EQTY', 'seccode': 'ONCO'}
+    #, {'board': 'EQTY', 'seccode': 'ONCO'}
     # {'board': 'EQTY', 'seccode': 'VERB'},
     # {'board': 'EQTY', 'seccode': 'ONCO'},
     # {'board': 'EQTY', 'seccode': 'KAPA'},
@@ -63,6 +63,7 @@ factorPosition_Balance = 0.3
 factorMargin_Position  = 0.0035
 entryTimeSeconds = 3600
 exitTimeSeconds = 36000
-stopLossCoefficient = 6
+#stopLossCoefficient = 2
+stopLossCoefficient = 3
 correction = 0.0
 spread = 0.0

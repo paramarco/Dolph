@@ -1,15 +1,22 @@
 #!/bin/bash
 # -*- coding: utf-8 -*-
 
+# Check if an instance number is provided as an argument
+if [ -z "$1" ]; then
+  echo "Error: No instance number provided."
+  echo "Usage: $0 <instance_number>"
+  exit 1
+fi
+
 # Activate Python virtual environment
 echo "Activating Python virtual environment for dolph_user..."
 . /opt/venv/bin/activate
 
-data="/home/dolph_user/data"
+instance="/home/dolph_user/data/$1"
 
 # Find and kill the DolphRobot.py process
 echo "Searching for the running DolphRobot.py process..."
-pid=$(pgrep -f "python ${data}/Dolph/DolphRobot.py")
+pid=$(pgrep -f "python ${instance}/Dolph/DolphRobot.py")
 
 if [ -z "$pid" ]; then
   echo "No running process of DolphRobot.py found."
@@ -18,4 +25,3 @@ else
   kill -2 "$pid"
   echo "Process killed successfully."
 fi
-
