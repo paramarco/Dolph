@@ -362,6 +362,7 @@ class Dolph:
         prediction = copy.deepcopy(security['predictions'][longestPeriod])
         takePosition = self.takeDecision( security, prediction)
         entryPrice = self.getEntryPrice(seccode, takePosition )
+        client = self.tp.getClientId()
         byMarket = False
         stoploss = entryPrice
         exitPrice = entryPrice
@@ -379,8 +380,8 @@ class Dolph:
        
         position = tp.Position(
             takePosition, board, seccode, marketId, entryTimeSeconds, 
-            quantity, entryPrice, exitPrice, stoploss, decimals, exitTime,
-            correction, spread, byMarket 
+            quantity, entryPrice, exitPrice, stoploss, decimals, client, 
+            exitTime, correction, spread, byMarket 
         )
         
         if self.positionExceedsBalance(position):

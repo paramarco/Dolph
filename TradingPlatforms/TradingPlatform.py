@@ -23,9 +23,9 @@ class Position:
     
     def __init__(self, takePosition, board, seccode, marketId, entryTimeSeconds,
                  quantity, entryPrice, exitPrice, stoploss, 
-                 decimals, exitTime=None, correction=None, spread=None, bymarket = False, 
+                 decimals, client, exitTime=None, correction=None, spread=None, bymarket = False, 
                  entry_id=None, exit_id=None, exit_order_no=None , union = None, 
-                 expdate = None,  client = None, buysell = None , stopOrderRequested = None) :
+                 expdate = None, buysell = None , stopOrderRequested = None) :
         
         # id:= transactionid of the first order, "your entry" of the Position
         # will be assigned once upon successful entry of the Position
@@ -60,7 +60,7 @@ class Position:
         self.spread = spread               
         self.bymarket = bymarket
         
-        self.client = None
+        self.client = client
         self.union = None
         self.expdate = None
         # exit_order_no := it's the number Transaq gives to the order which is 
@@ -219,6 +219,10 @@ class TradingPlatform(ABC):
     @abstractmethod
     def get_net_balance(self):
         pass
+    
+    @abstractmethod
+    def getClientId(self):
+        pass
         
     ################ Common methods    #######################################
     
@@ -262,9 +266,12 @@ class TradingPlatform(ABC):
                 if 'exitTime' in pos_dict and isinstance(pos_dict['exitTime'], str):
                     pos_dict['exitTime'] = datetime.datetime.fromisoformat(pos_dict['exitTime'])
     
-                # Construct Position object and append to monitoredPositions
-                pos = Position(**pos_dict)
-                self.monitoredPositions.append(pos)
+                # Filter positions based on client
+                if pos_dict.get('client') == self.secrets['api_key']:
+                    # Construct Position object and append to monitoredPositions
+                    pos = Position(**pos_dict)
+                    self.monitoredPositions.append(pos)
+               
         except Exception as e:
             log.error(f"Failed to load monitored positions: {e}")
         
@@ -1373,7 +1380,7 @@ class AlpacaTradingPlatform(TradingPlatform):
             # Retrieve and print the cash balance
             cash_balance = float(account.cash)
             
-            # Making simulation to 100.000 / 5 = 20.000 
+            #TODO Making simulation to 100.000 / 5 = 20.000 
             cash_balance = cash_balance / 5
             log.debug(f"Cash balance: ${cash_balance}")
         
@@ -1392,17 +1399,32 @@ class AlpacaTradingPlatform(TradingPlatform):
             
             # Retrieve and print the portfolio value (net balance)
             net_balance = float(account.portfolio_value)
-            # Making simulation to 100.000 / 5 = 20.000 
+            #TODO  Making simulation to 100.000 / 5 = 20.000 
             net_balance = net_balance / 5
             
             log.debug(f"Net balance (portfolio value): ${net_balance}")
             
             return net_balance
+        
         except Exception as e:
             log.error(f"Error retrieving net balance: {e}")
             return 0
 
+    def getClientId(self):
+        """Alpaca"""
+        # Retrieve Client from the Alpaca secrets.
+        try:
+            # Get account information
+            api_key = self.secrets['api_key']
+            log.debug(f"Client: ${api_key}")
+ 
+            return api_key
         
+        except Exception as e:
+            log.error(f"Error retrieving the api_key: {e}")
+            return 0
+        
+
 ##############################################################################
 
 class IBTradingPlatform(TradingPlatform):
