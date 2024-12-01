@@ -1,27 +1,45 @@
 #!/bin/bash
 # -*- coding: utf-8 -*-
 
-# Check if an instance number is provided as an argument
-if [ -z "$1" ]; then
-  echo "Error: No instance number provided."
-  echo "Usage: $0 <instance_number>"
-  exit 1
-fi
-
 # Activate Python virtual environment
 echo "Activating Python virtual environment for dolph_user..."
-. /opt/venv/bin/activate
+source /opt/venv/bin/activate
 
-instance="/home/dolph_user/data/$1"
+# Define the base data directory
+BASE_DIR="/home/dolph_user/data"
 
-# Find and kill the DolphRobot.py process
-echo "Searching for the running DolphRobot.py process..."
-pid=$(pgrep -f "python ${instance}/Dolph/DolphRobot.py")
+# Check if an instance number is provided as an argument
+if [ -z "$1" ]; then
+  echo "No instance number provided. Stopping all instances in $BASE_DIR..."
+  for instance_dir in "$BASE_DIR"/*; do
+    # Skip non-directories and the lost+found directory
+    if [ -d "$instance_dir" ] && [ "$(basename "$instance_dir")" != "lost+found" ]; then
+      instance=$(basename "$instance_dir")
+      echo "Stopping instance: $instance"
 
-if [ -z "$pid" ]; then
-  echo "No running process of DolphRobot.py found."
+      # Find and kill the DolphRobot.py process
+      pid=$(pgrep -f "python $instance_dir/Dolph/DolphRobot.py")
+      if [ -z "$pid" ]; then
+        echo "No running process of DolphRobot.py found for instance $instance."
+      else
+        echo "Killing the process with PID: $pid"
+        kill -2 "$pid"
+        echo "Process killed successfully for instance $instance."
+      fi
+    fi
+  done
 else
-  echo "Killing the process with PID: $pid"
-  kill -2 "$pid"
-  echo "Process killed successfully."
+  instance="$BASE_DIR/$1"
+  echo "Stopping instance: $1"
+
+  # Find and kill the DolphRobot.py process
+  pid=$(pgrep -f "python $instance/Dolph/DolphRobot.py")
+  if [ -z "$pid" ]; then
+    echo "No running process of DolphRobot.py found for instance $1."
+  else
+    echo "Killing the process with PID: $pid"
+    kill -2 "$pid"
+    echo "Process killed successfully for instance $1."
+  fi
 fi
+

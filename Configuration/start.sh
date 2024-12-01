@@ -1,37 +1,38 @@
 #!/bin/bash
 # -*- coding: utf-8 -*-
 
-# Check if an instance number is provided as an argument
-if [ -z "$1" ]; then
-  echo "Error: No instance number provided."
-  echo "Usage: $0 <instance_number>"
-  exit 1
-fi
-
 # Activate Python virtual environment
 echo "Activating Python virtual environment for dolph_user..."
-. /opt/venv/bin/activate
+source /opt/venv/bin/activate
 
-instance="/home/dolph_user/data/$1"
+# Define the base data directory
+BASE_DIR="/home/dolph_user/data"
 
-# Find and kill the DolphRobot.py process
-echo "Searching for the running DolphRobot.py process..."
-pid=$(pgrep -f "python ${instance}/Dolph/DolphRobot.py")
+# Check if an instance number is provided as an argument
+if [ -z "$1" ]; then
+  echo "No instance number provided. Starting all instances in $BASE_DIR..."
+  for instance_dir in "$BASE_DIR"/*; do
+    # Skip non-directories and the lost+found directory
+    if [ -d "$instance_dir" ] && [ "$(basename "$instance_dir")" != "lost+found" ]; then
+      instance=$(basename "$instance_dir")
+      echo "Starting instance: $instance"
 
-if [ -z "$pid" ]; then
-  echo "No running process of DolphRobot.py found."
+      cd "$instance_dir/Dolph" || { echo "Directory $instance_dir/Dolph not found. Skipping."; continue; }
+
+      # Launch the application
+      echo "Launching DolphRobot.py for instance $instance..."
+      nohup python "$instance_dir/Dolph/DolphRobot.py" > /dev/null 2>&1 &
+      echo "Instance $instance started."
+    fi
+  done
 else
-  echo "Killing the process with PID: $pid"
-  kill -2 "$pid"
-  echo "Process killed successfully."
+  instance="$BASE_DIR/$1"
+  echo "Starting instance: $1"
+
+  cd "$instance/Dolph" || { echo "Directory $instance/Dolph not found. Exiting."; exit 1; }
+
+  # Launch the application
+  echo "Launching DolphRobot.py..."
+  nohup python "$instance/Dolph/DolphRobot.py" > /dev/null 2>&1 &
+  echo "Instance $1 started."
 fi
-
-cd ${instance}/Dolph
-
-echo "Just wait 5 seconds ..."
-sleep 5 
-
-# Launch the application
-echo "Launching DolphRobot.py..."
-nohup python ${instance}/Dolph/DolphRobot.py > /dev/null 2>&1 &
-
