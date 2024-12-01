@@ -216,8 +216,10 @@ class TradingPlatform(ABC):
     def get_cash_balance (self) :
         pass
     
-
-    
+    @abstractmethod
+    def get_net_balance(self):
+        pass
+        
     ################ Common methods    #######################################
     
     def get_PositionsByCode (self, seccode) :
@@ -1379,6 +1381,25 @@ class AlpacaTradingPlatform(TradingPlatform):
         
         except Exception as e:
             log.error(f"Failed to get cash balance: {e}")
+            return 0
+        
+    def get_net_balance(self):
+        """Alpaca"""
+        # Retrieve the net balance (portfolio value) from the Alpaca account.
+        try:
+            # Get account information
+            account = self.api.get_account()
+            
+            # Retrieve and print the portfolio value (net balance)
+            net_balance = float(account.portfolio_value)
+            # Making simulation to 100.000 / 5 = 20.000 
+            net_balance = net_balance / 5
+            
+            log.debug(f"Net balance (portfolio value): ${net_balance}")
+            
+            return net_balance
+        except Exception as e:
+            log.error(f"Error retrieving net balance: {e}")
             return 0
 
         

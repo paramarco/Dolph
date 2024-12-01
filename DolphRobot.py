@@ -306,11 +306,18 @@ class Dolph:
         seccode = security['seccode']
         currentClose = self.getLastClosePrice( seccode)
         cash_balance = self.tp.get_cash_balance()
-        if cash_balance == 0 : return 0 , 0 
-        
-        cash_4_position = cash_balance * cm.factorPosition_Balance
+        net_balance = self.tp.get_net_balance()
+        cash_4_position = net_balance * cm.factorPosition_Balance        
         quantity = round(cash_4_position / currentClose)
         margin = currentClose * cm.factorMargin_Position
+
+        if cash_balance == 0 or net_balance == 0: 
+            logging.error("cash_balance == 0 or net_balance == 0")
+            return 0 , 0 
+        
+        if cash_4_position > cash_balance:
+            logging.error("cash_4_position > cash_balance")            
+            return 0 , 0 
 
         return quantity, margin
     
