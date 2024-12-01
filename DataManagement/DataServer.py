@@ -1324,7 +1324,7 @@ class DataServer:
    
 
 
-    def store_positions_to_db(self, positions_json):
+    def store_positions_to_db(self, positions_json, client):
         """
         Store the list of monitored positions in the database.
         """
@@ -1333,8 +1333,7 @@ class DataServer:
             cursor = conn.cursor()
 
             # Clear existing entries (assuming you want to reset the monitored positions on each disconnect)
-            cursor.execute("DELETE FROM monitored_positions;")
-
+            cursor.execute("DELETE FROM monitored_positions WHERE position_data LIKE %s;", (f"%{client}%",))
             # Insert each JSON position
             for pos_json in positions_json:
                 cursor.execute("INSERT INTO monitored_positions (position_data) VALUES (%s);", (pos_json,))

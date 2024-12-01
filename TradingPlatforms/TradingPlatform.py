@@ -243,7 +243,7 @@ class TradingPlatform(ABC):
 
         try:
             positions_json = [json.dumps(mp.__dict__, default=default_serializer) for mp in self.monitoredPositions]
-            self.ds.store_positions_to_db(positions_json)  # Save the list of positions as JSON in the database
+            self.ds.store_positions_to_db(positions_json, self.secrets['api_key'])   # Save the list of positions as JSON in the database
         except Exception as e:
             log.error(f"Failed to store monitored positions: {e}")
         log.info("Monitored positions have been stored successfully.")
