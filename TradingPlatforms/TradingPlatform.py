@@ -91,7 +91,8 @@ class Position:
 
 def initTradingPlatform( onCounterPosition ):
            
-    platform  = ds.DataServer().getPlatformDetails(cm.securities)
+    #platform  = ds.DataServer().getPlatformDetails(cm.securities)
+    platform = cm.platform
     logging.debug(str(platform))
 
     if platform is None :
@@ -136,7 +137,8 @@ class TradingPlatform(ABC):
         self.securities = cm.securities
         self.currentTestIndex = cm.currentTestIndex 
         self.ds = ds.DataServer()
-        platform  = self.ds.getPlatformDetails(cm.securities)    
+        #platform  = self.ds.getPlatformDetails(cm.securities)    
+        platform = cm.platform
         self.secrets = platform["secrets"] 
         self.connectOnInit = self.MODE in ['OPERATIONAL']
 

@@ -11,6 +11,7 @@ ARCHIVE_FILE="/home/dolph_user/data/Dolph/log/Dolph.log_${YESTERDAY}.tar.gz"
 # Compress the log file
 if [ -f "$LOG_FILE" ]; then
     tar -czf "$ARCHIVE_FILE" "$LOG_FILE" && echo "Log compressed to $ARCHIVE_FILE"
+    echo "log rotation ..." > $LOG_FILE && echo "Log rotation performed"    
 else
     echo "Log file $LOG_FILE does not exist!"
 fi

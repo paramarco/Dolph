@@ -21,9 +21,9 @@ ENV PATH /usr/lib/postgresql/14/bin:$PATH
 ENV PATH="/opt/conda/bin:$PATH"
 
 # Install the dependencies listed in apt-packages.txt
-COPY apt-packages.txt /tmp/apt-packages.txt
+COPY new-apt-packages.txt /tmp/new-apt-packages.txt
 RUN apt-get update && \
-    xargs apt-get install -y < /tmp/apt-packages.txt && \
+    xargs apt-get install -y < /tmp/new-apt-packages.txt && \
     rm -rf /var/lib/apt/lists/*
  
 # Add commands to configure dbus and the GNOME environment   

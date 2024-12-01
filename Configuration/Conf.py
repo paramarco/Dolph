@@ -3,8 +3,9 @@
 import datetime as dt
 import pytz
 import logging
+from Configuration import TradingPlatfomSettings as tps
 
-
+platform = tps.platform
 securities = []
 securities = [
     {'board': 'EQTY', 'seccode': 'AAPL'}
