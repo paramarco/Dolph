@@ -510,7 +510,7 @@ class TradingPlatform(ABC):
             return False
         
         ct = self.getTradingPlatformTime()                            
-        if ct.hour in cm.nogoTradingHours:
+        if ct.hour in cm.nogoTradingHours and position.takePosition != 'close':
             logging.info(f'we are in a no-go Trading hour: {ct.hour}...')  
             return False
 
