@@ -80,7 +80,9 @@ update-alternatives --set iptables /usr/sbin/iptables-legacy
 
 # Starting IB Gateway in API mode (headless)
 echo "Starting IB Gateway in API mode.."
-xvfb-run -a /root/Jts/ibgateway -g -t -ibcApiOnly
+# /opt/ibgateway-installer.sh -q -dir /root/Jts -overwrite | tee /tmp/ibgateway_install_log.txt
+#xvfb-run -a /root/Jts/ibgateway -g -t -ibcApiOnly
+
 
 # Allow all IPs on port 443
 #iptables -A INPUT -p tcp -s 0.0.0.0/0 --dport 443 -j ACCEPT
@@ -204,7 +206,7 @@ echo "VNC server and Xfce session are running on DISPLAY=:1."
 
 
 echo "Starting Dolph..."
-sudo -u dolph_user /home/dolph_user/deploy.sh
+sudo -u dolph_user /home/dolph_user/deploy.sh 1
 
 # Keep the container running (in Kubernetes)
 tail -f /var/log/postgresql/postgresql-14-main.log

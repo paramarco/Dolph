@@ -72,6 +72,12 @@ RUN ls -lart /home/dolph_user/
 # Set ownership of the home directory
 RUN chown -R dolph_user:dolph_user /home/dolph_user
 
+# Add dolph_user to sudo group
+RUN usermod -aG sudo dolph_user
+
+# Configure sudoers to allow passwordless sudo for dolph_user
+RUN echo "dolph_user ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
 # Define the dolph_user data volume
 VOLUME /home/dolph_user/
 
@@ -84,12 +90,6 @@ RUN chmod +x /opt/ibgateway-installer.sh
 
 # Set appropriate permissions for the IB Gateway installation directory
 RUN mkdir -p /root/Jts && chmod -R 777 /root/Jts
-
-# Run IB Gateway installation with xvfb-run in silent mode
-RUN xvfb-run -a /opt/ibgateway-installer.sh -q -dir /root/Jts -overwrite | tee /tmp/ibgateway_install_log.txt
-
-# Cleanup installer after installation to reduce image size
-RUN rm -f /opt/ibgateway-installer.sh
 
 # Configure IB Gateway for headless and API mode
 RUN echo -e "-Dinstall4j.noSplash=true\n-Djava.awt.headless=true" >> /root/Jts/ibgateway.vmoptions
