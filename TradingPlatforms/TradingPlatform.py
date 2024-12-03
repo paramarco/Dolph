@@ -267,7 +267,7 @@ class TradingPlatform(ABC):
                     pos_dict['exitTime'] = datetime.datetime.fromisoformat(pos_dict['exitTime'])
     
                 # Filter positions based on client
-                if pos_dict.get('client') == self.secrets['api_key']:
+                if 'client' in pos_dict and pos_dict.get('client') == self.secrets['api_key']:
                     # Construct Position object and append to monitoredPositions
                     pos = Position(**pos_dict)
                     self.monitoredPositions.append(pos)
@@ -1380,8 +1380,6 @@ class AlpacaTradingPlatform(TradingPlatform):
             # Retrieve and print the cash balance
             cash_balance = float(account.cash)
             
-            #TODO Making simulation to 100.000 / 5 = 20.000 
-            cash_balance = cash_balance / 5
             log.debug(f"Cash balance: ${cash_balance}")
         
             return cash_balance
@@ -1399,8 +1397,7 @@ class AlpacaTradingPlatform(TradingPlatform):
             
             # Retrieve and print the portfolio value (net balance)
             net_balance = float(account.portfolio_value)
-            #TODO  Making simulation to 100.000 / 5 = 20.000 
-            net_balance = net_balance / 5
+
             
             log.debug(f"Net balance (portfolio value): ${net_balance}")
             
