@@ -1205,11 +1205,68 @@ class DataServer:
                 conn.close()
     
     
-    def store_candles_from_IB (self, candles, security):
+    # def store_candles_from_IB (self, candles, security):
+    #     try:
+    #         seccode = security['seccode']
+    #         board = security['board']
+            
+    #         conn = psycopg2.connect(**cm.db_connection_params)
+    #         cursor = conn.cursor()
+    #         cursor.execute("BEGIN")
+            
+    #         security_id = self.__getSecurityIdSQL(board, seccode)
+    
+    #         for index, row in candles.iterrows():
+    #             # Ensure the columns match IB's DataFrame structure
+    #             values = (
+    #                 index,  # Use the index as the timestamp
+    #                 row['open'],
+    #                 row['high'],
+    #                 row['low'],
+    #                 row['close'],
+    #                 row['volume'],  # Verify this column exists as expected
+    #                 security_id
+    #             )
+    
+    #             query_insert = """
+    #                 INSERT INTO quote
+    #                 (DATE_TIME, OPEN, HIGH, LOW, CLOSE, VOL, security_id) 
+    #                 VALUES (%s, %s, %s, %s, %s, %s, %s)
+    #                 ON CONFLICT (DATE_TIME, security_id) 
+    #                 DO UPDATE SET 
+    #                     OPEN = EXCLUDED.OPEN,
+    #                     HIGH = EXCLUDED.HIGH,
+    #                     LOW = EXCLUDED.LOW,
+    #                     CLOSE = EXCLUDED.CLOSE,
+    #                     VOL = EXCLUDED.VOL;
+    #             """
+    
+    #             cursor.execute(query_insert, values)
+    
+    #         cursor.execute("COMMIT")
+    #         conn.commit()
+    #         cursor.close()
+    
+    #     except Exception as e:
+    #         log.error("Failed to commit: %s", e)
+    #     finally:
+    #         if conn:
+    #             conn.close()    
+
+    def store_candles_from_IB(self, candles, security):
         try:
+            if candles.empty:
+                log.warning(f"No candles to store for {security['seccode']}")
+                return
+    
             seccode = security['seccode']
             board = security['board']
-            
+            conn = None
+    
+            # Log the structure of the candles for debugging
+            log.debug(f"Received candles for {seccode}: {candles.head()}")
+    
+            # Connect to the database
             conn = psycopg2.connect(**cm.db_connection_params)
             cursor = conn.cursor()
             cursor.execute("BEGIN")
@@ -1217,41 +1274,58 @@ class DataServer:
             security_id = self.__getSecurityIdSQL(board, seccode)
     
             for index, row in candles.iterrows():
-                # Ensure the columns match IB's DataFrame structure
-                values = (
-                    index,  # Use the index as the timestamp
-                    row['open'],
-                    row['high'],
-                    row['low'],
-                    row['close'],
-                    row['volume'],  # Verify this column exists as expected
-                    security_id
-                )
+                try:
+                    # Ensure the index is a valid timestamp
+                    if index is None or pd.isnull(index):
+                        log.warning(f"Skipping candle with invalid timestamp for {seccode}")
+                        continue
     
-                query_insert = """
-                    INSERT INTO quote
-                    (DATE_TIME, OPEN, HIGH, LOW, CLOSE, VOL, security_id) 
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (DATE_TIME, security_id) 
-                    DO UPDATE SET 
-                        OPEN = EXCLUDED.OPEN,
-                        HIGH = EXCLUDED.HIGH,
-                        LOW = EXCLUDED.LOW,
-                        CLOSE = EXCLUDED.CLOSE,
-                        VOL = EXCLUDED.VOL;
-                """
+                    # Extract values with fallback defaults
+                    values = (
+                        index,  # Timestamp as index
+                        row.get('open', None),
+                        row.get('high', None),
+                        row.get('low', None),
+                        row.get('close', None),
+                        row.get('volume', None),
+                        security_id
+                    )
     
-                cursor.execute(query_insert, values)
+                    # Validate all fields
+                    if None in values[:-1]:  # Skip security_id validation
+                        log.warning(f"Skipping candle with incomplete data: {values}")
+                        continue
     
+                    # Insert or update the candle in the database
+                    query_insert = """
+                        INSERT INTO quote
+                        (DATE_TIME, OPEN, HIGH, LOW, CLOSE, VOL, security_id) 
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (DATE_TIME, security_id) 
+                        DO UPDATE SET 
+                            OPEN = EXCLUDED.OPEN,
+                            HIGH = EXCLUDED.HIGH,
+                            LOW = EXCLUDED.LOW,
+                            CLOSE = EXCLUDED.CLOSE,
+                            VOL = EXCLUDED.VOL;
+                    """
+                    cursor.execute(query_insert, values)
+    
+                except Exception as e:
+                    log.error(f"Failed to process candle {row} for {seccode}: {e}")
+    
+            # Commit changes
             cursor.execute("COMMIT")
             conn.commit()
             cursor.close()
     
         except Exception as e:
-            log.error("Failed to commit: %s", e)
+            log.error(f"Failed to commit: {e}")
+    
         finally:
             if conn:
-                conn.close()    
+                conn.close()
+
     
 
     def insert_alpaca_tickers(self, json_file_path):
