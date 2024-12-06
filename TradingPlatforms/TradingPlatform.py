@@ -1694,7 +1694,7 @@ class IBTradingPlatform(TradingPlatform):
         try:
             # Get account information
             client_id = self.secrets['client_id']
-            log.debug(f"Client: ${client_id}")
+            #log.debug(f"Client: ${client_id}")
  
             return client_id
         
@@ -1719,7 +1719,7 @@ class IBTradingPlatform(TradingPlatform):
         try:
             # Retrieve the account summary
             account_summary = self.ib.accountSummary(account=self.account_number)
-            log.debug(f"Account Summary: {account_summary}")  # Debug the structure
+            #log.debug(f"Account Summary: {account_summary}")  # Debug the structure
     
             # Extract the cash balance
             cash_balance = next(
@@ -1737,7 +1737,7 @@ class IBTradingPlatform(TradingPlatform):
         try:
             # Retrieve the account summary
             account_summary = self.ib.accountSummary(account=self.account_number)
-            log.debug(f"Account Summary: {account_summary}")  # Debug the structure
+            #log.debug(f"Account Summary: {account_summary}")  # Debug the structure
     
             # Extract the net liquidation value
             net_balance = next(
