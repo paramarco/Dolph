@@ -1717,31 +1717,39 @@ class IBTradingPlatform(TradingPlatform):
     def get_cash_balance(self):
         """ Interactive Brokers """
         try:
-            # Access the account summary to retrieve cash balance
+            # Retrieve the account summary
             account_summary = self.ib.accountSummary(account=self.account_number)
-            cash_balance = float(account_summary.loc['NetLiquidation', 'value'])
-            
+            log.debug(f"Account Summary: {account_summary}")  # Debug the structure
+    
+            # Extract the cash balance
+            cash_balance = next(
+                (float(item.value) for item in account_summary if item.tag == 'TotalCashValue'), 0.0
+            )
             log.debug(f"Cash balance: ${cash_balance}")
             return cash_balance
-        
+    
         except Exception as e:
             log.error(f"Failed to get cash balance: {e}")
-            return 0
-
+            return 0.0
     
     def get_net_balance(self):
         """ Interactive Brokers """
         try:
-            # Access the account summary to retrieve the net balance (NetLiquidation)
+            # Retrieve the account summary
             account_summary = self.ib.accountSummary(account=self.account_number)
-            net_balance = float(account_summary.loc['NetLiquidation', 'value'])
-            
+            log.debug(f"Account Summary: {account_summary}")  # Debug the structure
+    
+            # Extract the net liquidation value
+            net_balance = next(
+                (float(item.value) for item in account_summary if item.tag == 'NetLiquidation'), 0.0
+            )
             log.debug(f"Net balance (NetLiquidation): ${net_balance}")
             return net_balance
-        
+    
         except Exception as e:
             log.error(f"Error retrieving net balance: {e}")
-            return 0
+            return 0.0
+
 
 
     def openPosition(self, position):

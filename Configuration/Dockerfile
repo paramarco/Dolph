@@ -88,18 +88,6 @@ VOLUME /var/lib/postgresql/14/main
 ADD https://download2.interactivebrokers.com/installers/ibgateway/stable-standalone/ibgateway-stable-standalone-linux-x64.sh /opt/ibgateway-installer.sh
 RUN chmod +x /opt/ibgateway-installer.sh
 
-# Set appropriate permissions for the IB Gateway installation directory
-RUN mkdir -p /root/Jts && chmod -R 777 /root/Jts
-
-# Configure IB Gateway for headless and API mode
-RUN echo -e "-Dinstall4j.noSplash=true\n-Djava.awt.headless=true" >> /root/Jts/ibgateway.vmoptions
-
-# Copy the ibg.ini configuration file into the container
-COPY ibg.ini /root/Jts/ibg.ini
-
-# Set appropriate permissions if necessary
-RUN chmod -R 777 /root/Jts
-
 # Copy entrypoint script and make it executable
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh

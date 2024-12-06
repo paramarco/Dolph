@@ -80,6 +80,17 @@ update-alternatives --set iptables /usr/sbin/iptables-legacy
 
 # Starting IB Gateway in API mode (headless)
 echo "Starting IB Gateway in API mode.."
+
+
+# sudo chmod 777 /opt/ibgateway-installer.sh
+# dolph_user@container:~$  /opt/ibgateway-installer.sh
+        # sudo apt-get remove --purge openjdk-8-jre-headless
+        # sudo apt-get install -y software-properties-common
+        # sudo add-apt-repository ppa:openjdk-r/ppa
+        # sudo apt-get update
+        # sudo apt-get install openjdk-8-jre
+
+
 # /opt/ibgateway-installer.sh -q -dir /root/Jts -overwrite | tee /tmp/ibgateway_install_log.txt
 #xvfb-run -a /root/Jts/ibgateway -g -t -ibcApiOnly
 

@@ -29,5 +29,13 @@ tk-dev
 liblzma-doc
 gnupg2
 expect
-
-
+libxtst6
+rsyslog
+dbus-x11
+xauth
+xorg
+xvfb
+libxrender1
+libxtst6
+libxi6
+openjdk-8-jre
