@@ -1544,9 +1544,9 @@ class IBTradingPlatform(TradingPlatform):
         elif order.type in ['STP', 'STP LMT']:
             self.processStopOrderStatus(order)
             
-
+    
     def get_candles(self, security, since, until, period):
-        """Interactive Brokers"""
+        """Interactive Brokers - Enhanced"""
         
         seccode = security['seccode']
         
@@ -1563,6 +1563,9 @@ class IBTradingPlatform(TradingPlatform):
         
         # Fetch historical data
         try:
+            # Log details of the request
+            log.debug(f"Fetching candles for {seccode} from {since} to {until}, duration: {duration}, barSize: {barSize}")
+            
             bars = self.ib.reqHistoricalData(
                 contract,
                 endDateTime=until.strftime('%Y%m%d %H:%M:%S'),
@@ -1571,15 +1574,43 @@ class IBTradingPlatform(TradingPlatform):
                 whatToShow='TRADES',
                 useRTH=True
             )
+            
             # Convert the bars to a DataFrame
             df = util.df(bars)
+            if df.empty:
+                log.warning(f"No data returned for {seccode}")
+                return pd.DataFrame()
+    
+            # Rename columns for consistency
             df.rename(columns={'date': 'timestamp'}, inplace=True)
+    
+            # Handle timestamps and validate data
+            df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')  # Convert to datetime, handle errors
+            invalid_timestamps = df['timestamp'].isna().sum()
+            if invalid_timestamps > 0:
+                log.warning(f"{invalid_timestamps} invalid timestamps found for {seccode}. Dropping these rows.")
+                df.dropna(subset=['timestamp'], inplace=True)
+    
+            # Convert timezone to UTC for consistency
+            df['timestamp'] = df['timestamp'].dt.tz_localize('US/Eastern', ambiguous='infer').dt.tz_convert('UTC')
+    
+            # Set timestamp as the index
             df.set_index('timestamp', inplace=True)
+            
+            # Validate required columns
+            required_columns = ['open', 'high', 'low', 'close', 'volume']
+            missing_columns = [col for col in required_columns if col not in df.columns]
+            if missing_columns:
+                log.error(f"Missing columns in data for {seccode}: {missing_columns}")
+                return pd.DataFrame()
+    
+            log.debug(f"Fetched {len(df)} rows of candles for {seccode}")
             return df
-        
+    
         except Exception as e:
             log.error(f"Failed to fetch candles for {seccode}: {e}")
             return pd.DataFrame()
+
         
     
 

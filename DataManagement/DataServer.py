@@ -1252,7 +1252,7 @@ class DataServer:
     #     finally:
     #         if conn:
     #             conn.close()    
-
+    
     def store_candles_from_IB(self, candles, security):
         try:
             if candles.empty:
