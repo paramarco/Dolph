@@ -1568,11 +1568,11 @@ class IBTradingPlatform(TradingPlatform):
     
         # Map the period to IB's duration and barSize settings
         timeframe_mapping = {
-            '1Min': ('1 W', '1 min'),
-            'hour': ('1 W', '1 hour'),
-            'day': ('1 W', '1 day')
+            '1Min': ('1 D', '1 min'),
+            'hour': ('1 D', '1 hour'),
+            'day': ('1 D', '1 day')
         }
-        duration, barSize = timeframe_mapping.get(period, ('1 W', '1 min'))
+        duration, barSize = timeframe_mapping.get(period, ('1 D', '1 min'))
     
         # Convert localized times to UTC
         since_utc = since.astimezone(pytz.utc)
