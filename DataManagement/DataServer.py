@@ -1203,6 +1203,56 @@ class DataServer:
         finally:
             if conn:
                 conn.close()
+    
+    
+    def store_candles_from_IB (self, candles, security):
+        try:
+            seccode = security['seccode']
+            board = security['board']
+            
+            conn = psycopg2.connect(**cm.db_connection_params)
+            cursor = conn.cursor()
+            cursor.execute("BEGIN")
+            
+            security_id = self.__getSecurityIdSQL(board, seccode)
+    
+            for index, row in candles.iterrows():
+                # Ensure the columns match IB's DataFrame structure
+                values = (
+                    index,  # Use the index as the timestamp
+                    row['open'],
+                    row['high'],
+                    row['low'],
+                    row['close'],
+                    row['volume'],  # Verify this column exists as expected
+                    security_id
+                )
+    
+                query_insert = """
+                    INSERT INTO quote
+                    (DATE_TIME, OPEN, HIGH, LOW, CLOSE, VOL, security_id) 
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (DATE_TIME, security_id) 
+                    DO UPDATE SET 
+                        OPEN = EXCLUDED.OPEN,
+                        HIGH = EXCLUDED.HIGH,
+                        LOW = EXCLUDED.LOW,
+                        CLOSE = EXCLUDED.CLOSE,
+                        VOL = EXCLUDED.VOL;
+                """
+    
+                cursor.execute(query_insert, values)
+    
+            cursor.execute("COMMIT")
+            conn.commit()
+            cursor.close()
+    
+        except Exception as e:
+            log.error("Failed to commit: %s", e)
+        finally:
+            if conn:
+                conn.close()    
+    
 
     def insert_alpaca_tickers(self, json_file_path):
         conn = None  # Initialize conn to None to avoid UnboundLocalError

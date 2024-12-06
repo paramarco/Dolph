@@ -1,9 +1,14 @@
 # README
 
+# To install docker in a debian-like VPS
+
+sudo apt install docker.io
+
 # To build the Image just once
 sudo docker build -t dolph-container .
     
-# Start Docker Container with X11 Support    
+# Start Docker Container with X11 Support   
+ 
 sudo docker run -it --name dolph-container \
     --entrypoint /usr/local/bin/entrypoint.sh \
     -v ~/data-dolph-container:/home/dolph_user/data \
@@ -13,6 +18,19 @@ sudo docker run -it --name dolph-container \
     -p 5901:5901 \
     --privileged \
     dolph-container /bin/bash
+   
+# Start Docker Container with X11 Supporton the VPS as soon as it is registered  
+
+sudo docker run \
+    --entrypoint /usr/local/bin/entrypoint.sh \
+    -v ~/data-dolph-container:/home/dolph_user/data \
+    -v ~/pgdata:/var/lib/postgresql/14/main \
+    -e DISPLAY=$DISPLAY \
+    -v /tmp/.X11-unix:/tmp/.X11-unix \
+    -p 5901:5901 \
+    --privileged \
+    8xv7t7tg.c1.de1.container-registry.ovh.net/e1256adf-9c74-4b6c-a238-86bbfc8fe1f9/dolph-container:latest  &
+
     
 ## Run this command on the host to allow X11 forwarding for the Docker container:
 
@@ -62,13 +80,13 @@ root@container:/#  cp /home/dolph_user/*sql /var/lib/postgresql/
  
 postgres@container:~$ vi create_user_db.sql
 
-postgres@container:~$ psql -U postgres -f create_user_db.sql
+postgres@container:~$ psql -U postgres -p XXXX -f create_user_db.sql
 
 (venv) root@container:/# su - postgres
 
 postgres@container:~$ vi create_tables.sql
 
-postgres@container:~$ psql -U postgres -d dolph_db -f create_tables.sql 
+postgres@container:~$ psql -U postgres -d dolph_db -p XXXX -f create_tables.sql 
 
 ##Steps to Export/Import the Table Security into PostgreSQL,in development container
 
