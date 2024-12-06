@@ -1607,10 +1607,17 @@ class IBTradingPlatform(TradingPlatform):
             
             # Convert the bars to a DataFrame
             df = util.df(bars)
+            log.debug(f"Raw data fetched for {seccode}: {df}")
             if df.empty:
                 log.warning(f"No valid data in the response for {seccode}")
                 return pd.DataFrame()
             
+            logging.debug("Bars data: %s", bars)
+            logging.debug("Processing candle for symbol: %s", symbol)
+
+            if df['date'].isnull().any():
+                logging.error("Null values found in 'date' column") 
+                
             # Rename and set up DataFrame
             df.rename(columns={'date': 'timestamp'}, inplace=True)
             df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
