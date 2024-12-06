@@ -1511,11 +1511,27 @@ class IBTradingPlatform(TradingPlatform):
         
 
     def subscribe_to_market_data(self):
-        
+        """
+        Subscribe to market data for each security.
+        Allows delayed market data if real-time is not available.
+        """
         for security in self.securities:
             contract = Stock(security['seccode'], 'SMART', 'USD')
-            self.ib.reqMktData(contract, '', False, False)
+    
+            # Subscribe to market data
+            self.ib.reqMktData(
+                contract,
+                genericTickList='',  # Empty means "all available ticks."
+                snapshot=False,      # False for streaming data; True for one-time snapshot
+                regulatorySnapshot=False  # True if you need regulatory snapshot, otherwise False
+            )
+    
+            # Subscribe to tick updates
             self.ib.pendingTickersEvent += self.on_tick  # Callback for handling market data updates
+    
+            log.info(f"Subscribed to market data for {security['seccode']}. "
+                     "Note: Delayed data will be used if real-time is unavailable.")
+
         
 
     def on_tick(self, tickers):
@@ -1530,7 +1546,7 @@ class IBTradingPlatform(TradingPlatform):
                 'volume': ticker.volume,
                 'time': ticker.time
             }
-            print(f"Received update for {security_code}: {updated_data}")
+            log.info(f"Received update for {security_code}: {updated_data}")
             self.ds.store_bar(security_code, updated_data)  # Assuming this method exists in DataServer
             
 
@@ -1580,7 +1596,7 @@ class IBTradingPlatform(TradingPlatform):
                 durationStr=duration,
                 barSizeSetting=barSize,
                 whatToShow='TRADES',
-                useRTH=True  # Change to False if you prefer delayed data
+                useRTH=False  # Change to False if you prefer delayed data
             )
     
             # Check for no data returned
