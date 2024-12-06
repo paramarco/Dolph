@@ -1544,9 +1544,9 @@ class IBTradingPlatform(TradingPlatform):
         elif order.type in ['STP', 'STP LMT']:
             self.processStopOrderStatus(order)
             
-    
+        
     def get_candles(self, security, since, until, period):
-        """Interactive Brokers - Enhanced"""
+        """Interactive Brokers - Fetch historical candles with time zone handling."""
         
         seccode = security['seccode']
         
@@ -1558,43 +1558,53 @@ class IBTradingPlatform(TradingPlatform):
         }
         duration, barSize = timeframe_mapping.get(period, ('1 M', '1 min'))
         
+        # Convert localized times to UTC
+        since_utc = since.astimezone(pytz.utc)
+        until_utc = until.astimezone(pytz.utc)
+        
+        # Format times explicitly in UTC as required by IB API
+        end_date_time = until_utc.strftime('%Y%m%d-%H:%M:%S')
+        
         # Create a contract for the security
         contract = Stock(seccode, 'SMART', 'USD')
         
-        # Fetch historical data
         try:
             # Log details of the request
-            log.debug(f"Fetching candles for {seccode} from {since} to {until}, duration: {duration}, barSize: {barSize}")
+            log.debug(f"Fetching candles for {seccode} from {since_utc} to {until_utc}, duration: {duration}, barSize: {barSize}")
             
+            # Fetch historical data from IB
             bars = self.ib.reqHistoricalData(
                 contract,
-                endDateTime=until.strftime('%Y%m%d %H:%M:%S'),
+                endDateTime=end_date_time,
                 durationStr=duration,
                 barSizeSetting=barSize,
                 whatToShow='TRADES',
                 useRTH=True
             )
             
+            # Validate the response
+            if not bars:
+                log.warning(f"No data returned for {seccode}")
+                return pd.DataFrame()
+            
             # Convert the bars to a DataFrame
             df = util.df(bars)
             if df.empty:
-                log.warning(f"No data returned for {seccode}")
+                log.warning(f"No valid data in the response for {seccode}")
                 return pd.DataFrame()
     
-            # Rename columns for consistency
+            # Rename and set up DataFrame
             df.rename(columns={'date': 'timestamp'}, inplace=True)
-    
-            # Handle timestamps and validate data
-            df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')  # Convert to datetime, handle errors
+            df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
+            
+            # Drop invalid timestamps
             invalid_timestamps = df['timestamp'].isna().sum()
             if invalid_timestamps > 0:
                 log.warning(f"{invalid_timestamps} invalid timestamps found for {seccode}. Dropping these rows.")
                 df.dropna(subset=['timestamp'], inplace=True)
     
-            # Convert timezone to UTC for consistency
-            df['timestamp'] = df['timestamp'].dt.tz_localize('US/Eastern', ambiguous='infer').dt.tz_convert('UTC')
-    
-            # Set timestamp as the index
+            # Ensure timestamps are in UTC
+            df['timestamp'] = df['timestamp'].dt.tz_localize('UTC')
             df.set_index('timestamp', inplace=True)
             
             # Validate required columns
@@ -1610,9 +1620,9 @@ class IBTradingPlatform(TradingPlatform):
         except Exception as e:
             log.error(f"Failed to fetch candles for {seccode}: {e}")
             return pd.DataFrame()
-
-        
     
+            
+        
 
     def disconnect(self):
         
