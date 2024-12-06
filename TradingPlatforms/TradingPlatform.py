@@ -1559,85 +1559,85 @@ class IBTradingPlatform(TradingPlatform):
         elif order.type in ['STP', 'STP LMT']:
             self.processStopOrderStatus(order)
             
-  def get_candles(self, security, since, until, period):
-    """Interactive Brokers - Fetch historical candles with improved error handling."""
-    
-    seccode = security['seccode']
-    
-    # Map the period to IB's duration and barSize settings
-    timeframe_mapping = {
-        '1Min': ('1 D', '1 min'),
-        'hour': ('1 D', '1 hour'),
-        'day': ('1 D', '1 day')
-    }
-    duration, barSize = timeframe_mapping.get(period, ('1 D', '1 min'))
-    
-    # Convert localized times to UTC
-    since_utc = since.astimezone(pytz.utc)
-    until_utc = until.astimezone(pytz.utc)
-    
-    # Format times explicitly in UTC as required by IB API
-    end_date_time = until_utc.strftime('%Y%m%d-%H:%M:%S')
-    
-    # Create a contract for the security
-    contract = Stock(seccode, 'SMART', 'USD')
-    
-    try:
-        # Log details of the request
-        log.debug(f"Fetching candles for {seccode} from {since_utc} to {until_utc}, "
-                  f"duration: {duration}, barSize: {barSize}")
+    def get_candles(self, security, since, until, period):
+        """Interactive Brokers - Fetch historical candles with improved error handling."""
         
-        # Fetch historical data from IB
-        bars = self.ib.reqHistoricalData(
-            contract,
-            endDateTime=end_date_time,
-            durationStr=duration,
-            barSizeSetting=barSize,
-            whatToShow='TRADES',
-            useRTH=False  # Change to True if you prefer regular trading hours only
-        )
+        seccode = security['seccode']
         
-        # Check for no data returned
-        if not bars:
-            log.warning(f"No data returned for {seccode}")
+        # Map the period to IB's duration and barSize settings
+        timeframe_mapping = {
+            '1Min': ('1 D', '1 min'),
+            'hour': ('1 D', '1 hour'),
+            'day': ('1 D', '1 day')
+        }
+        duration, barSize = timeframe_mapping.get(period, ('1 D', '1 min'))
+        
+        # Convert localized times to UTC
+        since_utc = since.astimezone(pytz.utc)
+        until_utc = until.astimezone(pytz.utc)
+        
+        # Format times explicitly in UTC as required by IB API
+        end_date_time = until_utc.strftime('%Y%m%d-%H:%M:%S')
+        
+        # Create a contract for the security
+        contract = Stock(seccode, 'SMART', 'USD')
+        
+        try:
+            # Log details of the request
+            log.debug(f"Fetching candles for {seccode} from {since_utc} to {until_utc}, "
+                      f"duration: {duration}, barSize: {barSize}")
+            
+            # Fetch historical data from IB
+            bars = self.ib.reqHistoricalData(
+                contract,
+                endDateTime=end_date_time,
+                durationStr=duration,
+                barSizeSetting=barSize,
+                whatToShow='TRADES',
+                useRTH=False  # Change to True if you prefer regular trading hours only
+            )
+            
+            # Check for no data returned
+            if not bars:
+                log.warning(f"No data returned for {seccode}")
+                return pd.DataFrame()
+            
+            # Log the beginning of the bars
+            logging.info("First entry in bars: %s", bars[0])
+            
+            # Convert the bars to a DataFrame
+            df = util.df(bars)
+            if df.empty:
+                log.warning(f"No valid data in the response for {seccode}")
+                return pd.DataFrame()
+            
+            # Rename and set up DataFrame
+            df.rename(columns={'date': 'timestamp'}, inplace=True)
+            df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
+            
+            # Drop invalid timestamps
+            invalid_timestamps = df['timestamp'].isna().sum()
+            if invalid_timestamps > 0:
+                log.warning(f"{invalid_timestamps} invalid timestamps found for {seccode}. Dropping these rows.")
+                df.dropna(subset=['timestamp'], inplace=True)
+            
+            # Ensure timestamps are in UTC
+            df['timestamp'] = df['timestamp'].dt.tz_localize('UTC')
+            df.set_index('timestamp', inplace=True)
+            
+            # Validate required columns
+            required_columns = ['open', 'high', 'low', 'close', 'volume']
+            missing_columns = [col for col in required_columns if col not in df.columns]
+            if missing_columns:
+                log.error(f"Missing columns in data for {seccode}: {missing_columns}")
+                return pd.DataFrame()
+            
+            log.debug(f"Fetched {len(df)} rows of candles for {seccode}")
+            return df
+        
+        except Exception as e:
+            log.error(f"Failed to fetch candles for {seccode}: {e}")
             return pd.DataFrame()
-        
-        # Log the beginning of the bars
-        logging.info("First entry in bars: %s", bars[0])
-        
-        # Convert the bars to a DataFrame
-        df = util.df(bars)
-        if df.empty:
-            log.warning(f"No valid data in the response for {seccode}")
-            return pd.DataFrame()
-        
-        # Rename and set up DataFrame
-        df.rename(columns={'date': 'timestamp'}, inplace=True)
-        df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
-        
-        # Drop invalid timestamps
-        invalid_timestamps = df['timestamp'].isna().sum()
-        if invalid_timestamps > 0:
-            log.warning(f"{invalid_timestamps} invalid timestamps found for {seccode}. Dropping these rows.")
-            df.dropna(subset=['timestamp'], inplace=True)
-        
-        # Ensure timestamps are in UTC
-        df['timestamp'] = df['timestamp'].dt.tz_localize('UTC')
-        df.set_index('timestamp', inplace=True)
-        
-        # Validate required columns
-        required_columns = ['open', 'high', 'low', 'close', 'volume']
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            log.error(f"Missing columns in data for {seccode}: {missing_columns}")
-            return pd.DataFrame()
-        
-        log.debug(f"Fetched {len(df)} rows of candles for {seccode}")
-        return df
-    
-    except Exception as e:
-        log.error(f"Failed to fetch candles for {seccode}: {e}")
-        return pd.DataFrame()
 
         
 
