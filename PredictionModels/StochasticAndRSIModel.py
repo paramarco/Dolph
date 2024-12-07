@@ -60,7 +60,7 @@ class StochasticAndRSIModel:
                 exitPrice = p.exitPrice 
                 
         m = f"{seccode} last: {lastClosePrice}, entry: {entryPrice}, exit: {exitPrice}"                
-        log.debug(m)
+        log.info(m)
 
         # Ensure df has a mnemonic column, and filter by seccode
         if 'mnemonic' in df.columns:
@@ -105,7 +105,7 @@ class StochasticAndRSIModel:
         rsi = sma50 = sma200 = 0
         try:
         
-            log.debug(f"Total number of rows in the DataFrame: {len(self.df)}")
+            #log.debug(f"Total number of rows in the DataFrame: {len(self.df)}")
             rsi = self.df['RSI'].iloc[-1]
             sma50 = self.df['SMA50'].iloc[-1]
             sma200 = self.df['SMA200'].iloc[-1]
@@ -114,8 +114,7 @@ class StochasticAndRSIModel:
             log.debug(f"KeyError: {e}. Check if the dataframe has the correct price columns.")
             raise
 
-        log.info(f"RSI: {rsi}")
-        log.info(f"sma50: {sma50}, sma200: {sma200}")
+        log.info(f"RSI: {rsi} sma50: {sma50}, sma200: {sma200}")
 
         # Buy conditions: RSI < 30 (oversold), Stochastic %K > %D (bullish momentum)
         if rsi < 30 and sma50 > sma200:

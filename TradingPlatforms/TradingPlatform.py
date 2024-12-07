@@ -1776,7 +1776,7 @@ class IBTradingPlatform(TradingPlatform):
             cash_balance = next(
                 (float(item.value) for item in account_summary if item.tag == 'TotalCashValue'), 0.0
             )
-            log.debug(f"Cash balance: ${cash_balance}")
+            log.info(f"Cash balance: ${cash_balance}")
             return cash_balance
     
         except Exception as e:
@@ -1794,7 +1794,7 @@ class IBTradingPlatform(TradingPlatform):
             net_balance = next(
                 (float(item.value) for item in account_summary if item.tag == 'NetLiquidation'), 0.0
             )
-            log.debug(f"Net balance (NetLiquidation): ${net_balance}")
+            log.info(f"Net balance (NetLiquidation): ${net_balance}")
             return net_balance
     
         except Exception as e:

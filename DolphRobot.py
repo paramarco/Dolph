@@ -122,7 +122,7 @@ class Dolph:
         timelast1Min = df_1min.index[-1]
         timelast1Min = timelast1Min.to_pydatetime()
         LastClosePrice = df_1min['endprice'].iloc[-1]
-        logging.debug(f'time last {timelast1Min}, Close: {LastClosePrice}')
+        logging.debug(f'{seccode} {timelast1Min}, Close: {LastClosePrice}')
         
         # Check if the LastClosePrice is None
         if pd.isnull(LastClosePrice):
@@ -188,9 +188,8 @@ class Dolph:
     def loadModel(self, sec, period):        
    
         if period not in sec['models']:
-            self._getPredictionModel(sec, period )
-        else:
-            logging.debug('model already loaded') 
+            logging.info('model loaded for the fisrt time') 
+            self._getPredictionModel(sec, period )            
 
 
     def predict( self ):

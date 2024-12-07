@@ -478,7 +478,7 @@ class DataServer:
                 try:
                     dfs = self.searchData(since)
                     if dfs:
-                        log.debug("Data found for synchronization.")
+                        log.info("Data found for synchronization.")
                     else:
                         log.error("No data returned for synchronization.")
                 except Exception as e:
