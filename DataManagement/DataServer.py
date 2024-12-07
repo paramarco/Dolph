@@ -1259,12 +1259,10 @@ class DataServer:
         board = security['board']
         conn = None
         
-        if df is None or df.empty:
-            log.warning(f"No candles to store for {security['seccode']}")
-            return
-        
         try:
-            
+            if df is None or df.empty:
+                log.warning(f"No candles to store for {security['seccode']}")
+                return
             # Log the structure of the candles for debugging            
             if df.empty:
                 log.warning(f"No valid data in the response for {seccode}")
@@ -1279,9 +1277,12 @@ class DataServer:
 
             # Rename and set up DataFrame
             df.rename(columns={'date': 'timestamp'}, inplace=True)
-            df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
             
-            log.debug(f"after (rename in to_datetime) candles head: {df.head()}")            
+            log.debug(f"after (rename ) candles head: {df.head()}")            
+            
+            ##df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
+            
+            log.debug(f"after (pd.to_datetime) candles head: {df.head()}")            
             
             # Drop invalid timestamps
             invalid_timestamps = df['timestamp'].isna().sum()
@@ -1303,9 +1304,13 @@ class DataServer:
             if missing_columns:
                 log.error(f"Missing columns in data for {seccode}: {missing_columns}")
                 return None
-            
-            log.debug(f"Starting connection to database ...")
-    
+        
+        except Exception as e:
+            log.error(f"Failed to process the dataframe: {e}")           
+        
+        log.debug(f"Starting connection to database ...")
+        
+        try:    
             # Connect to the database
             conn = psycopg2.connect(**cm.db_connection_params)
             cursor = conn.cursor()
@@ -1352,7 +1357,7 @@ class DataServer:
                     cursor.execute(query_insert, values)
     
                 except Exception as e:
-                    log.error(f"Failed to process candle {row} for {seccode}: {e}")
+                    log.error(f"Failed to insert candle {row} for {seccode}: {e}")
     
             # Commit changes
             cursor.execute("COMMIT")
