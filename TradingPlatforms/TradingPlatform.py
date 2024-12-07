@@ -1602,8 +1602,7 @@ class IBTradingPlatform(TradingPlatform):
         
         try:
             # Log details of the request
-            log.debug(f"Fetching candles for {seccode} from {since_utc} to {until_utc}, "
-                      f"duration: {duration}, barSize: {barSize}")
+            log.info(f"Fetching candles for {seccode} from {since_utc} to {until_utc}")
             
             # Fetch historical data from IB
             bars = self.ib.reqHistoricalData(
@@ -1622,7 +1621,7 @@ class IBTradingPlatform(TradingPlatform):
            
             # Convert the bars to a DataFrame
             df = util.df(bars)            
-            log.debug(f"Fetched {len(df)} rows of candles for {seccode}")
+            log.info(f"Fetched {len(df)} rows of candles for {seccode}")
             
             return df
         

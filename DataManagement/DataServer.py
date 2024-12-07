@@ -1248,7 +1248,7 @@ class DataServer:
         except Exception as e:
             log.error(f"Failed to process the dataframe: {e}")           
         
-        log.debug(f"Starting connection to database ...")
+        log.info(f"Starting connection to database ...")
         
         try:    
             # Connect to the database

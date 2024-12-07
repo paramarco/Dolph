@@ -177,7 +177,7 @@ class Dolph:
         sec['params']['period'] = period 
         sec['models'][period] = pm.initPredictionModel( self.data, sec, self)
         msg = f"loading training & prediction params: {sec['params']}"
-        logging.debug( msg )        
+        logging.info( msg )        
 
     
     def storePrediction(self, sec, prediction, period):
@@ -188,7 +188,7 @@ class Dolph:
     def loadModel(self, sec, period):        
    
         if period not in sec['models']:
-            logging.info('model loaded for the fisrt time') 
+            logging.info('model loaded for the first time') 
             self._getPredictionModel(sec, period )            
 
 
