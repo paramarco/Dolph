@@ -1,14 +1,9 @@
 #!/bin/bash
 
-# Start X virtual framebuffer
-#Xvfb :99 -screen 0 1024x768x16 &
-
-# Set DISPLAY environment variable for headless mode
-#export DISPLAY=:99
 
 #echo "Generating locales..."
-#locale-gen en_US.UTF-8
-#update-locale LANG=en_US.UTF-8
+locale-gen en_US.UTF-8
+update-locale LANG=en_US.UTF-8
 
 # Ensure the correct permissions on the PostgreSQL data directory
 chown -R postgres:postgres /var/lib/postgresql/14/main
@@ -76,46 +71,6 @@ echo "Configuring iptables rules..."
 
 # Switch to legacy iptables version
 update-alternatives --set iptables /usr/sbin/iptables-legacy
-
-
-# Starting IB Gateway in API mode (headless)
-echo "Starting IB Gateway in API mode.."
-
-
-# sudo chmod 777 /opt/ibgateway-installer.sh
-# dolph_user@container:~$  /opt/ibgateway-installer.sh
-        # sudo apt-get remove --purge openjdk-8-jre-headless
-        # sudo apt-get install -y software-properties-common
-        # sudo add-apt-repository ppa:openjdk-r/ppa
-        # sudo apt-get update
-        # sudo apt-get install openjdk-8-jre
-
-
-# /opt/ibgateway-installer.sh -q -dir /root/Jts -overwrite | tee /tmp/ibgateway_install_log.txt
-#xvfb-run -a /root/Jts/ibgateway -g -t -ibcApiOnly
-
-
-# Allow all IPs on port 443
-#iptables -A INPUT -p tcp -s 0.0.0.0/0 --dport 443 -j ACCEPT
-
-# Drop all other incoming connections
-#iptables -A INPUT -j DROP
-
-#echo "iptables rules configured."
-
-# Install TWS if not already installed
-#if [ ! -d "/root/Jts" ]; then
-#    echo "Installing Trader Workstation..."
-#    /opt/install_tws.expect
-#fi
-
-# Start Trader Workstation in the background if installed
-#if [ -f "/root/Jts/twsstart.sh" ]; then
-#    /root/Jts/twsstart.sh &
-#else
-#    echo "TWS not installed successfully."
-#    exit 1
-#fi
 
 # Ensure cron is running and crontab is configured
 echo "Configuring crontab..."
@@ -214,6 +169,11 @@ dbus-daemon --system --fork
 
 echo "VNC server and Xfce session are running on DISPLAY=:1."
 
+# Starting IB Gateway in API mode (headless)
+echo "Starting IB Gateway in API mode.."
+
+# sudo chmod 777 /opt/ibgateway-installer.sh
+# dolph_user@container:~$  /opt/ibgateway-installer.sh
 
 
 echo "Starting Dolph..."

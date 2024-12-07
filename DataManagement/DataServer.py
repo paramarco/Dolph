@@ -1253,18 +1253,56 @@ class DataServer:
     #         if conn:
     #             conn.close()    
     
-    def store_candles_from_IB(self, candles, security):
+    def store_candles_from_IB(self, df, security):
+        
+        seccode = security['seccode']
+        board = security['board']
+        conn = None
+        
+        if df is None or df.empty:
+            log.warning(f"No candles to store for {security['seccode']}")
+            return
+        
         try:
-            if candles.empty:
-                log.warning(f"No candles to store for {security['seccode']}")
-                return
-    
-            seccode = security['seccode']
-            board = security['board']
-            conn = None
-    
-            # Log the structure of the candles for debugging
-            log.debug(f"Received candles for {seccode}: {candles.head()}")
+            
+            # Log the structure of the candles for debugging            
+            if df.empty:
+                log.warning(f"No valid data in the response for {seccode}")
+                return None
+            
+            log.debug(f"Received candles head: {df.head()}")
+
+            if df['date'].isnull().any():
+                logging.error("Null values found in 'date' column") 
+                
+            # Rename and set up DataFrame
+            df.rename(columns={'date': 'timestamp'}, inplace=True)
+            df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
+            
+            log.debug(f"after (rename in to_datetime) candles head: {df.head()}")            
+            
+            # Drop invalid timestamps
+            invalid_timestamps = df['timestamp'].isna().sum()
+            if invalid_timestamps > 0:
+                log.warning(f"{invalid_timestamps} invalid timestamps for {seccode}")
+                df.dropna(subset=['timestamp'], inplace=True)
+            
+            log.debug(f"after (Drop invalid timestamps) candles head: {df.head()}")            
+
+            # Ensure timestamps are in UTC
+            df['timestamp'] = df['timestamp'].dt.tz_localize('UTC')
+            df.set_index('timestamp', inplace=True)
+            
+            log.debug(f"after (Ensure timestamps are in UTC) head: {df.head()}")     
+            
+            # Validate required columns
+            required_columns = ['open', 'high', 'low', 'close', 'volume']
+            missing_columns = [col for col in required_columns if col not in df.columns]
+            if missing_columns:
+                log.error(f"Missing columns in data for {seccode}: {missing_columns}")
+                return None
+            
+            log.debug(f"Starting connection to database ...")
     
             # Connect to the database
             conn = psycopg2.connect(**cm.db_connection_params)
@@ -1273,7 +1311,7 @@ class DataServer:
             
             security_id = self.__getSecurityIdSQL(board, seccode)
     
-            for index, row in candles.iterrows():
+            for index, row in df.iterrows():
                 try:
                     # Ensure the index is a valid timestamp
                     if index is None or pd.isnull(index):
@@ -1320,8 +1358,7 @@ class DataServer:
             cursor.close()
     
         except Exception as e:
-            log.error(f"Failed to commit: {e}")
-    
+            log.error(f"Failed to commit: {e}")    
         finally:
             if conn:
                 conn.close()

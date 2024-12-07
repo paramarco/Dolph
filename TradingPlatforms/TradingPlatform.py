@@ -1600,46 +1600,12 @@ class IBTradingPlatform(TradingPlatform):
             # Check for no data returned
             if not bars:
                 log.warning(f"No data returned for {seccode}")
-                return pd.DataFrame()
-            
-            # Log the beginning of the bars
-            logging.info("First entry in bars: %s", bars[0])
-            
+                return None
+           
             # Convert the bars to a DataFrame
-            df = util.df(bars)
-            log.debug(f"Raw data fetched for {seccode}: {df}")
-            if df.empty:
-                log.warning(f"No valid data in the response for {seccode}")
-                return pd.DataFrame()
-            
-            logging.debug("Bars data: %s", bars)
-            logging.debug("Processing candle for symbol: %s", symbol)
-
-            if df['date'].isnull().any():
-                logging.error("Null values found in 'date' column") 
-                
-            # Rename and set up DataFrame
-            df.rename(columns={'date': 'timestamp'}, inplace=True)
-            df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
-            
-            # Drop invalid timestamps
-            invalid_timestamps = df['timestamp'].isna().sum()
-            if invalid_timestamps > 0:
-                log.warning(f"{invalid_timestamps} invalid timestamps found for {seccode}. Dropping these rows.")
-                df.dropna(subset=['timestamp'], inplace=True)
-            
-            # Ensure timestamps are in UTC
-            df['timestamp'] = df['timestamp'].dt.tz_localize('UTC')
-            df.set_index('timestamp', inplace=True)
-            
-            # Validate required columns
-            required_columns = ['open', 'high', 'low', 'close', 'volume']
-            missing_columns = [col for col in required_columns if col not in df.columns]
-            if missing_columns:
-                log.error(f"Missing columns in data for {seccode}: {missing_columns}")
-                return pd.DataFrame()
-            
+            df = util.df(bars)            
             log.debug(f"Fetched {len(df)} rows of candles for {seccode}")
+            
             return df
         
         except Exception as e:
