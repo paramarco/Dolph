@@ -1279,24 +1279,20 @@ class DataServer:
             df.rename(columns={'date': 'timestamp'}, inplace=True)
             
             log.debug(f"after (rename ) candles head: {df.head()}")            
-            
-            ##df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
-            
-            log.debug(f"after (pd.to_datetime) candles head: {df.head()}")            
-            
+           
             # Drop invalid timestamps
             invalid_timestamps = df['timestamp'].isna().sum()
             if invalid_timestamps > 0:
                 log.warning(f"{invalid_timestamps} invalid timestamps for {seccode}")
                 df.dropna(subset=['timestamp'], inplace=True)
             
-            log.debug(f"after (Drop invalid timestamps) candles head: {df.head()}")            
+            log.debug(f"after (Droppinginvalid timestamps) candles head: {df.head()}")            
 
             # Ensure timestamps are in UTC
-            df['timestamp'] = df['timestamp'].dt.tz_localize('UTC')
+            df['timestamp'] = df['timestamp'].dt.tz_convert('UTC')
             df.set_index('timestamp', inplace=True)
             
-            log.debug(f"after (Ensure timestamps are in UTC) head: {df.head()}")     
+            log.debug(f"after (#Ensure timestamps are in UTC) head: {df.head()}")     
             
             # Validate required columns
             required_columns = ['open', 'high', 'low', 'close', 'volume']
