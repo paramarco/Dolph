@@ -1423,46 +1423,44 @@ class AlpacaTradingPlatform(TradingPlatform):
 
 ##############################################################################
 
-# class IB_OrderStatusUpdateTask:
+class IB_OrderStatusTask:
 
-#     def __init__(self, tp):
-#         self._running = True
-#         self.tp = tp
-#         self.ib = tp.ib
-#         log.debug('OrderStatusUpdateTask Thread initialized...')
+    def __init__(self, tp):
 
-#     def terminate(self):
-#         self._running = False
-#         log.debug('thread OrderStatusUpdateTask terminated...')
+        self._running = True
+        self.tp = tp
+        self.ib = tp.ib
+        log.info('OrderStatusTask Thread initialized...')
+
+
+    def terminate(self):
+
+        self._running = False
+        log.info('thread OrderStatusTask terminated...')
+
         
-#     def run(self):
-#         """
-#         Polls order updates every minute. Handles exceptions to prevent
-#         maximum recursion errors and logs them properly.
-#         """
-#         time.sleep(15)
-#         while self._running:
-#             self.tp.reportCurrentOpenPositions()
-#             try:
-#                 # Fetch all open trades from IB
-#                 trades = self.tp.ib.trades()
-                
-#                 for trade in trades:
-#                     order = OrderIB(trade)
-                    
-#                     if order.type in ['LMT', 'MKT']:  # IB uses 'LMT' for limit and 'MKT' for market orders
-#                         self.tp.processOrderStatus(order)
-#                     elif order.type in ['STP', 'STP LMT']:
-#                         self.tp.processStopOrderStatus(order)
-#                     else:
-#                         log.error(f"Unknown Order type : {order}")
+    def run(self):
 
-#             except Exception as e:
-#                 log.error(f"Failed to poll order updates: {e}")
+        time.sleep(15)
+        log.info('starting ordersStatusUpdate Thread ...')
+        while self._running:
+            self.tp.reportCurrentOpenPositions()
+            # try:
+            #     # Fetch all open trades from IB
+            #     trades = self.tp.ib.trades()
+            #     for trade in trades:
+            #         order = OrderIB(trade)
+            #         if order.type in ['LMT', 'MKT']:  # IB uses 'LMT' for limit and 'MKT' for market orders
+            #             self.tp.processOrderStatus(order)
+            #         elif order.type in ['STP', 'STP LMT']:
+            #             self.tp.processStopOrderStatus(order)
+            #         else:
+            #             log.error(f"Unknown Order type : {order}")
+            # except Exception as e:
+            #     log.error(f"Failed to poll order updates: {e}")
             
-#             self.tp.reportCurrentOpenPositions()
-#             # Sleep for 5 seconds before the next poll
-#             time.sleep(5)
+            # Sleep for 5 seconds before the next poll
+            time.sleep(5)
 
 
 class IBTradingPlatform(TradingPlatform):
@@ -1507,7 +1505,6 @@ class IBTradingPlatform(TradingPlatform):
             self.subscribe_to_market_data()
             
             log.info("Retrieving and storing initial candles...")
-            
             now = self.getTradingPlatformTime()
             months_ago = now - datetime.timedelta(days=30)
             
@@ -1515,6 +1512,13 @@ class IBTradingPlatform(TradingPlatform):
                 candles = self.get_candles(sec, months_ago, now, period='1Min')
                 self.ds.store_candles_from_IB(candles, sec)
     
+            self.ordersStatusUpdateTask = IB_OrderStatusTask(self)
+            t2 = Thread(
+                target = self.ordersStatusUpdateTask.run, 
+                args = ( )
+            )
+            t2.start()  
+            
             return True  # Successful connection
         
         except Exception as e:
@@ -1571,6 +1575,7 @@ class IBTradingPlatform(TradingPlatform):
             self.processOrderStatus(order)
         elif order.type in ['STP', 'STP LMT']:
             self.processStopOrderStatus(order)
+     
             
     def get_candles(self, security, since, until, period):
         """Interactive Brokers - Fetch historical candles with improved error handling."""
@@ -1632,7 +1637,9 @@ class IBTradingPlatform(TradingPlatform):
         log.info('disconnecting from Interactive Brokers...')
         if self.ib.isConnected():
             self.ib.disconnect()
-
+        
+        self.ordersStatusUpdateTask.terminate()
+        self.storeMonitoredPositions()
 
     def on_error(self, reqId, errorCode, errorString, contract):
         
@@ -1640,6 +1647,7 @@ class IBTradingPlatform(TradingPlatform):
 
 
     def get_history(self, board, seccode, period, count, reset=True):
+        
         contract = Stock(seccode, 'SMART', 'USD')
         end_dt = self.getTradingPlatformTime()
         duration = f'{period * count} D'  # assuming each period is one day
