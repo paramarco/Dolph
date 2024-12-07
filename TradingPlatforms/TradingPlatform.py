@@ -6,6 +6,7 @@ import logging
 import datetime
 import time
 import pytz
+import calendar
 import copy
 from threading import Thread, Lock
 from TradingPlatforms.transaq_connector import structures as ts
@@ -520,6 +521,10 @@ class TradingPlatform(ABC):
         if ct.hour in cm.nogoTradingHours and position.takePosition != 'close':
             logging.info(f'we are in a no-go Trading hour: {ct.hour}...')  
             return False
+        
+        if ct.weekday() in [calendar.SATURDAY, calendar.SUNDAY]:
+            logging.info(f'we are on Saturday or Sunday ...')  
+            return False
 
         # Only check self.tc if it's relevant, e.g., for platforms that use tc
         if hasattr(self, 'tc') and self.tc is not None and self.tc.connected:
@@ -809,7 +814,7 @@ class FinamTradingPlatform(TradingPlatform):
         t.start()
 
     def getTradingPlatformTime(self):
-       
+        """Transaq"""
         moscowTimeZone = pytz.timezone('Europe/Moscow')                    
         return datetime.datetime.now(moscowTimeZone)
     
@@ -1196,6 +1201,7 @@ class AlpacaTradingPlatform(TradingPlatform):
 
 
     def getTradingPlatformTime(self):
+        """Alpaca"""
         timeZone = pytz.timezone('America/New_York')
         return datetime.datetime.now(timeZone)
     
@@ -1464,6 +1470,10 @@ class IBTradingPlatform(TradingPlatform):
     def __init__(self, onCounterPosition):
 
         super().__init__(onCounterPosition)
+        
+        # Optional: Disable lower-level logs from ib_insync specifically
+        logging.getLogger('ib_insync').setLevel(logging.ERROR)
+        
         self.ib = IB()
         self.ib.errorEvent += self.on_error
         self.ib.orderStatusEvent += self.onOrderStatus
@@ -1489,6 +1499,9 @@ class IBTradingPlatform(TradingPlatform):
             log.info("Startting event loop in a separate thread for IB ...")
             thread = Thread(target=self.ib.run, daemon=True)
             thread.start()
+            
+            log.info('Sleeping 10 seconds ofr the DataServer to load...')
+            time.sleep(10)            
             
             log.info("subscribing to Market data...")
             self.subscribe_to_market_data()
@@ -1545,8 +1558,8 @@ class IBTradingPlatform(TradingPlatform):
                 'volume': ticker.volume,
                 'time': ticker.time
             }
-            log.info(f"Received update for {security_code}: {updated_data}")
-            self.ds.store_bar(security_code, updated_data)  # Assuming this method exists in DataServer
+            log.info(f"Received update for MktData {security_code}: {updated_data}")
+            self.ds.store_bar(security_code, updated_data) 
             
 
     def onOrderStatus(self, trade: Trade):
@@ -1566,11 +1579,11 @@ class IBTradingPlatform(TradingPlatform):
         
         # Map the period to IB's duration and barSize settings
         timeframe_mapping = {
-            '1Min': ('1 D', '1 min'),
-            'hour': ('1 D', '1 hour'),
-            'day': ('1 D', '1 day')
+            '1Min': ('1 W', '1 min'),
+            'hour': ('1 W', '1 hour'),
+            'day': ('1 W', '1 day')
         }
-        duration, barSize = timeframe_mapping.get(period, ('1 D', '1 min'))
+        duration, barSize = timeframe_mapping.get(period, ('1 W', '1 min'))
         
         # Convert localized times to UTC
         since_utc = since.astimezone(pytz.utc)
@@ -1683,9 +1696,8 @@ class IBTradingPlatform(TradingPlatform):
 
     def getTradingPlatformTime(self):
         """ Interactive Brokers """
-
-        cetTimeZone = pytz.timezone('CET')
-        return datetime.datetime.now(cetTimeZone)
+        usEasternTimeZone = pytz.timezone('US/Eastern')
+        return datetime.datetime.now(usEasternTimeZone)
     
     
     def cancellAllStopOrders(self):

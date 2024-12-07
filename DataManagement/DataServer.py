@@ -601,8 +601,8 @@ class DataServer:
         untilDate = ""
         if until is not None:
             untilDate = until.strftime('%Y-%m-%d %H:%M:%S%z')
-        log.debug(f"Since: {date}")
-        log.debug(f"Until: {untilDate}" if untilDate else "Until: None")
+        #log.debug(f"Since: {date}")
+        #log.debug(f"Until: {untilDate}" if untilDate else "Until: None")
     
         try:
             conn = psycopg2.connect(**cm.db_connection_params)
