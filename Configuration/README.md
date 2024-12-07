@@ -15,7 +15,7 @@ sudo docker run -it --name dolph-container \
     -v ~/pgdata:/var/lib/postgresql/14/main \
     -e DISPLAY=$DISPLAY \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
-    -p 5901:10171 \
+    -p 10171:5901 \
     --privileged \
     dolph-container /bin/bash
    
@@ -27,7 +27,7 @@ sudo docker run \
     -v ~/pgdata:/var/lib/postgresql/14/main \
     -e DISPLAY=$DISPLAY \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
-    -p 5901:10171 \
+    -p 10171:5901 \
     --privileged \
     8xv7t7tg.c1.de1.container-registry.ovh.net/e1256adf-9c74-4b6c-a238-86bbfc8fe1f9/dolph-container:latest  &
 
@@ -78,21 +78,40 @@ root@container:/#  cp /home/dolph_user/*sql /var/lib/postgresql/
 
 (venv) root@container:/# su - postgres
  
-postgres@container:~$ vi create_user_db.sql
+postgres@container:~$ vi pg_hba.conf
+    local   all   all   trust --> password
 
-postgres@container:~$ psql -U postgres -p XXXX -f create_user_db.sql
+postgres@container:~$ psql -U postgres -p 4713 -f create_user_db.sql
 
 (venv) root@container:/# su - postgres
 
 postgres@container:~$ vi create_tables.sql
 
-postgres@container:~$ psql -U postgres -d dolph_db -p XXXX -f create_tables.sql 
+postgres@container:~$ psql -U postgres -d dolph_db -p 4713 -f create_tables.sql 
 
-##Steps to Export/Import the Table Security into PostgreSQL,in development container
+su - dolph_user
+$ ./deploy.sh 1
+
+$ ./stop.sh 1
+
+vi /home/dolph_user/data/1/Dolph/Configuration/Conf.py
+    #MODE = 'OPERATIONAL' # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL' | 'INIT_DB'
+    MODE = 'INIT_DB'
+
+$ ./start.sh 1
+
+sudo docker exec -it --user root dolph-container /bin/bash
+
+$ cp /var/lib/postgresql/14/main/pg_hba.conf /etc/postgresql/14/main/pg_hba.conf
+
+$ sudo -u postgres /usr/lib/postgresql/14/bin/pg_ctl -D /var/lib/postgresql/14/main -l /var/log/postgresql/postgresql-14-main.log restart
+
+
+##Steps to Export/Import the Table monitored_positions into PostgreSQL,in development container
 
 root@container:/#   su - postgres
 
-postgres@container:~$ pg_dump -U dolph_user -d dolph_db -t security --data-only -f dump.sql
+postgres@container:~$ pg_dump -U dolph_user -d dolph_db -t monitored_positions --data-only -f dump.sql
 
 
 ##Switch to the postgres user in the Kubernetes container
@@ -101,14 +120,6 @@ postgres@container:~$ pg_dump -U dolph_user -d dolph_db -t security --data-only 
 root@container:/#  su - postgres
 
 postgres@container:~$ psql -U postgres -d dolph_db -f dump.sql
-
-# Manual step to access the data
-
-sudo docker exec -it --user root dolph-container /bin/bash
-
-$ cp /var/lib/postgresql/14/main/pg_hba.conf /etc/postgresql/14/main/pg_hba.conf
-
-$ sudo -u postgres /usr/lib/postgresql/14/bin/pg_ctl -D /var/lib/postgresql/14/main -l /var/log/postgresql/postgresql-14-main.log restart
 
 # Dry-run 
 

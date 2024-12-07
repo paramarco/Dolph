@@ -12,7 +12,7 @@ from threading import Thread, Lock
 from TradingPlatforms.transaq_connector import structures as ts
 from TradingPlatforms.transaq_connector import commands as tc
 import alpaca_trade_api as tradeapi
-from ib_insync import IB, Trade, Stock, util, LimitOrder, StopOrder
+from ib_insync import IB, Trade, Stock, util, LimitOrder, StopOrder, MarketOrder, Order
 from DataManagement import DataServer as ds
 from Configuration import Conf as cm
 from TradingPlatforms.Alpaca.Alpaca_Order import OrderAlpaca
@@ -1462,6 +1462,20 @@ class IB_OrderStatusTask:
             # Sleep for 5 seconds before the next poll
             time.sleep(5)
 
+# Handling Interactive Brokers (IB) Statuses
+#
+#     Submitted: The order has been sent to the exchange or venue and is waiting for execution.
+#     PreSubmitted: The order is being validated and queued for execution.
+#     PendingSubmit: The order is being processed for submission but is not yet submitted.
+#     PendingCancel: The order is being processed for cancellation.
+#     Cancelled: The order has been canceled and will not be executed.
+#     Filled: The order has been completely executed.
+#     PartiallyFilled: A part of the order has been executed, but not the entire quantity.
+#     Inactive: The order is inactive and not available for execution.
+#     Rejected: The order was rejected and will not be executed.
+#     Stopped: The order is halted and cannot proceed to execution.
+#     PendingReplace: The order is being modified with new parameters.
+
 
 class IBTradingPlatform(TradingPlatform):
 
@@ -1655,24 +1669,42 @@ class IBTradingPlatform(TradingPlatform):
 
 
     def new_order(self, board, seccode, client, union, buysell, expdate, quantity, price, bymarket, usecredit):
-        """ Interactive Brokers """
+        """Interactive Brokers"""
+    
         try:
-            # Create IB contract and order
+            # Create IB contract for the stock
             contract = Stock(seccode, 'SMART', 'USD')
-            order = LimitOrder(buysell, quantity, price)
+    
+            # Fetch market details for the security
+            market_details = self.ib.reqMktData(contract, '', False, False)
+            self.ib.sleep(1)  # Allow time for market data to be retrieved
+    
+            # Check if the asset is shortable if this is a 'sell' order
+            if buysell.lower() == 'sell':
+                if not market_details.shortableShares:
+                    logging.error(f"Asset {seccode} is not shortable.")
+                    return None
+    
+            # Determine order type: market or limit
+            if price == 0 or bymarket:
+                order = MarketOrder(buysell, quantity)
+            else:
+                order = LimitOrder(buysell, quantity, price)
     
             # Place order via IB API
             trade = self.ib.placeOrder(contract, order)
     
-            # Sleep briefly to allow for status update
-            self.ib.sleep(1)  # Adjust duration as needed for IB API
+            # Sleep briefly to allow for status updates
+            self.ib.sleep(1)
     
-            # Return the trade object directly
+            # Log the trade details and return the trade object
+            logging.info(f"Placed {order.orderType} {buysell} {quantity} of {seccode}")
             return trade
-
+    
         except Exception as e:
             logging.error(f"Error placing order for {seccode}: {e}")
             return None
+
 
 
     def cancel_order(self, order_id):
@@ -1681,23 +1713,37 @@ class IBTradingPlatform(TradingPlatform):
 
     def new_stoporder(self, board, seccode, client, buysell, quantity, trigger_price_sl, trigger_price_tp, correction, spread, bymarket, is_market):
         """ Interactive Brokers """
-
         try:
-            contract = Stock(seccode, 'SMART', 'USD')        
-            stop_price = float(trigger_price_sl) if buysell.lower() == 'sell' else float(trigger_price_tp)            
-            order = StopOrder(buysell, quantity, stop_price)            
+            # Create the contract for the stock
+            contract = Stock(seccode, 'SMART', 'USD')
+    
+            # Determine stop price and limit price
+            stop_price = float(trigger_price_tp) 
+            limit_price = float(trigger_price_tp)  # Use the target price as the limit price
+    
+            # Create a Stop-Limit Order
+            order = Order()
+            order.action = buysell.capitalize()  # 'BUY' or 'SELL'
+            order.orderType = 'STP LMT'  # Stop-Limit Order
+            order.totalQuantity = quantity
+            order.auxPrice = stop_price  # The stop (trigger) price
+            order.lmtPrice = limit_price  # The limit price
+            order.tif = 'GTC'  # Good 'Til Cancel
+    
+            # Submit the order via IB API
             trade = self.ib.placeOrder(contract, order)
-            
+    
+            # Log the order details and return the trade object
+            logging.info(f"{buysell} {quantity} of {seccode}, stop price={stop_price}")
             return trade
-
+    
         except Exception as e:
-            logging.error(f"Error placing stoporder for {seccode}: {e}")
+            logging.error(f"Error placing stop-limit order for {seccode}: {e}")
             return None
 
 
     def cancel_stoploss(self, stop_order_id):
         """ Interactive Brokers """
-
         self.ib.cancelOrder(stop_order_id)
 
 
@@ -1725,11 +1771,11 @@ class IBTradingPlatform(TradingPlatform):
         msg = f'localTime: {localTime} exit timedouts at: {exitTime} {repr(mso)}'
         log.info(msg)
         res = self.new_order(
-            mp.board, mp.seccode, mp.client, mp.union, mso.buysell,
-            mp.expdate, mp.quantity, price=mp.entryPrice, bymarket=True, usecredit=False
+            mp.board, mp.seccode, mp.client, mp.union, mso.buysell, mp.expdate, 
+            mp.quantity, price=mp.entryPrice, bymarket=True, usecredit=False
         )            
         log.debug(repr(res))
-        tid = res.id        
+        tid = res.order.orderId 
         for mso in list2cancel:
             if mso in self.monitoredStopOrders:
                 self.monitoredStopOrders.remove(mso)
@@ -1737,6 +1783,7 @@ class IBTradingPlatform(TradingPlatform):
             self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_id != mso.id] 
         
         return tid
+
     
     def getClientId(self):
         """ Interactive Brokers """
@@ -1781,6 +1828,7 @@ class IBTradingPlatform(TradingPlatform):
         except Exception as e:
             log.error(f"Failed to get cash balance: {e}")
             return 0.0
+
     
     def get_net_balance(self):
         """ Interactive Brokers """
@@ -1799,7 +1847,6 @@ class IBTradingPlatform(TradingPlatform):
         except Exception as e:
             log.error(f"Error retrieving net balance: {e}")
             return 0.0
-
 
 
     def openPosition(self, position):
@@ -1831,7 +1878,7 @@ class IBTradingPlatform(TradingPlatform):
 
     def removeMonitoredPositionByExit(self, order):
         """ Interactive Brokers """
-        self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_id != order.orderId]   
+        self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_id != order.id]   
         
     def set_exit_order_no_to_MonitoredPosition (self, stopOrder):
         """ Interactive Brokers """
