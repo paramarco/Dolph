@@ -1289,6 +1289,8 @@ class DataServer:
             log.debug(f"after (Droppinginvalid timestamps) candles head: {df.head()}")            
 
             # Ensure timestamps are in UTC
+            if df['timestamp'].dt.tz is None:
+                df['timestamp'] = df['timestamp'].dt.tz_localize('US/Eastern')  # Adjust source timezone
             df['timestamp'] = df['timestamp'].dt.tz_convert('UTC')
             df.set_index('timestamp', inplace=True)
             
