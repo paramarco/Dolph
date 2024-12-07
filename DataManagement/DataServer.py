@@ -478,7 +478,7 @@ class DataServer:
                 try:
                     dfs = self.searchData(since)
                     if dfs:
-                        log.info("Data found for synchronization.")
+                        log.info("Data found, waiting for synchronization.")
                     else:
                         log.error("No data returned for synchronization.")
                 except Exception as e:
@@ -587,11 +587,7 @@ class DataServer:
             if timeAux >= timelastPeriod and self.lastUpdate != timelastPeriod:
                 synced = True
                 self.lastUpdate = timelastPeriod
-
-            #logging.debug(f'TimelastPeriod: {timelastPeriod}')
-            #logging.debug(f'Timelast1Min: {timelast1Min}')
-            #logging.debug(f'TimeAux: {timeAux}')
-            #logging.debug(f'Period synced: {synced}')
+                logging.info(f'synced, Time of lastPeriod: {timelastPeriod}')
 
         return synced
 
