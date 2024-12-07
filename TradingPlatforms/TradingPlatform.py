@@ -464,10 +464,10 @@ class TradingPlatform(ABC):
             msg += str(mp) + '\n'
         msg += f'monitored Orders    : {numMonOrder}\n'
         for mo in self.monitoredOrders:
-            msg += repr(mo) + '\n'
+            msg += str(mo) + '\n'
         msg += f'monitored StopOrders: {numMonStopOrder}\n'
         for mso in self.monitoredStopOrders:
-            msg += repr(mso) + '\n'
+            msg += str(mso) + '\n'
         
         logging.info(msg)
         total = numMonOrder + numMonStopOrder

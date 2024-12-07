@@ -1203,55 +1203,7 @@ class DataServer:
         finally:
             if conn:
                 conn.close()
-    
-    
-    # def store_candles_from_IB (self, candles, security):
-    #     try:
-    #         seccode = security['seccode']
-    #         board = security['board']
-            
-    #         conn = psycopg2.connect(**cm.db_connection_params)
-    #         cursor = conn.cursor()
-    #         cursor.execute("BEGIN")
-            
-    #         security_id = self.__getSecurityIdSQL(board, seccode)
-    
-    #         for index, row in candles.iterrows():
-    #             # Ensure the columns match IB's DataFrame structure
-    #             values = (
-    #                 index,  # Use the index as the timestamp
-    #                 row['open'],
-    #                 row['high'],
-    #                 row['low'],
-    #                 row['close'],
-    #                 row['volume'],  # Verify this column exists as expected
-    #                 security_id
-    #             )
-    
-    #             query_insert = """
-    #                 INSERT INTO quote
-    #                 (DATE_TIME, OPEN, HIGH, LOW, CLOSE, VOL, security_id) 
-    #                 VALUES (%s, %s, %s, %s, %s, %s, %s)
-    #                 ON CONFLICT (DATE_TIME, security_id) 
-    #                 DO UPDATE SET 
-    #                     OPEN = EXCLUDED.OPEN,
-    #                     HIGH = EXCLUDED.HIGH,
-    #                     LOW = EXCLUDED.LOW,
-    #                     CLOSE = EXCLUDED.CLOSE,
-    #                     VOL = EXCLUDED.VOL;
-    #             """
-    
-    #             cursor.execute(query_insert, values)
-    
-    #         cursor.execute("COMMIT")
-    #         conn.commit()
-    #         cursor.close()
-    
-    #     except Exception as e:
-    #         log.error("Failed to commit: %s", e)
-    #     finally:
-    #         if conn:
-    #             conn.close()    
+     
     
     def store_candles_from_IB(self, df, security):
         
@@ -1266,35 +1218,25 @@ class DataServer:
             # Log the structure of the candles for debugging            
             if df.empty:
                 log.warning(f"No valid data in the response for {seccode}")
-                return None
-            
-            log.debug(f"Received candles head: {df.head()}")
+                return None            
 
             if df['date'].isnull().any():
-                logging.error("Null values found in 'date' column") 
-             
-            log.debug(f"after isnull().any() candles head: {df.head()}")            
+                logging.error("Null values found in 'date' column")              
 
             # Rename and set up DataFrame
-            df.rename(columns={'date': 'timestamp'}, inplace=True)
-            
-            log.debug(f"after (rename ) candles head: {df.head()}")            
+            df.rename(columns={'date': 'timestamp'}, inplace=True)            
            
             # Drop invalid timestamps
             invalid_timestamps = df['timestamp'].isna().sum()
             if invalid_timestamps > 0:
                 log.warning(f"{invalid_timestamps} invalid timestamps for {seccode}")
-                df.dropna(subset=['timestamp'], inplace=True)
-            
-            log.debug(f"after (Droppinginvalid timestamps) candles head: {df.head()}")            
+                df.dropna(subset=['timestamp'], inplace=True)            
 
             # Ensure timestamps are in UTC
             if df['timestamp'].dt.tz is None:
                 df['timestamp'] = df['timestamp'].dt.tz_localize('US/Eastern')  # Adjust source timezone
             df['timestamp'] = df['timestamp'].dt.tz_convert('UTC')
-            df.set_index('timestamp', inplace=True)
-            
-            log.debug(f"after (#Ensure timestamps are in UTC) head: {df.head()}")     
+            df.set_index('timestamp', inplace=True)            
             
             # Validate required columns
             required_columns = ['open', 'high', 'low', 'close', 'volume']
