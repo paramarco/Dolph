@@ -1274,7 +1274,9 @@ class DataServer:
 
             if df['date'].isnull().any():
                 logging.error("Null values found in 'date' column") 
-                
+             
+            log.debug(f"after isnull().any() candles head: {df.head()}")            
+
             # Rename and set up DataFrame
             df.rename(columns={'date': 'timestamp'}, inplace=True)
             df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
