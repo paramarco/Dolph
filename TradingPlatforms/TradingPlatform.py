@@ -1590,16 +1590,13 @@ class IBTradingPlatform(TradingPlatform):
 
     def onOrderStatus(self, trade: Trade):
         """ Interactive Brokers """
-        self.tp.reportCurrentOpenPositions()
         
         order = OrderIB(trade)
         # Process regular or stop orders
         if order.type in ['LMT', 'MKT']:
             self.processOrderStatus(order)
         elif order.type in ['STP', 'STP LMT']:
-            self.processStopOrderStatus(order)
-        
-        self.tp.reportCurrentOpenPositions()
+            self.processStopOrderStatus(order)        
      
             
     def get_candles(self, security, since, until, period):
