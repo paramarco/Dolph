@@ -77,7 +77,7 @@ echo "Configuring crontab..."
 cat <<EOF | crontab -
 59 23 * * * sudo -u dolph_user /home/dolph_user/stop.sh >> /var/log/stop_cron_test.log 2>&1
 0 0 * * * sleep 1 && sudo -u dolph_user /home/dolph_user/compress_logs.sh >> /var/log/compress_logs.log 2>&1
-0 0 * * * sleep 10 && sudo -u postgres /usr/lib/postgresql/14/bin/pg_ctl -D /var/lib/postgresql/14/main -l /var/log/db_restart_cron_test.log restart >> /var/log/db_restart_cron_test.log 2>&1
+0 0 * * * sleep 10 && sudo -u postgres /usr/lib/postgresql/14/bin/pg_ctl -D /var/lib/postgresql/14/main -l /var/log/postgresql/postgresql-14-main.log restart >> /var/log/db_restart_cron_test.log 2>&1
 0 0 * * * sleep 20 && sudo -u dolph_user /home/dolph_user/start.sh >> /var/log/start_cron_test.log 2>&1
 EOF
 

@@ -359,9 +359,11 @@ class TradingPlatform(ABC):
         s = order.status
         try:
             with self.lock:
+                
+                monitoredPosition = self.getPositionByOrder(order)                        
+
                 if s in cm.statusOrderExecuted : 
                     
-                    monitoredPosition = self.getPositionByOrder(order)                        
                     if monitoredPosition is None:                    
                         if order in self.monitoredOrders:
                             self.monitoredOrders.remove(order)
@@ -377,6 +379,12 @@ class TradingPlatform(ABC):
                             logging.info(f"exit complete: {str(monitoredPosition)}")                                   
                     
                 elif s in cm.statusOrderForwarding :
+                    
+                    if monitoredPosition is not None:
+                        monitoredPosition.entry_id = order.id
+                        logging.info(f'entry order {order.id} in status:{s} linked to monitoredPosition')
+                    else:
+                        logging.error(f'entry order {order.id} in status:{s} unlinked ...')
                     
                     if order not in self.monitoredOrders:
                         self.monitoredOrders.append(order)
@@ -1582,6 +1590,7 @@ class IBTradingPlatform(TradingPlatform):
 
     def onOrderStatus(self, trade: Trade):
         """ Interactive Brokers """
+        self.tp.reportCurrentOpenPositions()
         
         order = OrderIB(trade)
         # Process regular or stop orders
@@ -1589,6 +1598,8 @@ class IBTradingPlatform(TradingPlatform):
             self.processOrderStatus(order)
         elif order.type in ['STP', 'STP LMT']:
             self.processStopOrderStatus(order)
+        
+        self.tp.reportCurrentOpenPositions()
      
             
     def get_candles(self, security, since, until, period):
@@ -1805,7 +1816,11 @@ class IBTradingPlatform(TradingPlatform):
         
         monitoredPosition = None
         for m in self.monitoredPositions:
-            if order.id in [ m.entry_id, m.exit_id ] or m.exit_order_no == order.id:
+            if (
+                order.id in [ m.entry_id, m.exit_id ] 
+                or m.exit_order_no == order.id 
+                or ( m.seccode == order.seccode and m.buysell == order.buysell  )
+            ):
                monitoredPosition = m
                break
         return monitoredPosition
@@ -1857,24 +1872,25 @@ class IBTradingPlatform(TradingPlatform):
         position.expdate = self.getExpDate(position.seccode)
         price = round(position.entryPrice, position.decimals)
         price = "{0:0.{prec}f}".format(price, prec=position.decimals)
+
+        self.monitoredPositions.append(position)
     
         res = self.new_order(
             position.board, position.seccode, position.client, position.union,
             buysell, position.expdate, position.quantity, price, position.bymarket, False
         )
+        log.debug(repr(res))
         if res is None:
             logging.error("Failed to create order: new_order returned None")
             return
-        log.debug(repr(res))
-
-        # Check if order status is in the forwarding list
-        if res.orderStatus.status.lower() in cm.statusOrderForwarding:
+        
+        elif res.orderStatus.status.lower() in cm.statusOrderForwarding or res.orderStatus.status.lower() in cm.statusOrderExecuted:
             position.entry_id = res.order.orderId  # Capture the IB order ID
-            self.monitoredPositions.append(position)
             logging.info(f"orderId: {res.order.orderId}, status: {res.orderStatus.status}")
+        
         else:
             logging.error(f"Order failed or in invalid state: {res.orderStatus.status}")
-
+        
 
     def removeMonitoredPositionByExit(self, order):
         """ Interactive Brokers """
@@ -1896,26 +1912,28 @@ class IBTradingPlatform(TradingPlatform):
         )
         trigger_price_sl = "{0:0.{prec}f}".format(
             round(monitoredPosition.stoploss, monitoredPosition.decimals), prec=monitoredPosition.decimals
-        )    
+        )
+        
+        monitoredPosition.stopOrderRequested = True
+
         res = self.new_stoporder(
             None, monitoredPosition.seccode, None, buysell, 
             monitoredPosition.quantity, trigger_price_sl, trigger_price_tp,
             None, None, None, False 
         )
+        log.info(repr(res))  
+        
         if res is None:
             logging.error(f"Failed to create stop order: new_stoporder returned None")
-            return
-        log.info(repr(res))    
+            
+        elif res.orderStatus.status.lower() in cm.statusOrderForwarding or res.orderStatus.status.lower() in cm.statusOrderExecuted:
 
-        with self.lock :
-            if res.orderStatus.status.lower() in cm.statusOrderForwarding:
-                monitoredPosition.stopOrderRequested = True
-                monitoredPosition.exit_id = res.order.orderId  # Capture IB order ID
-                if order in self.monitoredOrders:
-                    self.monitoredOrders.remove(order)
-                logging.info(f"Stop order {order.id} successfully in IB OrderId: {res.order.orderId}")
-            else:
-                logging.error(f"failed Stop order for {order.id}, status: {res.orderStatus.status}")
+            monitoredPosition.exit_id = res.order.orderId  # Capture IB order ID
+            if order in self.monitoredOrders:
+                self.monitoredOrders.remove(order)
+            logging.info(f"Stop order {order.id} successfully in IB OrderId: {res.order.orderId}")
+        else:
+            logging.error(f"failed Stop order for {order.id}, status: {res.orderStatus.status}")
 
 
 
