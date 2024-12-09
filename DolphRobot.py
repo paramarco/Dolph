@@ -282,10 +282,8 @@ class Dolph:
         return takePosition
   
     
-    def positionExceedsBalance (self, position):
-        
-        exceeds = True if position.quantity == 0 else False
-        
+    def positionExceedsBalance (self, position):        
+       
         cash_balance = self.tp.get_cash_balance()
         if cash_balance == 0 : return True
         
@@ -295,7 +293,9 @@ class Dolph:
         for p in positions :
             cash_positions += p.quantity * p.entryPrice
             
-        if cash_positions > cash_balance : exceeds = True 
+        if cash_positions > cash_balance : 
+            exceeds = True    
+            logging.error("cash_positions > cash_balance")
         
         return exceeds 
     
@@ -383,7 +383,7 @@ class Dolph:
             exitTime, correction, spread, byMarket 
         )
         
-        if self.positionExceedsBalance(position):
+        if self.positionExceedsBalance(position) and takePosition in ['long','short']:
             position.takePosition = 'no-go'
         
         logging.info( 'dolph decides: ' + str(position))    
