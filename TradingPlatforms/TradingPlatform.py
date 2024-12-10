@@ -1876,7 +1876,7 @@ class IBTradingPlatform(TradingPlatform):
             logging.error("Failed to create order: new_order returned None")
             return
         
-        elif res.orderStatus.status.lower() in cm.statusOrderForwarding or res.orderStatus.status.lower() in cm.statusOrderExecuted:
+        elif res.orderStatus.status in cm.statusOrderForwarding or res.orderStatus.status in cm.statusOrderExecuted:
             position.entry_id = res.order.orderId  # Capture the IB order ID
             logging.info(f"orderId: {res.order.orderId}, status: {res.orderStatus.status}")
         
@@ -1918,7 +1918,7 @@ class IBTradingPlatform(TradingPlatform):
         if res is None:
             logging.error(f"Failed to create stop order: new_stoporder returned None")
             
-        elif res.orderStatus.status.lower() in cm.statusOrderForwarding or res.orderStatus.status.lower() in cm.statusOrderExecuted:
+        elif res.orderStatus.status in cm.statusOrderForwarding or res.orderStatus.status in cm.statusOrderExecuted:
 
             monitoredPosition.exit_id = res.order.orderId  # Capture IB order ID
             if order in self.monitoredOrders:
