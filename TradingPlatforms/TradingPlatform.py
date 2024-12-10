@@ -357,49 +357,47 @@ class TradingPlatform(ABC):
         #logging.debug(str(order))  
         # clone = {'id': order.id, 'status': order.status} ;  self.triggerWhenMatched(clone) if s in cm.statusOrderExecuted   
         s = order.status
-        try:
-            with self.lock:
-                
-                monitoredPosition = self.getPositionByOrder(order)                        
+        try:                
+            monitoredPosition = self.getPositionByOrder(order)                        
 
-                if s in cm.statusOrderExecuted : 
-                    
-                    if monitoredPosition is None:                    
-                        if order in self.monitoredOrders:
-                            self.monitoredOrders.remove(order)
-                            logging.info(f'already processed before, deleting: {repr(order.id)}')
-                        
-                    elif not monitoredPosition.stopOrderRequested:
-                        logging.info(f'Order is Filled-Monitored wo stopOrderRequested: {repr(order.id)}')
-                        self.triggerStopOrder(order, monitoredPosition)                
-                    else:
-                        self.removeMonitoredPositionByExit(order)
-                        if order in self.monitoredOrders:
-                            self.monitoredOrders.remove(order)
-                            logging.info(f"exit complete: {str(monitoredPosition)}")                                   
-                    
-                elif s in cm.statusOrderForwarding :
-                    
-                    if monitoredPosition is not None:
-                        monitoredPosition.entry_id = order.id
-                        logging.info(f'entry order {order.id} in status:{s} linked to monitoredPosition')
-                    else:
-                        logging.error(f'entry order {order.id} in status:{s} unlinked ...')
-                    
-                    if order not in self.monitoredOrders:
-                        self.monitoredOrders.append(order)
-                        logging.info(f'order {order.id} in status:{s} added to monitoredOrders')   
-                        
-                elif s in cm.statusOrderCanceled :
-    
-                    self.monitoredPositions = [p for p in self.monitoredPositions if p.entry_id != order.id]
+            if s in cm.statusOrderExecuted : 
+                
+                if monitoredPosition is None:                    
                     if order in self.monitoredOrders:
                         self.monitoredOrders.remove(order)
-                        self.cancel_order(order.id)                
-                        logging.info(f'order {order.id} with status: {s} deleted from monitoredOrders')
+                        logging.info(f'already processed before, deleting: {repr(order.id)}')
                     
-                else:                
-                    logging.debug(f'order {order.id} in status: {s} ')
+                elif not monitoredPosition.stopOrderRequested:
+                    logging.info(f'Order is Filled-Monitored wo stopOrderRequested: {repr(order.id)}')
+                    self.triggerStopOrder(order, monitoredPosition)                
+                else:
+                    self.removeMonitoredPositionByExit(order)
+                    if order in self.monitoredOrders:
+                        self.monitoredOrders.remove(order)
+                        logging.info(f"exit complete: {str(monitoredPosition)}")                                   
+                
+            elif s in cm.statusOrderForwarding :
+                
+                if monitoredPosition is not None:
+                    monitoredPosition.entry_id = order.id
+                    logging.info(f'entry order {order.id} in status:{s} linked to monitoredPosition')
+                else:
+                    logging.error(f'entry order {order.id} in status:{s} unlinked ...')
+                
+                if order not in self.monitoredOrders:
+                    self.monitoredOrders.append(order)
+                    logging.info(f'order {order.id} in status:{s} added to monitoredOrders')   
+                    
+            elif s in cm.statusOrderCanceled :
+
+                self.monitoredPositions = [p for p in self.monitoredPositions if p.entry_id != order.id]
+                if order in self.monitoredOrders:
+                    self.monitoredOrders.remove(order)
+                    self.cancel_order(order.id)                
+                    logging.info(f'order {order.id} with status: {s} deleted from monitoredOrders')
+                
+            else:                
+                logging.debug(f'order {order.id} in status: {s} ')
            
         except Exception as e:
             log.error(f"Failed to processOrderStatus: {e}")
@@ -410,42 +408,40 @@ class TradingPlatform(ABC):
         #logging.debug(str(stopOrder))       
         s = stopOrder.status
         m = ''
-        try:
-            with self.lock:    
+        try:               
+            if s in cm.statusOrderForwarding:
                 
-                if s in cm.statusOrderForwarding:
+                if stopOrder not in self.monitoredStopOrders:
+                    self.monitoredStopOrders.append(stopOrder)
+                    m = f'stopOrder {stopOrder.id} with status: {s} added to monitoredStopOrders'
                     
-                    if stopOrder not in self.monitoredStopOrders:
-                        self.monitoredStopOrders.append(stopOrder)
-                        m = f'stopOrder {stopOrder.id} with status: {s} added to monitoredStopOrders'
-                        
-                elif s in cm.statusStopOrderExecuted :  
-                    
-                    self.set_exit_order_no_to_MonitoredPosition(stopOrder)                      
-                    if stopOrder in self.monitoredStopOrders:
-                        self.monitoredStopOrders.remove(stopOrder)
-                        m = f'stopOrder: {stopOrder.id} in status: {s} deleted from monitoredStopOrders'
-                    
-                elif s in cm.statusStopOrderFilled :
-                    
-                    self.removeMonitoredPositionByExit(stopOrder)
-                    if stopOrder in self.monitoredStopOrders:
-                        self.monitoredStopOrders.remove(stopOrder)
-                        m = f'stopOrder: {stopOrder.id} in status: {s} deleted from monitoredStopOrders'
-                    
+            elif s in cm.statusStopOrderExecuted :  
                 
-                elif s in cm.statusOrderCanceled:
-                    
-                    self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_id != stopOrder.id] 
-                    if stopOrder in self.monitoredStopOrders:
-                        self.monitoredStopOrders.remove(stopOrder)
-                        m = f'id: {stopOrder.id} with status: {s} deleted from monitoredStopOrders'
-                    
-                else:
-                    logging.debug(f'status: {s} skipped, belongs to: {cm.statusOrderOthers}')
+                self.set_exit_order_no_to_MonitoredPosition(stopOrder)                      
+                if stopOrder in self.monitoredStopOrders:
+                    self.monitoredStopOrders.remove(stopOrder)
+                    m = f'stopOrder: {stopOrder.id} in status: {s} deleted from monitoredStopOrders'
                 
-                if m != "":
-                    logging.info(m)
+            elif s in cm.statusStopOrderFilled :
+                
+                self.removeMonitoredPositionByExit(stopOrder)
+                if stopOrder in self.monitoredStopOrders:
+                    self.monitoredStopOrders.remove(stopOrder)
+                    m = f'stopOrder: {stopOrder.id} in status: {s} deleted from monitoredStopOrders'
+                
+            
+            elif s in cm.statusOrderCanceled:
+                
+                self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_id != stopOrder.id] 
+                if stopOrder in self.monitoredStopOrders:
+                    self.monitoredStopOrders.remove(stopOrder)
+                    m = f'id: {stopOrder.id} with status: {s} deleted from monitoredStopOrders'
+                
+            else:
+                logging.debug(f'status: {s} skipped, belongs to: {cm.statusOrderOthers}')
+            
+            if m != "":
+                logging.info(m)
                     
         except Exception as e:
             log.error(f"Failed to processStopOrderStatus: {e}")
