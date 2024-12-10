@@ -126,7 +126,6 @@ class TradingPlatform(ABC):
         self.fmt = "%d.%m.%Y %H:%M:%S"
         
         self.loadMonitoredPositions() 
-        self.lock = Lock()
 
     def _init_configuration(self):
         
