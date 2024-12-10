@@ -277,13 +277,15 @@ class Dolph:
             
             takePosition = prediction
             security['lastPositionTaken'] = takePosition
-                   
+       
         logging.info(f'{takePosition}')
         return takePosition
   
     
     def positionExceedsBalance (self, position):        
        
+        exceeds = True if position.quantity == 0 else False
+        
         cash_balance = self.tp.get_cash_balance()
         if cash_balance == 0 : return True
         
@@ -383,8 +385,9 @@ class Dolph:
             exitTime, correction, spread, byMarket 
         )
         
-        if self.positionExceedsBalance(position) and takePosition in ['long','short']:
-            position.takePosition = 'no-go'
+        if takePosition in ['long','short']:            
+            if self.positionExceedsBalance(position):
+                takePosition = 'no-go' 
         
         logging.info( 'dolph decides: ' + str(position))    
             
