@@ -354,7 +354,7 @@ class TradingPlatform(ABC):
         
     def processOrderStatus(self, order):
         """ common """
-        logging.debug(str(order))  
+        #logging.debug(str(order))  
         # clone = {'id': order.id, 'status': order.status} ;  self.triggerWhenMatched(clone) if s in cm.statusOrderExecuted   
         s = order.status
         try:
@@ -407,7 +407,7 @@ class TradingPlatform(ABC):
 
     def processStopOrderStatus(self, stopOrder):
         """common"""        
-        logging.debug(str(stopOrder))       
+        #logging.debug(str(stopOrder))       
         s = stopOrder.status
         m = ''
         try:
