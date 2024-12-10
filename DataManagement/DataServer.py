@@ -587,7 +587,8 @@ class DataServer:
             if timeAux >= timelastPeriod and self.lastUpdate != timelastPeriod:
                 synced = True
                 self.lastUpdate = timelastPeriod
-                logging.info(f'synced, Time of lastPeriod: {timelastPeriod}')
+                #logging.info(f'synced, Time of lastPeriod: {timelastPeriod}')
+                log.info('synced ...')
 
         return synced
 
@@ -1217,7 +1218,7 @@ class DataServer:
                 return None            
 
             if df['date'].isnull().any():
-                logging.error("Null values found in 'date' column")              
+                log.error("Null values found in 'date' column")              
 
             # Rename and set up DataFrame
             df.rename(columns={'date': 'timestamp'}, inplace=True)            
