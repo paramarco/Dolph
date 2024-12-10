@@ -454,7 +454,7 @@ class DataServer:
             log.error(str(inst.args))
 
     def syncData(self, data):
-        #log.info("Synchronizing database...")
+        log.info("Synchronizing database...")
 
         self.since = self.since + dt.timedelta(minutes=1)
         self.until = self.since + dt.timedelta(minutes=self.numTestSample)
