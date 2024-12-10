@@ -1680,7 +1680,7 @@ class IBTradingPlatform(TradingPlatform):
     
             # Fetch market details for the security
             market_details = self.ib.reqMktData(contract, '', False, False)
-            self.ib.sleep(1)  # Allow time for market data to be retrieved
+            #self.ib.sleep(1)  # Allow time for market data to be retrieved
     
             # Check if the asset is shortable if this is a 'sell' order
             if buysell.lower() == 'sell':
@@ -1698,7 +1698,7 @@ class IBTradingPlatform(TradingPlatform):
             trade = self.ib.placeOrder(contract, order)
     
             # Sleep briefly to allow for status updates
-            self.ib.sleep(1)
+            # self.ib.sleep(1)
     
             # Log the trade details and return the trade object
             logging.info(f"Placed {order.orderType} {buysell} {quantity} of {seccode}")
