@@ -1511,9 +1511,9 @@ class IBTradingPlatform(TradingPlatform):
             self.connected = True
             
             # Start event loop in a separate thread
-            log.info("Startting event loop in a separate thread for IB ...")
-            thread = Thread(target=self.ib.run, daemon=True)
-            thread.start()
+            # log.info("Startting event loop in a separate thread for IB ...")
+            # thread = Thread(target=self.ib.run, daemon=True)
+            # thread.start()
             
             log.info('Sleeping 10 seconds ofr the DataServer to load...')
             time.sleep(10)            
