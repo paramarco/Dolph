@@ -353,7 +353,7 @@ class TradingPlatform(ABC):
         
     def processOrderStatus(self, order):
         """ common """
-        #logging.debug(str(order))  
+        logging.debug(str(order))  
         # clone = {'id': order.id, 'status': order.status} ;  self.triggerWhenMatched(clone) if s in cm.statusOrderExecuted   
         s = order.status
         try:                
@@ -377,11 +377,11 @@ class TradingPlatform(ABC):
                 
             elif s in cm.statusOrderForwarding :
                 
-                if monitoredPosition is not None:
-                    monitoredPosition.entry_id = order.id
-                    logging.info(f'entry order {order.id} in status:{s} linked to monitoredPosition')
-                else:
-                    logging.error(f'entry order {order.id} in status:{s} unlinked ...')
+                # if monitoredPosition is not None:
+                #     monitoredPosition.entry_id = order.id
+                #     logging.info(f'entry order {order.id} in status:{s} linked to monitoredPosition')
+                # else:
+                #     logging.error(f'entry order {order.id} in status:{s} unlinked ...')
                 
                 if order not in self.monitoredOrders:
                     self.monitoredOrders.append(order)
@@ -404,7 +404,7 @@ class TradingPlatform(ABC):
 
     def processStopOrderStatus(self, stopOrder):
         """common"""        
-        #logging.debug(str(stopOrder))       
+        logging.debug(str(stopOrder))       
         s = stopOrder.status
         m = ''
         try:               
@@ -496,7 +496,7 @@ class TradingPlatform(ABC):
         monitoredPosition = self.getMonitoredPositionBySeccode(code)
         monitoredStopOrder = self.getMonitoredStopOrderBySeccode(code)
         
-        if monitoredPosition is None or monitoredStopOrder is None:
+        if monitoredPosition is None and monitoredStopOrder is None:
             logging.error("position Not found, recheck this case")            
         else:
             log.info('close action received, closing position...')
@@ -1170,11 +1170,11 @@ class AlpacaTradingPlatform(TradingPlatform):
         if buysell.lower() == 'sell':
             asset = self.api.get_asset(seccode)
             if not asset.shortable:
-                logging.error(f"Asset {seccode} is not shortable.")
+                log.error(f"Asset {seccode} is not shortable.")
                 return None    
                 
         try:
-            logging.info(f"Placing {buysell} order for {seccode} at {price}...")
+            log.info(f"Placing {buysell} order for {seccode} at {price}...")
             return self.api.submit_order(**params)
            
         except Exception as e:
@@ -1448,19 +1448,19 @@ class IB_OrderStatusTask:
         log.info('starting ordersStatusUpdate Thread ...')
         while self._running:
             self.tp.reportCurrentOpenPositions()
-            # try:
-            #     # Fetch all open trades from IB
-            #     trades = self.tp.ib.trades()
-            #     for trade in trades:
-            #         order = OrderIB(trade)
-            #         if order.type in ['LMT', 'MKT']:  # IB uses 'LMT' for limit and 'MKT' for market orders
-            #             self.tp.processOrderStatus(order)
-            #         elif order.type in ['STP', 'STP LMT']:
-            #             self.tp.processStopOrderStatus(order)
-            #         else:
-            #             log.error(f"Unknown Order type : {order}")
-            # except Exception as e:
-            #     log.error(f"Failed to poll order updates: {e}")
+            try:
+                # Fetch all open trades from IB
+                trades = self.tp.ib.trades()
+                for trade in trades:
+                    order = OrderIB(trade)
+                    if order.type in ['LMT', 'MKT']:  # IB uses 'LMT' for limit and 'MKT' for market orders
+                        self.tp.processOrderStatus(order)
+                    elif order.type in ['STP', 'STP LMT']:
+                        self.tp.processStopOrderStatus(order)
+                    else:
+                        log.error(f"Unknown Order type : {order}")
+            except Exception as e:
+                log.error(f"Failed to poll order updates: {e}")
             
             # Sleep for 5 seconds before the next poll
             time.sleep(5)
@@ -1491,7 +1491,7 @@ class IBTradingPlatform(TradingPlatform):
         
         self.ib = IB()
         self.ib.errorEvent += self.on_error
-        self.ib.orderStatusEvent += self.onOrderStatus
+        #self.ib.orderStatusEvent += self.onOrderStatus
         self.account_number = self.secrets.get("account_number")
         self.host = self.secrets.get("host", "127.0.0.1")
         self.port = self.secrets.get("port", 7497)
@@ -1701,11 +1701,11 @@ class IBTradingPlatform(TradingPlatform):
             # self.ib.sleep(1)
     
             # Log the trade details and return the trade object
-            logging.info(f"Placed {order.orderType} {buysell} {quantity} of {seccode}")
+            log.info(f"Placed {order.orderType} {buysell} {quantity} of {seccode}")
             return trade
     
         except Exception as e:
-            logging.error(f"Error placing order for {seccode}: {e}")
+            log.error(f"Error placing order for {seccode}: {e}")
             return None
 
 
@@ -1737,7 +1737,7 @@ class IBTradingPlatform(TradingPlatform):
             trade = self.ib.placeOrder(contract, order)
     
             # Log the order details and return the trade object
-            logging.info(f"{buysell} {quantity} of {seccode}, stop price={stop_price}")
+            log.info(f"{buysell} {quantity} of {seccode}, stop price={stop_price}")
             return trade
     
         except Exception as e:
@@ -1860,28 +1860,27 @@ class IBTradingPlatform(TradingPlatform):
         """ Interactive Brokers """
 
         buysell = "BUY" if position.takePosition == "long" else "SELL"
-            
         position.expdate = self.getExpDate(position.seccode)
         price = round(position.entryPrice, position.decimals)
         price = "{0:0.{prec}f}".format(price, prec=position.decimals)
-
-        self.monitoredPositions.append(position)
-    
+   
         res = self.new_order(
             position.board, position.seccode, position.client, position.union,
             buysell, position.expdate, position.quantity, price, position.bymarket, False
         )
-        log.debug(repr(res))
+
         if res is None:
-            logging.error("Failed to create order: new_order returned None")
-            return
+            log.error("Failed to create order: new_order returned None")            
         
         elif res.orderStatus.status in cm.statusOrderForwarding or res.orderStatus.status in cm.statusOrderExecuted:
+        
             position.entry_id = res.order.orderId  # Capture the IB order ID
-            logging.info(f"orderId: {res.order.orderId}, status: {res.orderStatus.status}")
+            self.monitoredPositions.append(position)
+            log.info(f"orderId: {res.order.orderId}, status: {res.orderStatus.status}")
+            log.debug(repr(res))
         
         else:
-            logging.error(f"Order failed or in invalid state: {res.orderStatus.status}")
+            log.error(f"Order failed or in invalid state: {res.orderStatus.status}")
         
 
     def removeMonitoredPositionByExit(self, order):
@@ -1906,26 +1905,27 @@ class IBTradingPlatform(TradingPlatform):
             round(monitoredPosition.stoploss, monitoredPosition.decimals), prec=monitoredPosition.decimals
         )
         
-        monitoredPosition.stopOrderRequested = True
-
         res = self.new_stoporder(
             None, monitoredPosition.seccode, None, buysell, 
             monitoredPosition.quantity, trigger_price_sl, trigger_price_tp,
             None, None, None, False 
         )
-        log.info(repr(res))  
         
         if res is None:
-            logging.error(f"Failed to create stop order: new_stoporder returned None")
+            log.error(f"Failed to create stop order: new_stoporder returned None")
             
         elif res.orderStatus.status in cm.statusOrderForwarding or res.orderStatus.status in cm.statusOrderExecuted:
-
+                        
+            monitoredPosition.stopOrderRequested = True
             monitoredPosition.exit_id = res.order.orderId  # Capture IB order ID
             if order in self.monitoredOrders:
                 self.monitoredOrders.remove(order)
-            logging.info(f"Stop order {order.id} successfully in IB OrderId: {res.order.orderId}")
+                
+            log.info(f"Stop order {order.id} successfully in IB OrderId: {res.order.orderId}")
+            log.info(repr(res))  
+            
         else:
-            logging.error(f"failed Stop order for {order.id}, status: {res.orderStatus.status}")
+            log.error(f"failed Stop order for {order.id}, status: {res.orderStatus.status}")
 
 
 
