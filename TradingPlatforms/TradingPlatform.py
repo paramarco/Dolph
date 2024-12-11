@@ -1688,7 +1688,7 @@ class IBTradingPlatform(TradingPlatform):
         if self.ib.isConnected():
             self.ib.disconnect()
         
-        self.eventLoopTask.terminate
+        self.eventLoopTask.terminate()
         self.ordersStatusUpdateTask.terminate()
         self.storeMonitoredPositions()
 
