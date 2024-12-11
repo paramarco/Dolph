@@ -1482,7 +1482,7 @@ class IB_OrderStatusTask:
         asyncio.set_event_loop(loop)
                 
         try:
-            loop.run_until_complete(self.tp.ib.run)
+            loop.run_until_complete(self.tp.ib.run())
 
             while self._running:
                 self.tp.reportCurrentOpenPositions()
