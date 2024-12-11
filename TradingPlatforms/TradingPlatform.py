@@ -1443,14 +1443,6 @@ class IB_eventLoopTask:
         log.debug('Running thread IB_eventLoopTask...')
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-
-        self.tp.ib = IB()
-        self.tp.ib.errorEvent += self.on_error
-        #self.ib.orderStatusEvent += self.onOrderStatus
-        
-        log.info("connecting to IB ...")
-        self.ib.connect(self.host, self.port, clientId=self.client_id)
-        self.connected = True
         
         log.info("subscribing to Market data...")
         self.tp.subscribe_to_market_data()        
@@ -1528,6 +1520,9 @@ class IBTradingPlatform(TradingPlatform):
         # Optional: Disable lower-level logs from ib_insync specifically
         logging.getLogger('ib_insync').setLevel(logging.ERROR)
         
+        self.ib = IB()
+        self.ib.errorEvent += self.on_error
+        #self.ib.orderStatusEvent += self.onOrderStatus
         self.eventLoopTask = None
         self.ordersStatusUpdateTask = None
         self.account_number = self.secrets.get("account_number")
@@ -1543,7 +1538,10 @@ class IBTradingPlatform(TradingPlatform):
         """ Interactive Brokers """
         try:
             # Connect to the IB gateway or TWS
-            log.info('connecting to Interactive Brokers...')
+            log.info('connecting to Interactive Brokers...')            
+
+            self.ib.connect(self.host, self.port, clientId=self.client_id)
+            self.connected = True            
             
             self.eventLoopTask = IB_eventLoopTask(self)
             t = Thread(
