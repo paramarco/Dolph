@@ -1477,24 +1477,36 @@ class IB_OrderStatusTask:
 
         time.sleep(15)
         log.info('starting ordersStatusUpdate Thread ...')
-        while self._running:
-            self.tp.reportCurrentOpenPositions()
-            try:
-                # Fetch all open trades from IB
-                trades = self.tp.ib.trades()
-                for trade in trades:
-                    order = OrderIB(trade)
-                    if order.type in ['LMT', 'MKT']:  # IB uses 'LMT' for limit and 'MKT' for market orders
-                        self.tp.processOrderStatus(order)
-                    elif order.type in ['STP', 'STP LMT']:
-                        self.tp.processStopOrderStatus(order)
-                    else:
-                        log.error(f"Unknown Order type : {order}")
-            except Exception as e:
-                log.error(f"Failed to poll order updates: {e}")
-            
-            # Sleep for 5 seconds before the next poll
-            time.sleep(5)
+        
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+                
+        try:
+            loop.run_until_complete(self.tp.ib.run())
+
+            while self._running:
+                self.tp.reportCurrentOpenPositions()
+                try:
+                    # Fetch all open trades from IB
+                    trades = self.tp.ib.trades()
+                    for trade in trades:
+                        order = OrderIB(trade)
+                        if order.type in ['LMT', 'MKT']:  # IB uses 'LMT' for limit and 'MKT' for market orders
+                            self.tp.processOrderStatus(order)
+                        elif order.type in ['STP', 'STP LMT']:
+                            self.tp.processStopOrderStatus(order)
+                        else:
+                            log.error(f"Unknown Order type : {order}")
+                except Exception as e:
+                    log.error(f"Failed to poll order updates: {e}")
+                
+                # Sleep for 5 seconds before the next poll
+                time.sleep(5)
+
+        except Exception as e:
+            log.error(f"Error in IB loop: {e}")
+        finally:
+            loop.close()
 
 # Handling Interactive Brokers (IB) Statuses
 #
@@ -1541,14 +1553,19 @@ class IBTradingPlatform(TradingPlatform):
             log.info('connecting to Interactive Brokers...')            
 
             self.ib.connect(self.host, self.port, clientId=self.client_id)
-            self.connected = True            
+            self.connected = True   
             
-            self.eventLoopTask = IB_eventLoopTask(self)
-            t = Thread(
-                target = self.eventLoopTask.run, 
-                args = ( self.securities, )
-            )
-            t.start()  
+            # # Start event loop in a separate thread
+            # log.info("Startting event loop in a separate thread for IB ...")
+            # thread = Thread(target=self.ib.run, daemon=True)
+            # thread.start()
+            
+            # self.eventLoopTask = IB_eventLoopTask(self)
+            # t = Thread(
+            #     target = self.eventLoopTask.run, 
+            #     args = ( self.securities, )
+            # )
+            # t.start()  
             
             log.info('Sleeping 10 seconds ofr the DataServer to load...')
             time.sleep(10)                    
