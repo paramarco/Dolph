@@ -1444,6 +1444,15 @@ class IB_eventLoopTask:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         
+        self.tp.ib = IB()
+        self.tp.ib.errorEvent += self.on_error
+        #self.tp,ib.orderStatusEvent += self.onOrderStatus
+        
+        # Connect to the IB gateway or TWS
+        log.info('connecting to Interactive Brokers...')            
+        self.tp.ib.connect(self.host, self.port, clientId=self.client_id)
+        self.connected = True  
+        
         log.info("subscribing to Market data...")
         self.tp.subscribe_to_market_data()        
         
@@ -1463,7 +1472,6 @@ class IB_OrderStatusTask:
 
         self._running = True
         self.tp = tp
-        self.ib = tp.ib
         log.info('OrderStatusTask Thread initialized...')
 
 
@@ -1476,37 +1484,28 @@ class IB_OrderStatusTask:
     def run(self):
 
         time.sleep(15)
-        log.info('starting ordersStatusUpdate Thread ...')
-        
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-                
-        try:
-            loop.run_until_complete(self.tp.ib.run())
+        log.info('starting ordersStatusUpdate Thread ...')                
 
-            while self._running:
-                self.tp.reportCurrentOpenPositions()
-                try:
-                    # Fetch all open trades from IB
-                    trades = self.tp.ib.trades()
-                    for trade in trades:
-                        order = OrderIB(trade)
-                        if order.type in ['LMT', 'MKT']:  # IB uses 'LMT' for limit and 'MKT' for market orders
-                            self.tp.processOrderStatus(order)
-                        elif order.type in ['STP', 'STP LMT']:
-                            self.tp.processStopOrderStatus(order)
-                        else:
-                            log.error(f"Unknown Order type : {order}")
-                except Exception as e:
-                    log.error(f"Failed to poll order updates: {e}")
-                
-                # Sleep for 5 seconds before the next poll
-                time.sleep(5)
+        while self._running:
+            self.tp.reportCurrentOpenPositions()
+            try:
+                # Fetch all open trades from IB
+                trades = self.tp.ib.trades()
+                for trade in trades:
+                    order = OrderIB(trade)
+                    if order.type in ['LMT', 'MKT']:  # IB uses 'LMT' for limit and 'MKT' for market orders
+                        self.tp.processOrderStatus(order)
+                    elif order.type in ['STP', 'STP LMT']:
+                        self.tp.processStopOrderStatus(order)
+                    else:
+                        log.error(f"Unknown Order type : {order}")
+            except Exception as e:
+                log.error(f"Failed to poll order updates: {e}")
+            
+            # Sleep for 5 seconds before the next poll
+            time.sleep(5)
 
-        except Exception as e:
-            log.error(f"Error in IB loop: {e}")
-        finally:
-            loop.close()
+
 
 # Handling Interactive Brokers (IB) Statuses
 #
@@ -1532,9 +1531,8 @@ class IBTradingPlatform(TradingPlatform):
         # Optional: Disable lower-level logs from ib_insync specifically
         logging.getLogger('ib_insync').setLevel(logging.ERROR)
         
-        self.ib = IB()
-        self.ib.errorEvent += self.on_error
-        #self.ib.orderStatusEvent += self.onOrderStatus
+        self.ib = None
+
         self.eventLoopTask = None
         self.ordersStatusUpdateTask = None
         self.account_number = self.secrets.get("account_number")
@@ -1549,23 +1547,20 @@ class IBTradingPlatform(TradingPlatform):
     def connect(self):
         """ Interactive Brokers """
         try:
-            # Connect to the IB gateway or TWS
-            log.info('connecting to Interactive Brokers...')            
 
-            self.ib.connect(self.host, self.port, clientId=self.client_id)
-            self.connected = True   
             
             # # Start event loop in a separate thread
             # log.info("Startting event loop in a separate thread for IB ...")
             # thread = Thread(target=self.ib.run, daemon=True)
             # thread.start()
             
-            # self.eventLoopTask = IB_eventLoopTask(self)
-            # t = Thread(
-            #     target = self.eventLoopTask.run, 
-            #     args = ( self.securities, )
-            # )
-            # t.start()  
+            self.eventLoopTask = IB_eventLoopTask(self)
+            t = Thread(
+                target = self.eventLoopTask.run, 
+                args = ( self.securities, ),
+                name = "IB_eventLoopTask"
+            )
+            t.start()  
             
             log.info('Sleeping 10 seconds ofr the DataServer to load...')
             time.sleep(10)                    
@@ -1581,7 +1576,8 @@ class IBTradingPlatform(TradingPlatform):
             self.ordersStatusUpdateTask = IB_OrderStatusTask(self)
             t2 = Thread(
                 target = self.ordersStatusUpdateTask.run, 
-                args = ( )
+                args = ( ),
+                name = "IB_OrderStatusTask"
             )
             t2.start()  
             
