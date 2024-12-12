@@ -1456,15 +1456,16 @@ class IB_eventLoopTask:
         self.tp.subscribe_to_market_data()        
         
         log.info("Starting the IB loop...")   
+        self.tp.ib.run()
         
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            loop.run_until_complete(self.tp.ib.run())
-        except Exception as e:
-            log.error(f"Error in IB loop: {e}")
-        finally:
-            loop.close()
+        # loop = asyncio.new_event_loop()
+        # asyncio.set_event_loop(loop)
+        # try:
+        #     loop.run_until_complete(self.tp.ib.run())
+        # except Exception as e:
+        #     log.error(f"Error in IB loop: {e}")
+        # finally:
+        #     loop.close()
 
 
 
