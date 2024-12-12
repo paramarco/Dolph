@@ -18,5 +18,21 @@
         "OriginTicker": "ONCO",
         "Ticker": "ONCO",
         "CompanyName": "Onconetix, Inc"
+    },    
+    {
+        "OriginTicker": "AMD",
+        "Ticker": "AMD",
+        "CompanyName": "AMD"
+    },    
+    {
+        "OriginTicker": "AMZN",
+        "Ticker": "AMZN",
+        "CompanyName": "AMZN"
+    },    
+    {
+        "OriginTicker": "TSLA",
+        "Ticker": "TSLA",
+        "CompanyName": "TSLA"
     }
+    
 ]
