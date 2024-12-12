@@ -1441,8 +1441,7 @@ class IB_eventLoopTask:
         
     def run(self, securities):
         log.debug('Running thread IB_eventLoopTask...')
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+
         
         self.tp.ib = IB()
         self.tp.ib.errorEvent += self.on_error
@@ -1456,7 +1455,10 @@ class IB_eventLoopTask:
         log.info("subscribing to Market data...")
         self.tp.subscribe_to_market_data()        
         
-        log.info("Starting the IB loop...")        
+        log.info("Starting the IB loop...")   
+        
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         try:
             loop.run_until_complete(self.tp.ib.run())
         except Exception as e:
