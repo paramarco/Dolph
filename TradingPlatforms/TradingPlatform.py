@@ -1444,7 +1444,7 @@ class IB_eventLoopTask:
 
         
         self.tp.ib = IB()
-        self.tp.ib.errorEvent += self.on_error
+        self.tp.ib.errorEvent += self.tp.on_error
         #self.tp,ib.orderStatusEvent += self.onOrderStatus
         
         # Connect to the IB gateway or TWS
