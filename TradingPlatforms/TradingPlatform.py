@@ -487,7 +487,8 @@ class TradingPlatform(ABC):
             return None
         tradingPlatformTime = self.getTradingPlatformTime()
         tradingPlatformTime_plusNsec = tradingPlatformTime + datetime.timedelta(seconds=nSec)
-        return tradingPlatformTime_plusNsec.strftime(self.fmt)
+        
+        return tradingPlatformTime_plusNsec
     
     
     def closePosition(self, position, withCounterPosition=False):
@@ -1710,7 +1711,7 @@ class IBTradingPlatform(TradingPlatform):
         if self.ib.isConnected():
             self.ib.disconnect()
         
-        self.eventLoopTask.terminate()
+        #self.eventLoopTask.terminate()
         self.ordersStatusUpdateTask.terminate()
         self.storeMonitoredPositions()
 
@@ -1750,15 +1751,14 @@ class IBTradingPlatform(TradingPlatform):
                 order = MarketOrder(buysell, quantity)
             else:
                 order = LimitOrder(buysell, quantity, price)
-    
+                order.goodTillDate = expdate  # Set expiration time
+
+            # Log the trade details and return the trade object
+            #log.info(f"placing {order.orderType} {buysell} {quantity} of {seccode}")
+            
             # Place order via IB API
             trade = self.ib.placeOrder(contract, order)
-    
-            # Sleep briefly to allow for status updates
-            # self.ib.sleep(1)
-    
-            # Log the trade details and return the trade object
-            log.info(f"Placed {order.orderType} {buysell} {quantity} of {seccode}")
+
             return trade
     
         except Exception as e:
@@ -1790,11 +1790,12 @@ class IBTradingPlatform(TradingPlatform):
             order.lmtPrice = limit_price  # The limit price
             order.tif = 'GTC'  # Good 'Til Cancel
     
-            # Submit the order via IB API
-            trade = self.ib.placeOrder(contract, order)
-    
             # Log the order details and return the trade object
-            log.info(f"{buysell} {quantity} of {seccode}, stop price={stop_price}")
+            #log.info(f"placing {buysell} {quantity} of {seccode}, stop price={stop_price}")
+            
+            # Submit the order via IB API
+            trade = self.ib.placeOrder(contract, order)   
+
             return trade
     
         except Exception as e:
@@ -1918,6 +1919,7 @@ class IBTradingPlatform(TradingPlatform):
 
         buysell = "BUY" if position.takePosition == "long" else "SELL"
         position.expdate = self.getExpDate(position.seccode)
+        position.expdate = position.expdate.strftime('%Y%m%d %H:%M:%S')
         price = round(position.entryPrice, position.decimals)
         price = "{0:0.{prec}f}".format(price, prec=position.decimals)
    

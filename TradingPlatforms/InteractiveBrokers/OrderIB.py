@@ -25,7 +25,7 @@ class OrderIB:
         """
         String representation for debugging.
         """
-        return f"OrderIB(id={self.id}, symbol={self.symbol}, status={self.status})"
+        return f"OrderIB(id={self.id}, symbol={self.symbol}, side={self.side}, status={self.status})"
 
     def __getattr__(self, name):
         """

@@ -48,6 +48,11 @@ mkdir log
 echo "Replacing template for TradingPlatfomSettings ..."
 cp /home/dolph_user/TradingPlatfomSettings-$1.py ${instance}/Dolph/Configuration/TradingPlatfomSettings.py
 
+# Replacing template for Conf.py ...
+echo "Replacing template for Conf.py  ..."
+cp /home/dolph_user/Conf-$1.py ${instance}/Dolph/Configuration/Conf.py
+
+
 # Launch the application
 echo "Launching DolphRobot.py..."
 nohup python ${instance}/Dolph/DolphRobot.py > /dev/null 2>&1 &

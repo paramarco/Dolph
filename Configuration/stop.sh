@@ -4,6 +4,7 @@
 # Activate Python virtual environment
 echo "Activating Python virtual environment for dolph_user..."
 source /opt/venv/bin/activate
+echo "$(date)"
 
 # Define the base data directory
 BASE_DIR="/home/dolph_user/data"
@@ -25,9 +26,14 @@ if [ -z "$1" ]; then
         echo "Killing the process with PID: $pid"
         kill -2 "$pid"
         echo "Process killed successfully for instance $instance."
+	sleep 5
       fi
     fi
   done
+ echo "now killing the hard way with (pgrep "python" | xargs kill -9)... "
+ sleep 6
+ pgrep "python" | xargs kill -9
+ echo "$(date)"
 else
   instance="$BASE_DIR/$1"
   echo "Stopping instance: $1"
