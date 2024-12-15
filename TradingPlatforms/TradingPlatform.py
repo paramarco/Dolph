@@ -237,7 +237,7 @@ class TradingPlatform(ABC):
 
         try:
             positions_json = [json.dumps(mp.__dict__, default=default_serializer) for mp in self.monitoredPositions]
-            clientID = self.getClientId
+            clientID = self.getClientId()
             self.ds.store_positions_to_db(positions_json, clientID )   # Save the list of positions as JSON in the database
             
         except Exception as e:
