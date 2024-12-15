@@ -159,26 +159,18 @@ class TradingPlatform(ABC):
 
     @abstractmethod
     def new_order(self, board, seccode, client, union, buysell, expdate, quantity, price, bymarket, usecredit):
-        """ res.success := True | False 
-            res.id = [a transaction id ]"""
         pass
 
     @abstractmethod
     def cancel_order(self, order_id):
-        """ res.success := True | False 
-            res.id = [a transaction id ]"""
         pass
 
     @abstractmethod
     def new_stoporder(self, board, seccode, client, buysell, quantity, trigger_price_sl, trigger_price_tp, correction, spread, bymarket, is_market):
-        """ res.success := True | False 
-            res.id = [a transaction id ]"""
         pass
 
     @abstractmethod
     def cancel_stoploss(self, stop_order_id):
-        """ res.success := True | False 
-            res.id = [a transaction id ]"""
         pass
 
     @abstractmethod
@@ -229,13 +221,13 @@ class TradingPlatform(ABC):
     ################ Common methods    #######################################
     
     def get_PositionsByCode (self, seccode) :
-
+        """ common """
         positions = [p for p in self.monitoredPositions if p.seccode == seccode ]
 
         return positions 
 
     def storeMonitoredPositions(self):
-        """
+        """ common 
         This method stores each monitored position in the database as a JSON string.
         """
         def default_serializer(obj):
@@ -245,14 +237,16 @@ class TradingPlatform(ABC):
 
         try:
             positions_json = [json.dumps(mp.__dict__, default=default_serializer) for mp in self.monitoredPositions]
-            self.ds.store_positions_to_db(positions_json, self.secrets['api_key'])   # Save the list of positions as JSON in the database
+            clientID = self.getClientId
+            self.ds.store_positions_to_db(positions_json, clientID )   # Save the list of positions as JSON in the database
+            
         except Exception as e:
             log.error(f"Failed to store monitored positions: {e}")
         log.info("Monitored positions have been stored successfully.")
     
 
     def loadMonitoredPositions(self):
-        """
+        """ common 
         This method loads previously stored monitored positions from the database and restores them.
         """
         try:
@@ -269,7 +263,8 @@ class TradingPlatform(ABC):
                     pos_dict['exitTime'] = datetime.datetime.fromisoformat(pos_dict['exitTime'])
     
                 # Filter positions based on client
-                if 'client' in pos_dict and pos_dict.get('client') == self.secrets['api_key']:
+                #if 'client' in pos_dict and pos_dict.get('client') == self.secrets['api_key']:
+                if 'client' in pos_dict and pos_dict.get('client') == self.getClientId() :
                     # Construct Position object and append to monitoredPositions
                     pos = Position(**pos_dict)
                     self.monitoredPositions.append(pos)
@@ -284,7 +279,7 @@ class TradingPlatform(ABC):
 
 
     def processPosition(self, position):
-     
+        """ common """
         self.reportCurrentOpenPositions()
         log.info(str(position))
         
@@ -305,6 +300,7 @@ class TradingPlatform(ABC):
 
     
     def cancellAllOrders(self):
+        """ common """
         for mo in self.monitoredOrders:
             res = self.cancel_order(mo.id)
             log.debug(repr(res))
@@ -312,10 +308,12 @@ class TradingPlatform(ABC):
           
         
     def addClientAccount(self, clientAccount):
+        """ common """
         self.clientAccounts.append(clientAccount)
     
     
     def getClientIdByMarket(self, marketId):        
+        """ common """
         for c in self.clientAccounts:
             if c.market == marketId:
                 return c.id
@@ -323,6 +321,7 @@ class TradingPlatform(ABC):
 
 
     def getUnionIdByMarket(self, marketId):        
+        """ common """
         for c in self.clientAccounts:
             if c.market == marketId:
                 return c.union
@@ -330,7 +329,7 @@ class TradingPlatform(ABC):
 
         
     def triggerWhenMatched(self, order):
-        
+        """ common """      
         trigger = False
         transactionId = None
         position = None
@@ -447,7 +446,7 @@ class TradingPlatform(ABC):
         
         
     def isPositionOpen(self, seccode):
-        
+        """common"""       
         inMP = any(mp.seccode == seccode for mp in self.monitoredPositions)
         inMSP = any(msp.seccode == seccode for msp in self.monitoredStopOrders)
         isOrderActive = any(mo.seccode == seccode for mo in self.monitoredOrders)
@@ -457,7 +456,7 @@ class TradingPlatform(ABC):
 
 
     def reportCurrentOpenPositions(self):
-        
+        """common"""        
         numMonPosition = len(self.monitoredPositions)
         numMonOrder = len(self.monitoredOrders)
         numMonStopOrder = len(self.monitoredStopOrders)
@@ -479,6 +478,7 @@ class TradingPlatform(ABC):
     
     
     def getExpDate(self, seccode):
+        """common"""
         #nSec = next((sec['params']['ActiveTimeSeconds'] for sec in self.securities if seccode == sec['seccode']), 0)
         #TODO        
         nSec = 1000
@@ -492,7 +492,7 @@ class TradingPlatform(ABC):
     
     
     def closePosition(self, position, withCounterPosition=False):
-        
+        """common"""        
         code = position.seccode        
         monitoredPosition = self.getMonitoredPositionBySeccode(code)
         monitoredStopOrder = self.getMonitoredStopOrderBySeccode(code)
@@ -513,7 +513,7 @@ class TradingPlatform(ABC):
     
     
     def processingCheck(self, position):
- 
+        """common""" 
         self.reportCurrentOpenPositions()
 
         if self.MODE != 'OPERATIONAL' :
@@ -546,7 +546,7 @@ class TradingPlatform(ABC):
     
  
     def cancelTimedoutEntries(self):
-        
+        """common"""        
         tradingPlatformTime = self.getTradingPlatformTime()
         list2cancel = []
         
@@ -574,7 +574,7 @@ class TradingPlatform(ABC):
 
 
     def cancelTimedoutExits(self):
-        
+        """common"""        
         tradingPlatformTime = self.getTradingPlatformTime()
         for mp in self.monitoredPositions:
             for mso in self.monitoredStopOrders:
@@ -585,7 +585,7 @@ class TradingPlatform(ABC):
 
 
     def updatePortfolioPerformance(self, status):
-        
+        """common"""        
         if status == 'tp_executed':
             self.profitBalance += 1
         elif status == 'sl_executed':
@@ -597,7 +597,7 @@ class TradingPlatform(ABC):
 
 
     def updateTradingHour(self):
-        
+        """common"""        
         tradingPlatformTime = self.getTradingPlatformTime()
         currentHour = tradingPlatformTime.hour
         if self.currentTradingHour != currentHour:
@@ -607,11 +607,12 @@ class TradingPlatform(ABC):
 
 
     def getProfitBalance(self):
+        """common"""        
         return self.profitBalance
     
     
     def cancelHangingOrders(self):        
-        
+        """common"""        
         tradingPlatformTime = self.getTradingPlatformTime()
         list2cancel = []
         for mo in self.monitoredOrders:
@@ -644,7 +645,7 @@ class TradingPlatform(ABC):
 
 
     def getMonitoredPositionBySeccode(self, seccode):
-        
+        """common"""        
         monitoredPosition = None
         for mp in self.monitoredPositions:
             if mp.seccode == seccode:
@@ -657,7 +658,7 @@ class TradingPlatform(ABC):
     
     
     def getMonitoredStopOrderBySeccode(self, seccode):
-        
+        """common"""        
         monitoredStopOrder = None        
         for mso in self.monitoredStopOrders:
             if mso.seccode == seccode :

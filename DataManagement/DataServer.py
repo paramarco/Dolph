@@ -1440,7 +1440,7 @@ class DataServer:
             # Clear existing entries (assuming you want to reset the monitored positions on each disconnect)
             cursor.execute(
               "DELETE FROM monitored_positions WHERE position_data::text LIKE %s;", 
-              (f"%{client}%",)   
+              (f'%\"client\": {client}%',)   
             )
             # Insert each JSON position
             for pos_json in positions_json:
