@@ -1242,7 +1242,8 @@ class AlpacaTradingPlatform(TradingPlatform):
         
    
     async def on_bar(self, bar):
-        """  Asynchronous callback function to handle bar updates. """
+        """ Alpaca """
+        
         log.info(f"Received a bar update for {bar.symbol}")    
         seccode = bar.symbol
     
@@ -1621,16 +1622,22 @@ class IBTradingPlatform(TradingPlatform):
         
 
     def on_tick(self, tickers):
+        """ Interactive Brokers """
+       
+        # Convert the timestamp from Unix time (nanoseconds) to a timezone-aware datetime
+        #timeZone = self.getTradingPlatformTimeZone()
         
         for ticker in tickers:
             security_code = ticker.contract.symbol
+            #timestamp_ns = ticker.time  # Unix time in nanoseconds
+            #timestamp_dt = datetime.datetime.fromtimestamp(timestamp_ns / 1e9, tz=timeZone)
             updated_data = {
+                'timestamp': ticker.time,
                 'open': ticker.open,
                 'high': ticker.high,
                 'low': ticker.low,
                 'close': ticker.close,
-                'volume': ticker.volume,
-                'time': ticker.time
+                'volume': ticker.volume
             }
             log.info(f"Received update for MktData {security_code}: {updated_data}")
             self.ds.store_bar(security_code, updated_data) 
