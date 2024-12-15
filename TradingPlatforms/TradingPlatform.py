@@ -479,14 +479,9 @@ class TradingPlatform(ABC):
     
     def getExpDate(self, seccode):
         """common"""
-        #nSec = next((sec['params']['ActiveTimeSeconds'] for sec in self.securities if seccode == sec['seccode']), 0)
-        #TODO        
-        nSec = 1000
-        if nSec == 0:
-            log.error('this shouldn\'t happen')
-            return None
         tradingPlatformTime = self.getTradingPlatformTime()
-        tradingPlatformTime_plusNsec = tradingPlatformTime + datetime.timedelta(seconds=nSec)
+        plusNsec = datetime.timedelta( seconds=cm.eentryTimeSeconds )
+        tradingPlatformTime_plusNsec = tradingPlatformTime + plusNsec
         
         return tradingPlatformTime_plusNsec
     

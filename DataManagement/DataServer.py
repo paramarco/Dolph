@@ -1328,23 +1328,20 @@ class DataServer:
             market = "NASDAQ"
             alg_parameters = {
                 "algorithm": "stochastic_and_rsi",
-                #"algorithm": "peaks_and_valleys",                
                 "entryByMarket": False,
                 "entryTimeSeconds": 3600,
                 "exitTimeSeconds" : 36000,
                 "minNumPastSamples": 51,
-                "longPositionMargin": 10,
-                "shortPositionMargin": 10,
-                "stopLossCoefficient": 6,
+                "longPositionMargin": 0.0035,
+                "shortPositionMargin": 0.0035,
+                "stopLossCoefficient": 3,
                 "acceptableTrainingError": 0.000192
             }
             platform = {
                 "name": "alpaca",
                 "secrets": {
-                    "api_key": "PK0XNQ1EFZQQWGWEN0AA",
-                    #"api_key": "PK4HMXAXA2IZXF33JDFN",
-                    "api_secret": "FT2y1LfOMrPnQcIevRGIwI7AxsbR8OS3o82Avron",
-                    #"api_secret": "XfVJyIaBDMlhsum5p17Oq5ln9sGmSsD3RKm7rATt",
+                    "api_key": "",
+                    "api_secret": "",
                     "endpoint": "https://paper-api.alpaca.markets"
                 }
             }
@@ -1502,21 +1499,20 @@ class DataServer:
             market = "NASDAQ"
             alg_parameters = {
                 "algorithm": "stochastic_and_rsi",
-                #"algorithm": "peaks_and_valleys",                
                 "entryByMarket": False,
                 "entryTimeSeconds": 3600,
                 "exitTimeSeconds" : 36000,
                 "minNumPastSamples": 51,
-                "longPositionMargin": 10,
-                "shortPositionMargin": 10,
-                "stopLossCoefficient": 6,
+                "longPositionMargin": 0.0035,
+                "shortPositionMargin": 0.0035,
+                "stopLossCoefficient": 3,
                 "acceptableTrainingError": 0.000192
             }
             platform = {
                 "name": "InteractiveBrokers",
                 "secrets": {
-                    "account_number": "DUD122645",
-                    "client_id": "dolphpaper"                    
+                    "account_number": "",
+                    "client_id": 1                  
                 }
             }
             

@@ -333,7 +333,6 @@ class Dolph:
             # FIXME: Are these parameters automatically calculated?
             entryTimeSeconds = params.get('entryTimeSeconds', cm.entryTimeSeconds)
             exitTimeSeconds = params.get('exitTimeSeconds', cm.exitTimeSeconds)
-            margin = params.get('positionMargin', margin)
             k = params.get('stopLossCoefficient', cm.stopLossCoefficient ) 
             correction = params.get('correction', cm.correction) 
             spread = params.get('spread', cm.spread)
