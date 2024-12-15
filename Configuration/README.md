@@ -90,13 +90,10 @@ postgres@container:~$ vi create_tables.sql
 postgres@container:~$ psql -U postgres -d dolph_db -p 4713 -f create_tables.sql 
 
 su - dolph_user
+
 $ ./deploy.sh 1
 
 $ ./stop.sh 1
-
-vi /home/dolph_user/data/1/Dolph/Configuration/Conf.py
-    #MODE = 'OPERATIONAL' # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL' | 'INIT_DB'
-    MODE = 'INIT_DB'
 
 $ ./start.sh 1
 

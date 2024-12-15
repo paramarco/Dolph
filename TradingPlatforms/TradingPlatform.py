@@ -142,7 +142,7 @@ class TradingPlatform(ABC):
         #platform  = self.ds.getPlatformDetails(cm.securities)    
         platform = cm.platform
         self.secrets = platform["secrets"] 
-        self.connectOnInit = self.MODE in ['OPERATIONAL']
+        self.connectOnInit = self.MODE in ['OPERATIONAL', 'TEST_ONLINE']
 
 
     @abstractmethod

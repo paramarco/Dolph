@@ -83,7 +83,7 @@ class Dolph:
         def signalHandler( signum, frame):
             self.tp.disconnect()
             time.sleep(2.5) 
-            print ('hasta la vista!')
+            logging.info('hasta la vista!')
             sys.exit()
         
         signal.signal(signal.SIGINT, signalHandler)     
