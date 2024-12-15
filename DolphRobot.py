@@ -414,21 +414,21 @@ class Dolph:
         
         logging.info('init database according to Trading platform ...')
 
-        # filePath = "./TradingPlatforms/Alpaca/AlpacaTickers.json"
-        # self.ds.insert_alpaca_tickers(filePath)
+        filePath = "./TradingPlatforms/Alpaca/AlpacaTickers.json"
+        self.ds.insert_alpaca_tickers(filePath)
           
-        # for sec in self.securities :
+        for sec in self.securities :
             
-        #     logging.debug("getting candles ... ")
-        #     candles = self.tp.get_candles(sec, self.since, self.until, period = '1Min')
-        #     logging.debug("storing candles ... ")
-        #     self.ds.store_candles(candles,sec) 
+            logging.debug("getting candles ... ")
+            candles = self.tp.get_candles(sec, self.since, self.until, period = '1Min')
+            logging.debug("storing candles ... ")
+            self.ds.store_candles(candles,sec) 
             
-        filePath = "./TradingPlatforms/InteractiveBrokers/IBTickers.json"
-        self.ds.insert_InteractiveBrokers_tickers(filePath)
+        # filePath = "./TradingPlatforms/InteractiveBrokers/IBTickers.json"
+        # self.ds.insert_InteractiveBrokers_tickers(filePath)
           
-        for sec in self.securities :           
-            pass
+        # for sec in self.securities :           
+        #     pass
     
         sys.exit(0)           
         raise SystemExit("Stopping the program") 
