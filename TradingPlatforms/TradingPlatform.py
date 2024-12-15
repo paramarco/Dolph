@@ -512,7 +512,7 @@ class TradingPlatform(ABC):
         self.reportCurrentOpenPositions()
 
         if self.MODE != 'OPERATIONAL' :
-            m = 'not performing:"' + position.takePosition +'" because of MODE ...'
+            m = f'not performing: {position.takePosition} because of mode: {self.MODE}'
             logging.info(m)
             return False
         
