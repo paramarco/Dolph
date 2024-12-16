@@ -129,6 +129,7 @@ class TradingPlatform(ABC):
 
     def _init_configuration(self):
         
+        self.connected = False
         self.MODE = cm.MODE
         self.numTestSample = cm.numTestSample
         self.since = cm.since
@@ -534,6 +535,11 @@ class TradingPlatform(ABC):
         if self.isPositionOpen(position.seccode) and position.takePosition not in ['close', 'close-counterPosition']:
             msg = f'there is a position opened for {position.seccode}'            
             logging.warning(msg)
+            return False
+        
+        if not self.connected:
+            msg = 'Trading platform not connected yet ...'            
+            logging.warning(msg)            
             return False
         
         logging.info('processing "'+ position.takePosition +'" at Trading platform ...')
@@ -1096,7 +1102,9 @@ class AlpacaTradingPlatform(TradingPlatform):
                 candles = self.get_candles(sec, months_ago, now, period='1Min')
                 self.ds.store_candles(candles, sec)
         
-            log.info("Initial candle retrieval and storage complete.")
+            log.info("Initial candle retrieval and storage complete.")    
+            self.connected = True
+                    
             # Ensure that the stream is running
             log.info("Starting the Alpaca stream...")
             if self.barsUpdateTask is not None:
@@ -1105,7 +1113,6 @@ class AlpacaTradingPlatform(TradingPlatform):
                 log.info('stopping barUpdateTask ...')
                 time.sleep(2)   
     
-            self.connected = True
             log.info('starting barUpdateThread ...')
             self.barsUpdateTask = barUpdateTask(self)
             t = Thread(
@@ -1595,8 +1602,7 @@ class IBTradingPlatform(TradingPlatform):
 
         Subscribe to market data for each security.
         Allows delayed market data if real-time is not available.
-        """
-        
+        """        
         for security in self.securities:
             contract = Stock(security['seccode'], 'SMART', 'USD')    
             self.ib.reqHistoricalData(    # Request 1-minute historical bars with streaming updates
