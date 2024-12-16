@@ -1621,24 +1621,25 @@ class IBTradingPlatform(TradingPlatform):
         # Register callback for historical bar updates
         self.ib.barUpdateEvent += self.on_bar            
 
-    def on_bar(self, bars):
+    def on_bar(self, bars, hasNewBar):
         """ Interactive Brokers """
-
-        for bar in bars:
-            log.debug(f"Bar data: {bar}")
-            security_code = bar.contract.symbol            
-            #timestamp_ns = ticker.time  # Unix time in nanoseconds
-            #timestamp_dt = datetime.datetime.fromtimestamp(timestamp_ns / 1e9, tz=timeZone)
-            updated_data = {
-                'timestamp': bar.date,
-                'open': bar.open,
-                'high': bar.high,
-                'low': bar.low,
-                'close': bar.close,
-                'volume': bar.volume
-            }
-            log.info(f"Received update for {security_code}: {updated_data}")
-            self.ds.store_bar(security_code, updated_data) 
+        
+        if hasNewBar:  # Check if there's a new bar
+            for bar in bars:
+                log.debug(f"Bar data: {bar}")
+                security_code = bar.contract.symbol            
+                #timestamp_ns = ticker.time  # Unix time in nanoseconds
+                #timestamp_dt = datetime.datetime.fromtimestamp(timestamp_ns / 1e9, tz=timeZone)
+                updated_data = {
+                    'timestamp': bar.date,
+                    'open': bar.open,
+                    'high': bar.high,
+                    'low': bar.low,
+                    'close': bar.close,
+                    'volume': bar.volume
+                }
+                log.info(f"Received update for {security_code}: {updated_data}")
+                self.ds.store_bar(security_code, updated_data) 
 
 
     def on_tick(self, tickers):
