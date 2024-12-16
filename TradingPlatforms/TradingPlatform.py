@@ -1563,14 +1563,6 @@ class IBTradingPlatform(TradingPlatform):
             log.info("subscribing to Market data...")
             self.subscribe_to_market_data()
             
-            # self.eventLoopTask = IB_eventLoopTask(self)
-            # t = Thread(
-            #     target = self.eventLoopTask.run, 
-            #     args = ( self.securities, ),
-            #     name = "IB_eventLoopTask"
-            # )
-            # t.start()  
-            
             log.info('Sleeping 10 seconds ofr the DataServer to load...')
             time.sleep(10)                    
             
@@ -1595,31 +1587,52 @@ class IBTradingPlatform(TradingPlatform):
         except Exception as e:
             log.error(f"Failed to connect to IB: {e}")
             return False
-        
+      
+    
 
     def subscribe_to_market_data(self):
-        """
+        """ Interactive Brokers 
+
         Subscribe to market data for each security.
         Allows delayed market data if real-time is not available.
         """
-        for security in self.securities:
-            contract = Stock(security['seccode'], 'SMART', 'USD')
-    
-            # Subscribe to market data
-            self.ib.reqMktData(
-                contract,
-                genericTickList='',  # Empty means "all available ticks."
-                snapshot=False,      # False for streaming data; True for one-time snapshot
-                regulatorySnapshot=False  # True if you need regulatory snapshot, otherwise False
-            )
-    
-            # Subscribe to tick updates
-            self.ib.pendingTickersEvent += self.on_tick  # Callback for handling market data updates
-    
-            log.info(f"Subscribed to market data for {security['seccode']}. "
-                     "Note: Delayed data will be used if real-time is unavailable.")
-
         
+        for security in self.securities:
+            contract = Stock(security['seccode'], 'SMART', 'USD')    
+            self.ib.reqHistoricalData(    # Request 1-minute historical bars with streaming updates
+                contract,
+                endDateTime='',           # Empty string for the current time
+                durationStr='1 min',        # Duration of data to request (1 day here for context)
+                barSizeSetting='1 min',   # 1-minute bar size
+                whatToShow='TRADES',      # Type of data (TRADES for candles)
+                useRTH=True,              # Use regular trading hours
+                formatDate=1,             # Use regular date formatting
+                keepUpToDate=True         # Subscribe to live updates
+            )    
+            log.info(f"Subscribed to 1-minute bars for {security['seccode']}.")
+            
+        self.ib.pendingTickersEvent += self.on_bar # Callback for handling market data updates                
+            
+
+    def on_bar(self, bars):
+        """ Interactive Brokers """
+
+        for bar in bars:
+            log.debug(f"Bar data: {bar}")
+            security_code = bar.contract.symbol            
+            #timestamp_ns = ticker.time  # Unix time in nanoseconds
+            #timestamp_dt = datetime.datetime.fromtimestamp(timestamp_ns / 1e9, tz=timeZone)
+            updated_data = {
+                'timestamp': bar.date,
+                'open': bar.open,
+                'high': bar.high,
+                'low': bar.low,
+                'close': bar.close,
+                'volume': bar.volume
+            }
+            log.info(f"Received update for {security_code}: {updated_data}")
+            self.ds.store_bar(security_code, updated_data) 
+
 
     def on_tick(self, tickers):
         """ Interactive Brokers """
