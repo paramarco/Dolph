@@ -1602,7 +1602,7 @@ class IBTradingPlatform(TradingPlatform):
             self.ib.reqHistoricalData(    # Request 1-minute historical bars with streaming updates
                 contract,
                 endDateTime='',           # Empty string for the current time
-                durationStr='1 min',        # Duration of data to request (1 day here for context)
+                durationStr='1 D',        # Duration of data to request (1 day here for context)
                 barSizeSetting='1 min',   # 1-minute bar size
                 whatToShow='TRADES',      # Type of data (TRADES for candles)
                 useRTH=True,              # Use regular trading hours
