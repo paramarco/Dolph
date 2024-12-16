@@ -1570,7 +1570,7 @@ class IBTradingPlatform(TradingPlatform):
             log.info("subscribing to Market data...")
             self.subscribe_to_market_data()
             
-            log.info('Sleeping 10 seconds ofr the DataServer to load...')
+            log.info('Sleeping 10 seconds for the DataServer to load...')
             time.sleep(10)                    
             
             log.info("Retrieving and storing initial candles...")
@@ -1617,8 +1617,9 @@ class IBTradingPlatform(TradingPlatform):
             )    
             log.info(f"Subscribed to 1-minute bars for {security['seccode']}.")
             
-        self.ib.pendingTickersEvent += self.on_bar # Callback for handling market data updates                
-            
+
+        # Register callback for historical bar updates
+        self.ib.barUpdateEvent += self.on_bar            
 
     def on_bar(self, bars):
         """ Interactive Brokers """
