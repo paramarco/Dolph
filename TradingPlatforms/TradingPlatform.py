@@ -1549,6 +1549,7 @@ class IBTradingPlatform(TradingPlatform):
         self.host = self.secrets.get("host", "127.0.0.1")
         self.port = self.secrets.get("port", 7497)
         self.client_id = self.secrets.get("client_id", 1)
+        self.req_id_to_symbol = {}
 
         if self.connectOnInit :
             self.connect()
@@ -1601,14 +1602,19 @@ class IBTradingPlatform(TradingPlatform):
         """ Interactive Brokers 
 
         Subscribe to market data for each security.
-        Allows delayed market data if real-time is not available.
+        Allows delayed market data if real-time is not available.        
         """        
-        for security in self.securities:
+        
+        for index, security in enumerate(self.securities):
+
+            self.req_id_to_symbol[index] = security['seccode']
             contract = Stock(security['seccode'], 'SMART', 'USD')    
+
             self.ib.reqHistoricalData(    # Request 1-minute historical bars with streaming updates
+                index,                    # A unique identifier which will serve to identify the incoming data
                 contract,
                 endDateTime='',           # Empty string for the current time
-                durationStr='1 D',        # Duration of data to request (1 day here for context)
+                durationStr='60 S',       # the overall length of time that data can be collected
                 barSizeSetting='1 min',   # 1-minute bar size
                 whatToShow='TRADES',      # Type of data (TRADES for candles)
                 useRTH=True,              # Use regular trading hours
@@ -1617,29 +1623,30 @@ class IBTradingPlatform(TradingPlatform):
             )    
             log.info(f"Subscribed to 1-minute bars for {security['seccode']}.")
             
-
         # Register callback for historical bar updates
         self.ib.barUpdateEvent += self.on_bar            
 
-    def on_bar(self, bars, hasNewBar):
+
+    def on_bar(self, reqId, bars):
         """ Interactive Brokers """
+
+        symbol = self.req_id_to_symbol.get(reqId)
+        if not symbol:
+            self.logger.error(f"Unknown reqId: {reqId}")        
         
-        if hasNewBar:  # Check if there's a new bar
-            for bar in bars:
-                log.debug(f"Bar data: {bar}")
-                security_code = bar.contract.symbol            
-                #timestamp_ns = ticker.time  # Unix time in nanoseconds
-                #timestamp_dt = datetime.datetime.fromtimestamp(timestamp_ns / 1e9, tz=timeZone)
-                updated_data = {
-                    'timestamp': bar.date,
-                    'open': bar.open,
-                    'high': bar.high,
-                    'low': bar.low,
-                    'close': bar.close,
-                    'volume': bar.volume
-                }
-                log.info(f"Received update for {security_code}: {updated_data}")
-                self.ds.store_bar(security_code, updated_data) 
+        for bar in bars:    
+            log.info(f"Received bar for {symbol}: {bar}")            
+            #timestamp_ns = ticker.time  # Unix time in nanoseconds
+            #timestamp_dt = datetime.datetime.fromtimestamp(timestamp_ns / 1e9, tz=timeZone)
+            updated_data = {
+                'timestamp': bar.date,
+                'open': bar.open,
+                'high': bar.high,
+                'low': bar.low,
+                'close': bar.close,
+                'volume': bar.volume
+            }
+            self.ds.store_bar(symbol, updated_data) 
 
 
     def on_tick(self, tickers):
