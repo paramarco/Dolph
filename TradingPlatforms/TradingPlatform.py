@@ -1624,7 +1624,29 @@ class IBTradingPlatform(TradingPlatform):
             log.info(f"Subscribed to 1-minute bars for {security['seccode']}.")
             
         # Register callback for historical bar updates
-        self.ib.barUpdateEvent += self.on_bar            
+        self.ib.historicalDataEvent += self.on_historical_data
+        
+
+    def on_historical_data(self, reqId, bar):
+        """ Interactive Brokers 
+            Callback for historical data updates.
+        """
+        symbol = self.req_id_to_symbol.get(reqId)
+        if not symbol:
+            log.error(f"Unknown reqId: {reqId}")
+            return
+        
+        log.info(f"Received bar for {symbol}: {bar}")
+        updated_data = {
+            'timestamp': bar.date,
+            'open': bar.open,
+            'high': bar.high,
+            'low': bar.low,
+            'close': bar.close,
+            'volume': bar.volume
+        }
+        self.ds.store_bar(symbol, updated_data)
+
 
 
     def on_bar(self, reqId, bars):
@@ -1632,7 +1654,7 @@ class IBTradingPlatform(TradingPlatform):
 
         symbol = self.req_id_to_symbol.get(reqId)
         if not symbol:
-            self.logger.error(f"Unknown reqId: {reqId}")        
+            log.error(f"Unknown reqId: {reqId}")        
         
         for bar in bars:    
             log.info(f"Received bar for {symbol}: {bar}")            
