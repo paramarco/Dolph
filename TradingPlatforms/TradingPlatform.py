@@ -1652,6 +1652,8 @@ class IBTradingPlatform(TradingPlatform):
     def on_bar_update(self, bars, hasNewBar):
         """ Interactive Brokers """
     
+        log.info(f"Received live bar for {bars}")
+
         if hasNewBar:  # Check if there is a new bar
             bar = bars[-1]  # The latest bar
             reqId = bar.reqId  # reqId for tracking purposes (bar has this attribute)
