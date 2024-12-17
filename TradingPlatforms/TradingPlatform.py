@@ -1615,7 +1615,7 @@ class IBTradingPlatform(TradingPlatform):
             self.ib.reqHistoricalData(    # Request 1-minute historical bars with streaming updates
                 contract,
                 endDateTime='',           # Empty string for the current time
-                durationStr='60 S',       # the overall length of time that data can be collected
+                durationStr='1 D',       # the overall length of time that data can be collected
                 barSizeSetting='1 min',   # 1-minute bar size
                 whatToShow='TRADES',      # Type of data (TRADES for candles)
                 useRTH=True,              # Use regular trading hours
@@ -1626,29 +1626,8 @@ class IBTradingPlatform(TradingPlatform):
             
         # Register callback for bar updates (live bars)
         self.ib.barUpdateEvent += self.on_bar_update
+  
         
-
-    def on_historical_data(self, reqId, bar):
-        """ Interactive Brokers 
-            Callback for historical data updates.
-        """
-        symbol = self.req_id_to_symbol.get(reqId)
-        if not symbol:
-            log.error(f"Unknown reqId: {reqId}")
-            return
-        
-        log.info(f"Received bar for {symbol}: {bar}")
-        updated_data = {
-            'timestamp': bar.date,
-            'open': bar.open,
-            'high': bar.high,
-            'low': bar.low,
-            'close': bar.close,
-            'volume': bar.volume
-        }
-        self.ds.store_bar(symbol, updated_data)
-
-
     def on_bar_update(self, bars, hasNewBar):
         """ Interactive Brokers """
     
@@ -1673,6 +1652,27 @@ class IBTradingPlatform(TradingPlatform):
                 'volume': bar.volume
             }
             self.ds.store_bar(symbol, updated_data)
+            
+
+    def on_historical_data(self, reqId, bar):
+        """ Interactive Brokers 
+            Callback for historical data updates.
+        """
+        symbol = self.req_id_to_symbol.get(reqId)
+        if not symbol:
+            log.error(f"Unknown reqId: {reqId}")
+            return
+        
+        log.info(f"Received bar for {symbol}: {bar}")
+        updated_data = {
+            'timestamp': bar.date,
+            'open': bar.open,
+            'high': bar.high,
+            'low': bar.low,
+            'close': bar.close,
+            'volume': bar.volume
+        }
+        self.ds.store_bar(symbol, updated_data)
 
 
     def on_tick(self, tickers):
