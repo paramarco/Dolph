@@ -1550,6 +1550,7 @@ class IBTradingPlatform(TradingPlatform):
         self.port = self.secrets.get("port", 7497)
         self.client_id = self.secrets.get("client_id", 1)
         self.req_id_to_symbol = {}
+        self.symbol_to_bars = {}  # A dictionary to store symbol -> Bars mapping
 
         if self.connectOnInit :
             self.connect()
@@ -1596,63 +1597,68 @@ class IBTradingPlatform(TradingPlatform):
             log.error(f"Failed to connect to IB: {e}")
             return False
       
-    
 
     def subscribe_to_market_data(self):
-        """ Interactive Brokers 
-
-        Subscribe to market data for each security.
-        Allows delayed market data if real-time is not available.        
-        """        
+        """ Interactive Brokers """
         
+        self.symbol_to_bars = {}  # A dictionary to store symbol -> Bars mapping
+    
         for index, security in enumerate(self.securities):
-
-            contract = Stock(security['seccode'], 'SMART', 'USD')    
-
-            # Store reqId -> symbol mapping for callback identification
-            self.req_id_to_symbol[index] = security['seccode']
-
-            self.ib.reqHistoricalData(    # Request 1-minute historical bars with streaming updates
+            contract = Stock(security['seccode'], 'SMART', 'USD')
+    
+            # Request 1-minute bars with streaming updates
+            bars = self.ib.reqHistoricalData(
                 contract,
-                endDateTime='',           # Empty string for the current time
-                durationStr='1 D',       # the overall length of time that data can be collected
-                barSizeSetting='1 min',   # 1-minute bar size
-                whatToShow='TRADES',      # Type of data (TRADES for candles)
-                useRTH=True,              # Use regular trading hours
-                formatDate=1,             # Use regular date formatting
-                keepUpToDate=True         # Subscribe to live updates
-            )    
+                endDateTime='',
+                durationStr='1 D',
+                barSizeSetting='1 min',
+                whatToShow='TRADES',
+                useRTH=False,
+                formatDate=1,
+                keepUpToDate=True
+            )
+    
+            # Store the bars object for reference
+            self.symbol_to_bars[security['seccode']] = bars
             log.info(f"Subscribed to 1-minute bars for {security['seccode']}.")
-            
-        # Register callback for bar updates (live bars)
+    
+        # Register callback for live bar updates
         self.ib.barUpdateEvent += self.on_bar_update
-  
-        
+
+      
+   
+
     def on_bar_update(self, bars, hasNewBar):
         """ Interactive Brokers """
+        log.debug (f"DEBUG bars all {bars}")
+        
+        if not hasNewBar:
+            return  # Only process when there is a new bar
     
-        log.info(f"Received live bar for {bars}")
-
-        if hasNewBar:  # Check if there is a new bar
-            bar = bars[-1]  # The latest bar
-            reqId = bar.reqId  # reqId for tracking purposes (bar has this attribute)
-            
-            symbol = self.req_id_to_symbol.get(reqId)
-            if not symbol:
-                log.error(f"Unknown reqId: {reqId}")
-                return
-            
-            log.info(f"Received live bar for {symbol}: {bar}")
-            updated_data = {
-                'timestamp': bar.date,
-                'open': bar.open,
-                'high': bar.high,
-                'low': bar.low,
-                'close': bar.close,
-                'volume': bar.volume
-            }
-            self.ds.store_bar(symbol, updated_data)
-            
+        # Match the `Bars` object to a symbol using the stored mapping
+        symbol = None
+        for key, stored_bars in self.symbol_to_bars.items():
+            if stored_bars is bars:  # Compare objects
+                symbol = key
+                break
+        
+        if not symbol:
+            log.error("Symbol could not be resolved for the incoming bars.")
+            return
+        
+        # Process the most recent bar
+        bar = bars[-1]
+        log.info(f"Received live bar for {symbol}: {bar}")
+        updated_data = {
+            'timestamp': bar.date,
+            'open': bar.open,
+            'high': bar.high,
+            'low': bar.low,
+            'close': bar.close,
+            'volume': bar.volume
+        }
+        self.ds.store_bar(symbol, updated_data)
+           
 
     def on_historical_data(self, reqId, bar):
         """ Interactive Brokers 
@@ -1673,6 +1679,7 @@ class IBTradingPlatform(TradingPlatform):
             'volume': bar.volume
         }
         self.ds.store_bar(symbol, updated_data)
+
 
 
     def on_tick(self, tickers):
