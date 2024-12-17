@@ -1567,12 +1567,12 @@ class IBTradingPlatform(TradingPlatform):
             log.info("Startting event loop in a separate thread for IB ...")
             thread = Thread(target=self.ib.run, daemon=True, name="event loop for IB")
             thread.start()
-            
-            log.info("subscribing to Market data...")
-            self.subscribe_to_market_data()
-            
+          
             log.info('Sleeping 10 seconds for the DataServer to load...')
-            time.sleep(10)                    
+            time.sleep(10)    
+  
+            log.info("subscribing to Market data...")
+            self.subscribe_to_market_data()                
             
             log.info("Retrieving and storing initial candles...")
             now = self.getTradingPlatformTime()
