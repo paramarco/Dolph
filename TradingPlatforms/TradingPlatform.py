@@ -1624,8 +1624,8 @@ class IBTradingPlatform(TradingPlatform):
             )    
             log.info(f"Subscribed to 1-minute bars for {security['seccode']}.")
             
-        # Register callback for historical bar updates
-        self.ib.historicalDataEvent += self.on_historical_data
+        # Register callback for bar updates (live bars)
+        self.ib.barUpdateEvent += self.on_bar_update
         
 
     def on_historical_data(self, reqId, bar):
@@ -1649,18 +1649,19 @@ class IBTradingPlatform(TradingPlatform):
         self.ds.store_bar(symbol, updated_data)
 
 
-
-    def on_bar(self, reqId, bars):
+    def on_bar_update(self, bars, hasNewBar):
         """ Interactive Brokers """
-
-        symbol = self.req_id_to_symbol.get(reqId)
-        if not symbol:
-            log.error(f"Unknown reqId: {reqId}")        
-        
-        for bar in bars:    
-            log.info(f"Received bar for {symbol}: {bar}")            
-            #timestamp_ns = ticker.time  # Unix time in nanoseconds
-            #timestamp_dt = datetime.datetime.fromtimestamp(timestamp_ns / 1e9, tz=timeZone)
+    
+        if hasNewBar:  # Check if there is a new bar
+            bar = bars[-1]  # The latest bar
+            reqId = bar.reqId  # reqId for tracking purposes (bar has this attribute)
+            
+            symbol = self.req_id_to_symbol.get(reqId)
+            if not symbol:
+                log.error(f"Unknown reqId: {reqId}")
+                return
+            
+            log.info(f"Received live bar for {symbol}: {bar}")
             updated_data = {
                 'timestamp': bar.date,
                 'open': bar.open,
@@ -1669,7 +1670,7 @@ class IBTradingPlatform(TradingPlatform):
                 'close': bar.close,
                 'volume': bar.volume
             }
-            self.ds.store_bar(symbol, updated_data) 
+            self.ds.store_bar(symbol, updated_data)
 
 
     def on_tick(self, tickers):
