@@ -1607,11 +1607,12 @@ class IBTradingPlatform(TradingPlatform):
         
         for index, security in enumerate(self.securities):
 
-            self.req_id_to_symbol[index] = security['seccode']
             contract = Stock(security['seccode'], 'SMART', 'USD')    
 
+            # Store reqId -> symbol mapping for callback identification
+            self.req_id_to_symbol[index] = security['seccode']
+
             self.ib.reqHistoricalData(    # Request 1-minute historical bars with streaming updates
-                index,                    # A unique identifier which will serve to identify the incoming data
                 contract,
                 endDateTime='',           # Empty string for the current time
                 durationStr='60 S',       # the overall length of time that data can be collected
