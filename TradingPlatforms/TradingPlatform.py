@@ -485,7 +485,7 @@ class TradingPlatform(ABC):
     def getExpDate(self, seccode):
         """common"""
         tradingPlatformTime = self.getTradingPlatformTime()
-        plusNsec = datetime.timedelta( seconds=cm.eentryTimeSeconds )
+        plusNsec = datetime.timedelta( seconds=cm.entryTimeSeconds)
         tradingPlatformTime_plusNsec = tradingPlatformTime + plusNsec
         
         return tradingPlatformTime_plusNsec
