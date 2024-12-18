@@ -129,7 +129,7 @@ class TradingPlatform(ABC):
 
     def _init_configuration(self):
         
-        self.connected = False
+        #self.connected = False
         self.MODE = cm.MODE
         self.numTestSample = cm.numTestSample
         self.since = cm.since
@@ -538,10 +538,10 @@ class TradingPlatform(ABC):
                 logging.warning(msg)
                 return False
             
-            if not self.connected:
-                msg = 'Trading platform not connected yet ...'            
-                logging.warning(msg)            
-                return False
+            # if not self.connected:
+            #     msg = 'Trading platform not connected yet ...'            
+            #     logging.warning(msg)            
+            #     return False
             
             logging.info('processing "'+ position.takePosition +'" at Trading platform ...')
             return True
@@ -1108,7 +1108,7 @@ class AlpacaTradingPlatform(TradingPlatform):
                 self.ds.store_candles(candles, sec)
         
             log.info("Initial candle retrieval and storage complete.")    
-            self.connected = True
+            #self.connected = True
                     
             # Ensure that the stream is running
             log.info("Starting the Alpaca stream...")
@@ -1567,7 +1567,7 @@ class IBTradingPlatform(TradingPlatform):
             # Connect to the IB gateway or TWS
             log.info('connecting to Interactive Brokers...')
             self.ib.connect(self.host, self.port, clientId=self.client_id)
-            self.connected = True
+            #self.connected = True
             
             # Start event loop in a separate thread
             log.info("Startting event loop in a separate thread for IB ...")
