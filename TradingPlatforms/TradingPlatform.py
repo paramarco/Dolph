@@ -287,14 +287,18 @@ class TradingPlatform(ABC):
         if not self.processingCheck(position):
             return       
         
-        if position.takePosition in ["long", "short"]:        
+        log.debug("takePosition ...")
+
+        if position.takePosition in ["long", "short"]:   
+            log.debug("takePosition ... long oder short ")
+
             self.openPosition(position)
         elif position.takePosition == "close":
             self.closePosition(position)
         elif position.takePosition == "close-counterPosition":
             self.closePosition(position, withCounterPosition=True)
         else:
-            logging.error("takePosition must be either long, short or close")
+            log.error("takePosition must be either long, short or close")
             raise Exception(position.takePosition)
         
         self.reportCurrentOpenPositions()
@@ -1279,30 +1283,40 @@ class AlpacaTradingPlatform(TradingPlatform):
 
     def openPosition(self, position):
         """ Alpaca """
-
-        buysell = ""
-        if position.takePosition == "long":           
-            buysell = "buy"
-        elif position.takePosition == "short":
-            buysell = "sell"
+        try:
+            buysell = ""
+            if position.takePosition == "long":           
+                buysell = "buy"
+            elif position.takePosition == "short":
+                buysell = "sell"
+              
+            log.debug("in openPosition before")
+    
+            position.expdate = self.getExpDate(position.seccode)
+            price = round(position.entryPrice, position.decimals)
+            price = "{0:0.{prec}f}".format(price, prec=position.decimals)
             
-        position.expdate = self.getExpDate(position.seccode)
-        price = round(position.entryPrice, position.decimals)
-        price = "{0:0.{prec}f}".format(price, prec=position.decimals)
+            log.debug("in openPosition after getExpDate ")
     
-        res = self.new_order(
-            position.board, position.seccode, position.client, position.union,
-            buysell, position.expdate, position.quantity, price, position.bymarket, False
-        )
-        if res is None: return
-        log.debug(repr(res))
-    
-        if res.status in cm.statusOrderForwarding :
-            position.entry_id = res.id  # Capture the order ID from Alpaca
-            self.monitoredPositions.append(position)
-            logging.info(f"entry Order placed successfully. Order ID: {res.id}")
-        else:
-            logging.error(f"Order failed or in invalid state: {res.status}")
+        
+            res = self.new_order(
+                position.board, position.seccode, position.client, position.union,
+                buysell, position.expdate, position.quantity, price, position.bymarket, False
+            )
+            if res is None: return
+            log.debug(repr(res))
+        
+            if res.status in cm.statusOrderForwarding :
+                position.entry_id = res.id  # Capture the order ID from Alpaca
+                self.monitoredPositions.append(position)
+                logging.info(f"entry Order placed successfully. Order ID: {res.id}")
+            else:
+                logging.error(f"Order failed or in invalid state: {res.status}")
+                
+        
+        except Exception as e:
+            log.error(f"Failed to get cash balance: {e}")
+            return 0
 
 
     def triggerStopOrder(self, order, monitoredPosition):
