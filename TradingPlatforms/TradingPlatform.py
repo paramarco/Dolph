@@ -512,39 +512,44 @@ class TradingPlatform(ABC):
         """common""" 
         self.reportCurrentOpenPositions()
 
-        if self.MODE != 'OPERATIONAL' :
-            m = f'not performing: {position.takePosition} because of mode: {self.MODE}'
-            logging.info(m)
-            return False
-        
-        ct = self.getTradingPlatformTime()                            
-        if ct.hour in cm.nogoTradingHours and position.takePosition != 'close':
-            logging.info(f'we are in a no-go Trading hour: {ct.hour}...')  
-            return False
-        
-        if ct.weekday() in [calendar.SATURDAY, calendar.SUNDAY]:
-            logging.info(f'we are on Saturday or Sunday ...')  
-            return False
-
-        # Only check self.tc if it's relevant, e.g., for platforms that use tc
-        if hasattr(self, 'tc') and self.tc is not None and self.tc.connected:
-            position.client = self.getClientIdByMarket(position.marketId)
-            position.union = self.getUnionIdByMarket(position.marketId)
-        
-        
-        if self.isPositionOpen(position.seccode) and position.takePosition not in ['close', 'close-counterPosition']:
-            msg = f'there is a position opened for {position.seccode}'            
-            logging.warning(msg)
-            return False
-        
-        if not self.connected:
-            msg = 'Trading platform not connected yet ...'            
-            logging.warning(msg)            
-            return False
-        
-        logging.info('processing "'+ position.takePosition +'" at Trading platform ...')
-        return True
+        try:
+            if self.MODE != 'OPERATIONAL' :
+                m = f'not performing: {position.takePosition} because of mode: {self.MODE}'
+                logging.info(m)
+                return False
+            
+            ct = self.getTradingPlatformTime()                            
+            if ct.hour in cm.nogoTradingHours and position.takePosition != 'close':
+                logging.info(f'we are in a no-go Trading hour: {ct.hour}...')  
+                return False
+            
+            if ct.weekday() in [calendar.SATURDAY, calendar.SUNDAY]:
+                logging.info(f'we are on Saturday or Sunday ...')  
+                return False
     
+            # Only check self.tc if it's relevant, e.g., for platforms that use tc
+            if hasattr(self, 'tc') and self.tc is not None and self.tc.connected:
+                position.client = self.getClientIdByMarket(position.marketId)
+                position.union = self.getUnionIdByMarket(position.marketId)
+            
+            
+            if self.isPositionOpen(position.seccode) and position.takePosition not in ['close', 'close-counterPosition']:
+                msg = f'there is a position opened for {position.seccode}'            
+                logging.warning(msg)
+                return False
+            
+            if not self.connected:
+                msg = 'Trading platform not connected yet ...'            
+                logging.warning(msg)            
+                return False
+            
+            logging.info('processing "'+ position.takePosition +'" at Trading platform ...')
+            return True
+        
+        except Exception as e:
+            log.error(f"Error : {e}")
+            return False
+        
  
     def cancelTimedoutEntries(self):
         """common"""        
