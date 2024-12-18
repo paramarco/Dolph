@@ -1573,7 +1573,7 @@ class IBTradingPlatform(TradingPlatform):
             time.sleep(10)    
   
             log.info("subscribing to Market data...")
-            self.subscribe_to_market_data()                
+            #self.subscribe_to_market_data()                
             
             log.info("Retrieving and storing initial candles...")
             now = self.getTradingPlatformTime()
