@@ -1837,6 +1837,7 @@ class IBTradingPlatform(TradingPlatform):
                 order = MarketOrder(buysell, quantity)
             else:
                 order = LimitOrder(buysell, quantity, price)
+                order.tif = 'GTC'  # Good 'Til Cancel
                 order.goodTillDate = expdate  # Set expiration time
 
             # Log the trade details and return the trade object
