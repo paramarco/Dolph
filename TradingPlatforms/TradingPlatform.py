@@ -1838,7 +1838,9 @@ class IBTradingPlatform(TradingPlatform):
             else:
                 order = LimitOrder(buysell, quantity, price)
                 order.tif = 'GTD'  # Good 'Til Cancel --> Good until date
-                order.goodTillDate = expdate  # Set expiration time
+                # Use UTC format: 'yyyymmdd-hh:mm:ss'
+                order.goodTillDate = expdate.strftime('%Y%m%d-%H:%M:%S')
+                
 
             # Log the trade details and return the trade object
             #log.info(f"placing {order.orderType} {buysell} {quantity} of {seccode}")
