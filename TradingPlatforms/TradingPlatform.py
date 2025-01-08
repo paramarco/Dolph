@@ -1837,7 +1837,7 @@ class IBTradingPlatform(TradingPlatform):
                 order = MarketOrder(buysell, quantity)
             else:
                 order = LimitOrder(buysell, quantity, price)
-                order.tif = 'GTC'  # Good 'Til Cancel
+                order.tif = 'GTD'  # Good 'Til Cancel --> Good until date
                 order.goodTillDate = expdate  # Set expiration time
 
             # Log the trade details and return the trade object
@@ -2006,6 +2006,7 @@ class IBTradingPlatform(TradingPlatform):
 
         buysell = "BUY" if position.takePosition == "long" else "SELL"
         position.expdate = self.getExpDate(position.seccode)
+        position.expdate = self.convert_to_utc(position.expdate) 
         position.expdate = position.expdate.strftime('%Y%m%d %H:%M:%S')
         price = round(position.entryPrice, position.decimals)
         price = "{0:0.{prec}f}".format(price, prec=position.decimals)
@@ -2073,6 +2074,25 @@ class IBTradingPlatform(TradingPlatform):
         else:
             log.error(f"failed Stop order for {order.id}, status: {res.orderStatus.status}")
 
+                                                                                     
+    def convert_to_utc(self, timezone_aware_datetime):                                   
+        """                                                                              
+        Converts a timezone-aware datetime to UTC.                                       
+                                                                                         
+        Args:                                                                            
+        - timezone_aware_datetime: A datetime object that is timezone-aware (i.e., has a 
+                                                                                         
+        Returns:                                                                         
+        - A timezone-aware datetime object in UTC.                                       
+        """                                                                              
+        if timezone_aware_datetime.tzinfo is None:                                       
+            raise ValueError("Input datetime must be timezone-aware.")                   
+                                                                                         
+        # Convert the datetime to UTC                                                    
+        utc_datetime = timezone_aware_datetime.astimezone(pytz.utc)                      
+                                                                                         
+        return utc_datetime                                                              
+                                      
 
 
 if __name__== "__main__":
