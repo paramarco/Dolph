@@ -2007,7 +2007,7 @@ class IBTradingPlatform(TradingPlatform):
         buysell = "BUY" if position.takePosition == "long" else "SELL"
         position.expdate = self.getExpDate(position.seccode)
         position.expdate = self.convert_to_utc(position.expdate) 
-        position.expdate = position.expdate.strftime('%Y%m%d %H:%M:%S')
+        #position.expdate = position.expdate.strftime('%Y%m%d %H:%M:%S')
         price = round(position.entryPrice, position.decimals)
         price = "{0:0.{prec}f}".format(price, prec=position.decimals)
    
