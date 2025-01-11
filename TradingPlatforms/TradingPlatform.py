@@ -1936,14 +1936,14 @@ class IBTradingPlatform(TradingPlatform):
 
     
     def getClientId(self):
-        """ Interactive Brokers """
+        """ Interactive Brokers """  
         # Retrieve Client from the Alpaca secrets.        
         try:
-            # Get account information
-            client_id = self.secrets['client_id']
-            #log.debug(f"Client: ${client_id}")
+            # Get account information           
+            account_number = self.secrets['account_number']
+            log.debug(f"account_number of the client: ${account_number}")
  
-            return client_id
+            return account_number
         
         except Exception as e:
             log.error(f"Error retrieving the client_id: {e}")
