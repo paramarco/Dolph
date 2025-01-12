@@ -525,12 +525,13 @@ class TradingPlatform(ABC):
 
         try:
             if self.MODE != 'OPERATIONAL' :
-                m = f'not performing: {position.takePosition} because of mode: {self.MODE}'
+                m = f'not performing {position.takePosition} because of mode {self.MODE}'
                 logging.info(m)
                 return False
             
             if not self.isMarketOpen(position.seccode):
-                logging.info(f'the Market it closed for {position.seccode}')  
+                m = f'not performing {position.takePosition} cus the Market is closed for {position.seccode}'
+                logging.info(m)  
                 return False            
             
             ct = self.getTradingPlatformTime()                            
