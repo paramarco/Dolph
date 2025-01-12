@@ -219,6 +219,10 @@ class TradingPlatform(ABC):
     def getClientId(self):
         pass
         
+    @abstractmethod
+    def isMarketOpen(self, seccode):
+        pass
+
     ################ Common methods    #######################################
     
     def get_PositionsByCode (self, seccode) :
@@ -524,6 +528,10 @@ class TradingPlatform(ABC):
                 m = f'not performing: {position.takePosition} because of mode: {self.MODE}'
                 logging.info(m)
                 return False
+            
+            if not self.isMarketOpen(position.seccode):
+                logging.info(f'the Market it closed for {position.seccode}')  
+                return False            
             
             ct = self.getTradingPlatformTime()                            
             if ct.hour in cm.nogoTradingHours and position.takePosition != 'close':
@@ -1449,7 +1457,31 @@ class AlpacaTradingPlatform(TradingPlatform):
         except Exception as e:
             log.error(f"Error retrieving the api_key: {e}")
             return 0
+     
         
+    def isMarketOpen(self, seccode):
+        """Alpaca
+        Check if the market is open for a specific security code on Alpaca.
+
+        Args:
+            seccode (str): The security code (symbol) to check.
+
+        Returns:
+            bool: True if the market is open and the security is tradable, False otherwise.
+        """
+        try:
+            # Check general market status
+            clock = self.api.get_clock()
+            if not clock.is_open:
+                return False
+
+            # Check if the asset is tradable
+            asset = self.api.get_asset(seccode)
+            return asset.tradable
+        except Exception as e:
+            log.error(f"Error checking market status for Alpaca and security '{seccode}': {e}")
+            return False
+
 
 ##############################################################################
 
@@ -2078,7 +2110,7 @@ class IBTradingPlatform(TradingPlatform):
 
                                                                                      
     def convert_to_utc(self, timezone_aware_datetime):                                   
-        """                                                                              
+        """ Interactive Brokers                                                                             
         Converts a timezone-aware datetime to UTC.                                       
                                                                                          
         Args:                                                                            
@@ -2093,8 +2125,49 @@ class IBTradingPlatform(TradingPlatform):
         # Convert the datetime to UTC                                                    
         utc_datetime = timezone_aware_datetime.astimezone(pytz.utc)                      
                                                                                          
-        return utc_datetime                                                              
-                                      
+        return utc_datetime   
+                                                           
+  
+    def isMarketOpen(self, seccode):
+        """ Interactive Brokers
+        Check if the market is open for a specific security code on Interactive Brokers.
+
+        Args:
+            seccode (str): The security code (symbol) to check.
+
+        Returns:
+            bool: True if the market is open for the security, False otherwise.
+        """
+        try:
+            # Define the contract
+            contract = Stock(seccode, "SMART", "USD")
+            
+            # Get contract details
+            details = self.ib.reqContractDetails(contract)
+            if not details:
+                log.error(f"No contract details found for security '{seccode}'.")
+                return False
+
+            # Get the trading hours for the contract
+            current_time = self.getTradingPlatformTime().astimezone(pytz.utc)  # Convert to UTC
+            for detail in details:
+                for session in detail.tradingHours.split(';'):
+                    if 'CLOSED' in session:
+                        continue  # Skip closed sessions
+
+                    start, end = session.split('-')
+                    start_time = datetime.datetime.strptime(start, '%Y%m%d:%H%M').replace(tzinfo=pytz.utc)
+                    end_time = datetime.datetime.strptime(end, '%Y%m%d:%H%M').replace(tzinfo=pytz.utc)
+
+                    # Check if the current time is within the session's trading hours
+                    if start_time <= current_time <= end_time:
+                        return True
+
+            return False  # Not within any trading session
+        except Exception as e:
+            log.error(f"Error checking market status for IB and security '{seccode}': {e}")
+            return False
+                                    
 
 
 if __name__== "__main__":
