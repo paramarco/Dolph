@@ -2163,6 +2163,8 @@ class IBTradingPlatform(TradingPlatform):
                     # Check if the current time is within the session's trading hours
                     if start_time <= current_time <= end_time:
                         return True
+            
+            log.info(f"detail.tradingHours: {detail.tradingHours} , current_time : {current_time}")
 
             return False  # Not within any trading session
         except Exception as e:
