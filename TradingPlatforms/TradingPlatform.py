@@ -529,13 +529,14 @@ class TradingPlatform(ABC):
                 logging.info(m)
                 return False
             
-            if not self.isMarketOpen(position.seccode):
-                m = f'not performing {position.takePosition} cus the Market is closed for {position.seccode}'
-                logging.info(m)  
-                return False            
+            # if not self.isMarketOpen(position.seccode):
+            #     m = f'not performing {position.takePosition} cus the Market is closed for {position.seccode}'
+            #     logging.info(m)  
+            #     return False            
             
             ct = self.getTradingPlatformTime()                            
-            if ct.hour in cm.nogoTradingHours and position.takePosition != 'close':
+            # if ct.hour in cm.nogoTradingHours and position.takePosition != 'close':
+            if ct.hour in cm.nogoTradingHours :
                 logging.info(f'we are in a no-go Trading hour: {ct.hour}...')  
                 return False
             
