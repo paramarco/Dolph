@@ -129,15 +129,18 @@ class StochasticAndRSIModel:
         # No clear signal to buy or sell
         return 'no-go'
 
-
     def _calculate_rsi(self, series, period=14):
         delta = series.diff(1)
         gain = delta.where(delta > 0, 0)
         loss = -delta.where(delta < 0, 0)
-        avg_gain = gain.rolling(window=period, min_periods=1).mean()
-        avg_loss = loss.rolling(window=period, min_periods=1).mean()
+    
+        # Compute EMA for average gain and average loss
+        avg_gain = gain.ewm(span=period, adjust=False).mean()
+        avg_loss = loss.ewm(span=period, adjust=False).mean()
+    
         rs = avg_gain / avg_loss
         return 100 - (100 / (1 + rs))
+
 
     def _calculate_stochastic(self, close, low, high, k_period=14, d_period=3):
         lowest_low = low.rolling(window=k_period).min()
