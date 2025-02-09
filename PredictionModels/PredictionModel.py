@@ -15,7 +15,7 @@ import pandas as pd
 from abc import ABC, abstractmethod
 import logging
 from PredictionModels.StochasticAndRSIModel import StochasticAndRSIModel
-from PredictionModels.StochasticAndRSIModel import StochasticAndRSIModel
+from PredictionModels.RsiBasedOnEmaOnlyModel import RsiBasedOnEmaOnlyModel
 
 
 gc.collect()
