@@ -38,7 +38,7 @@ class DataServer:
         self.currentTestIndex = cm.currentTestIndex
         self.current_tz = cm.current_tz
         self.lastUpdate = None
-        #self._init_securities()
+        self._init_securities()
 
     def _init_securities(self):
         
@@ -47,7 +47,7 @@ class DataServer:
             
         for sec in self.securities:
             board, seccode = sec['board'], sec['seccode']
-            sec['id'] = self.ds.__getSecurityIdSQL(self, board, seccode)   
+            sec['id'] = self.__getSecurityIdSQL(self, board, seccode)   
 
     def __createDBtables(self):
         try:

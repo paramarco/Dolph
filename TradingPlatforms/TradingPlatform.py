@@ -144,7 +144,12 @@ class TradingPlatform(ABC):
         platform = cm.platform
         self.secrets = platform["secrets"] 
         self.connectOnInit = self.MODE in ['OPERATIONAL', 'TEST_ONLINE']
+        self._init_securities()
 
+    def _init_securities(self):
+                    
+        for sec in self.securities:
+            sec['id'] = self.ds.__getSecurityIdSQL(self, sec['board'], sec['seccode'])   
 
     @abstractmethod
     def connect(self):
