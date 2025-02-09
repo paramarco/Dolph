@@ -15,6 +15,8 @@ import pandas as pd
 from abc import ABC, abstractmethod
 import logging
 from PredictionModels.StochasticAndRSIModel import StochasticAndRSIModel
+from PredictionModels.StochasticAndRSIModel import StochasticAndRSIModel
+
 
 gc.collect()
 log = logging.getLogger("PredictionModel")
@@ -52,6 +54,8 @@ def initPredictionModel(data, security, dolph):
         return PeaksAndValleysModel(data, security, dolph)
     elif alg == 'stochastic_and_rsi':
         return StochasticAndRSIModel(data, security, dolph)
+    elif alg == 'RsiBasedOnEmaOnlyModel':
+        return RsiBasedOnEmaOnlyModel(data, security, dolph)
     else:
         raise ValueError(f"Algorithm '{alg}' not recognized")
 
