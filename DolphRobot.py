@@ -412,7 +412,7 @@ class Dolph:
 
         for sec in self.securities:
             board, seccode = sec['board'], sec['seccode']
-            sec['id'] = self.ds.__getSecurityIdSQL(board, seccode)        
+            sec['id'] = self.ds.getSecurityIdSQL(board, seccode)        
         
         
         if self.MODE != 'INIT_DB' : 

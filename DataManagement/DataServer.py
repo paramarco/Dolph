@@ -47,7 +47,7 @@ class DataServer:
             
         for sec in self.securities:
             board, seccode = sec['board'], sec['seccode']
-            sec['id'] = self.__getSecurityIdSQL( board, seccode)   
+            sec['id'] = self.getSecurityIdSQL( board, seccode)   
 
     def __createDBtables(self):
         try:
@@ -656,11 +656,11 @@ class DataServer:
                 conn.close()
 
 
-    def __getSecurityIdSQL(self, board, seccode):
+    def getSecurityIdSQL(self, board, seccode):
         """
         Obtiene el ID de la tabla security. Si no existe, crea una nueva entrada.
         """
-        errMsg = f"__getSecurityIdSQL: seccode: {seccode} not found"
+        errMsg = f"getSecurityIdSQL: seccode: {seccode} not found"
         try:
             conn = psycopg2.connect(**cm.db_connection_params)
             cursor = conn.cursor()
@@ -707,7 +707,7 @@ class DataServer:
         
         board = historyCandlePacket.board
         seccode = historyCandlePacket.seccode
-        security_id = self.__getSecurityIdSQL(board, seccode)
+        security_id = self.getSecurityIdSQL(board, seccode)
 
         try:
             conn = psycopg2.connect(**cm.db_connection_params)
@@ -965,7 +965,7 @@ class DataServer:
             if xroot.attrib.get('seccode') is not None:
                 seccode = xroot.attrib.get('seccode')
     
-            security_id = self.__getSecurityIdSQL(board, seccode)
+            security_id = self.getSecurityIdSQL(board, seccode)
     
             log.info("Writing to database...")
             conn = psycopg2.connect(**cm.db_connection_params)
@@ -1192,7 +1192,7 @@ class DataServer:
             cursor = conn.cursor()
             cursor.execute("BEGIN")
             
-            #security_id = self.__getSecurityIdSQL(board, seccode)            
+            #security_id = self.getSecurityIdSQL(board, seccode)            
     
             for index, row in candles.iterrows():
                 values = (
@@ -1284,7 +1284,7 @@ class DataServer:
             cursor = conn.cursor()
             cursor.execute("BEGIN")
             
-            #security_id = self.__getSecurityIdSQL(board, seccode)
+            #security_id = self.getSecurityIdSQL(board, seccode)
     
             for index, row in df.iterrows():
                 try:
