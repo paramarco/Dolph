@@ -104,14 +104,14 @@ statusOrderExecuted = ['Filled','tp_executed', 'sl_executed','filled','matched']
 statusOrderCanceled = ['Cancelled','cancelled','Rejected','Stopped','denied', 'disabled', 'expired', 'failed', 'rejected', 'canceled', 'removed', 'done_for_day']
 statusOrderOthers = ['PartiallyFilled','Inactive','PendingCancel', "linkwait","tp_correction","tp_correction_guardtime","none","inactive","wait","disabled","failed","refused","pending_cancel", "pending_replace", "stopped", "suspended", "calculated" ]
 statusStopOrderExecuted = ['tp_executed', 'sl_executed','matched','triggered']
-statusStopOrderFilled = ['filled']
+statusStopOrderFilled = ['filled','Filled']
 
 ########### default-fallback values ##########################################
 factorPosition_Balance = 0.3
 factorMargin_Position  = 0.0035
 entryTimeSeconds = 3600
 exitTimeSeconds = 36000
-#stopLossCoefficient = 2
 stopLossCoefficient = 3
 correction = 0.0
 spread = 0.0
+

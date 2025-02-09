@@ -83,7 +83,6 @@ between_time = (
 )
 nogoTradingHours = [0,1,2,3,4,5,6,7,8,9,20,21,22,23]
 
-
 numTestSample = 500
 TrainingHour = 10  # 10:00 
 currentTestIndex = 0  
@@ -112,7 +111,7 @@ factorPosition_Balance = 0.3
 factorMargin_Position  = 0.0035
 entryTimeSeconds = 3600
 exitTimeSeconds = 36000
-#stopLossCoefficient = 2
 stopLossCoefficient = 3
 correction = 0.0
 spread = 0.0
+
