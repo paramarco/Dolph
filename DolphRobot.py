@@ -408,9 +408,11 @@ class Dolph:
         
     def initDB (self):
 
+        logging.info('initDB, getting Securities ids...')
+
         for sec in self.securities:
             board, seccode = sec['board'], sec['seccode']
-            sec['id'] = self.ds.__getSecurityIdSQL(self, board, seccode)        
+            sec['id'] = self.ds.__getSecurityIdSQL(board, seccode)        
         
         
         if self.MODE != 'INIT_DB' : 

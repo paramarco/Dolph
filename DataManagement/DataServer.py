@@ -47,7 +47,7 @@ class DataServer:
             
         for sec in self.securities:
             board, seccode = sec['board'], sec['seccode']
-            sec['id'] = self.__getSecurityIdSQL(self, board, seccode)   
+            sec['id'] = self.__getSecurityIdSQL( board, seccode)   
 
     def __createDBtables(self):
         try:

@@ -149,7 +149,7 @@ class TradingPlatform(ABC):
     def _init_securities(self):
                     
         for sec in self.securities:
-            sec['id'] = self.ds.__getSecurityIdSQL(self, sec['board'], sec['seccode'])   
+            sec['id'] = self.ds.__getSecurityIdSQL(sec['board'], sec['seccode'])   
 
     @abstractmethod
     def connect(self):
