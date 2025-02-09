@@ -38,11 +38,16 @@ class DataServer:
         self.currentTestIndex = cm.currentTestIndex
         self.current_tz = cm.current_tz
         self.lastUpdate = None
-        self._init_securities()
+        #self._init_securities()
 
     def _init_securities(self):
+        
+        # for sec in self.securities:
+        #     sec['params'] = self.getSecurityAlgParams(sec)
+            
         for sec in self.securities:
-            sec['params'] = self.getSecurityAlgParams(sec)
+            board, seccode = sec['board'], sec['seccode']
+            sec['id'] = self.ds.__getSecurityIdSQL(self, board, seccode)   
 
     def __createDBtables(self):
         try:
@@ -403,7 +408,7 @@ class DataServer:
                 log.info("Finished reading")
 
     def getSecurityInfo(self, security):
-        errMsg = f"__getSecurityIdSQL: {security['seccode']} not found"
+        errMsg = f"getSecurityInfo: {security['seccode']} not found"
 
         try:
             conn = psycopg2.connect(**cm.db_connection_params)
@@ -652,27 +657,50 @@ class DataServer:
 
 
     def __getSecurityIdSQL(self, board, seccode):
-        
+        """
+        Obtiene el ID de la tabla security. Si no existe, crea una nueva entrada.
+        """
         errMsg = f"__getSecurityIdSQL: seccode: {seccode} not found"
         try:
             conn = psycopg2.connect(**cm.db_connection_params)
             cursor = conn.cursor()
-            query = """
+            
+            # Intentar buscar el ID existente
+            select_query = """
                 SELECT id 
                 FROM security 
-                WHERE CODE = %s AND BOARD = %s
+                WHERE code = %s AND board = %s
             """
-            cursor.execute(query, (seccode, board))
+            cursor.execute(select_query, (seccode, board))
             result = cursor.fetchone()
-
-            if result is None:
-                raise RuntimeError(errMsg)
-
+    
+            # Si se encuentra, devolver el ID
+            if result is not None:
+                cursor.close()
+                conn.close()
+                return str(result[0])
+    
+            # Si no se encuentra, crear una nueva entrada
+            insert_query = """
+                INSERT INTO security (code, board) 
+                VALUES (%s, %s)
+                RETURNING id
+            """
+            cursor.execute(insert_query, (seccode, board))
+            new_id = cursor.fetchone()[0]
+            
+            # Confirmar la transacción
+            conn.commit()
+    
             cursor.close()
-            return str(result[0])
-
+            conn.close()
+            return str(new_id)
+    
         except psycopg2.Error as error:
             log.error(errMsg, error)
+            if conn:
+                conn.rollback()
+            raise RuntimeError(errMsg) from error
 
 
     def storeCandles(self, historyCandlePacket):
@@ -1158,12 +1186,13 @@ class DataServer:
         try:
             seccode = security['seccode']
             board = security['board']
+            security_id = security['id']
             
             conn = psycopg2.connect(**cm.db_connection_params)
             cursor = conn.cursor()
             cursor.execute("BEGIN")
             
-            security_id = self.__getSecurityIdSQL(board, seccode)
+            #security_id = self.__getSecurityIdSQL(board, seccode)            
     
             for index, row in candles.iterrows():
                 values = (
@@ -1206,6 +1235,8 @@ class DataServer:
         
         seccode = security['seccode']
         board = security['board']
+        security_id = security['id']
+
         conn = None
         
         try:
@@ -1253,7 +1284,7 @@ class DataServer:
             cursor = conn.cursor()
             cursor.execute("BEGIN")
             
-            security_id = self.__getSecurityIdSQL(board, seccode)
+            #security_id = self.__getSecurityIdSQL(board, seccode)
     
             for index, row in df.iterrows():
                 try:

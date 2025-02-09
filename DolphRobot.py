@@ -48,7 +48,6 @@ class Dolph:
     def _init_securities(self):
         
         for sec in self.securities: 
-            sec['params'] = self.ds.getSecurityAlgParams( sec )
             sec['models'] = {}
             sec['predictions'] = {}
             seccode = sec['seccode']
@@ -328,8 +327,8 @@ class Dolph:
             longestPeriod = self.periods[-1]
             board, seccode, params = security['board'], security['seccode'], security['params']
             quantity, margin = self.calculateMarginQuatityOfPosition(security)
-            # FIXME: Can the decimals be automatically calculated?
-            decimals, marketId = self.ds.getSecurityInfo(security) 
+            # FIXME: Can the decimals be automatically calculated?            
+            decimals, marketId = security['decimals'], security['market']
             # FIXME: Are these parameters automatically calculated?
             entryTimeSeconds = params.get('entryTimeSeconds', cm.entryTimeSeconds)
             exitTimeSeconds = params.get('exitTimeSeconds', cm.exitTimeSeconds)
@@ -408,27 +407,23 @@ class Dolph:
        
         
     def initDB (self):
+
+        for sec in self.securities:
+            board, seccode = sec['board'], sec['seccode']
+            sec['id'] = self.ds.__getSecurityIdSQL(self, board, seccode)        
+        
         
         if self.MODE != 'INIT_DB' : 
             return
         
         logging.info('init database according to Trading platform ...')
-
-        filePath = "./TradingPlatforms/Alpaca/AlpacaTickers.json"
-        self.ds.insert_alpaca_tickers(filePath)
           
-        for sec in self.securities :
+        for sec in self.securities:
             
             logging.debug("getting candles ... ")
             candles = self.tp.get_candles(sec, self.since, self.until, period = '1Min')
             logging.debug("storing candles ... ")
             self.ds.store_candles(candles,sec) 
-            
-        # filePath = "./TradingPlatforms/InteractiveBrokers/IBTickers.json"
-        # self.ds.insert_InteractiveBrokers_tickers(filePath)
-          
-        # for sec in self.securities :           
-        #     pass
     
         sys.exit(0)           
         raise SystemExit("Stopping the program") 
