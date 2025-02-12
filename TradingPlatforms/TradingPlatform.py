@@ -1960,7 +1960,7 @@ class IBTradingPlatform(TradingPlatform):
             tradingPlatformTime = self.getTradingPlatformTime()
             list2cancel = []
             tid = None
-            self.cancel_stoploss(mso)
+            self.cancel_stoploss(mso.order)
             #log.debug(repr(res))
             list2cancel.append(mso)
             localTime = tradingPlatformTime.strftime(self.fmt)

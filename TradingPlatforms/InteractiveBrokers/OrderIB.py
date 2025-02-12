@@ -12,6 +12,7 @@ class OrderIB:
         self.type = trade.order.orderType
         self.side = 'buy' if trade.order.action.lower() == 'buy' else 'sell'
         self._raw = trade  # Keep the original Trade object for any advanced usage
+        self.order = trade.order
 
     def __eq__(self, other):
         """
