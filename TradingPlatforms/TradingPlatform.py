@@ -1931,13 +1931,13 @@ class IBTradingPlatform(TradingPlatform):
             return None
 
 
-    def cancel_stoploss(self, stop_order_id):
+    def cancel_stoploss(self, stop_order):
         """ Interactive Brokers """
         try:     
-            self.ib.cancelOrder(stop_order_id, '')
+            self.ib.cancelOrder(stop_order, '')
 
         except Exception as e:
-            logging.error(f"Error placing cancel_stoploss {stop_order_id}: {e}")
+            logging.error(f"Error placing cancel_stoploss {stop_order}: {e}")
             return None
 
 
@@ -1960,7 +1960,7 @@ class IBTradingPlatform(TradingPlatform):
             tradingPlatformTime = self.getTradingPlatformTime()
             list2cancel = []
             tid = None
-            self.cancel_stoploss(mso.id)
+            self.cancel_stoploss(mso)
             #log.debug(repr(res))
             list2cancel.append(mso)
             localTime = tradingPlatformTime.strftime(self.fmt)
