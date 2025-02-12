@@ -1933,7 +1933,12 @@ class IBTradingPlatform(TradingPlatform):
 
     def cancel_stoploss(self, stop_order_id):
         """ Interactive Brokers """
-        return self.ib.cancelOrder(stop_order_id)
+        try:     
+            self.ib.cancelOrder(stop_order_id, '')
+
+        except Exception as e:
+            logging.error(f"Error placing cancel_stoploss {stop_order_id}: {e}")
+            return None
 
 
     def getTradingPlatformTime(self):
@@ -1949,27 +1954,34 @@ class IBTradingPlatform(TradingPlatform):
     def closeExit(self, mp, mso):
         """ Interactive Brokers """
         
-        tradingPlatformTime = self.getTradingPlatformTime()
-        list2cancel = []
         tid = None
-        res = self.cancel_stoploss(mso.id)
-        log.debug(repr(res))
-        list2cancel.append(mso)
-        localTime = tradingPlatformTime.strftime(self.fmt)
-        exitTime = mp.exitTime.strftime(self.fmt)
-        msg = f'localTime: {localTime} exit timedouts at: {exitTime} {repr(mso)}'
-        log.info(msg)
-        res = self.new_order(
-            mp.board, mp.seccode, mp.client, mp.union, mso.buysell, mp.expdate, 
-            mp.quantity, price=mp.entryPrice, bymarket=True, usecredit=False
-        )            
-        log.debug(repr(res))
-        tid = res.order.orderId 
-        for mso in list2cancel:
-            if mso in self.monitoredStopOrders:
-                self.monitoredStopOrders.remove(mso)
         
-            self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_id != mso.id] 
+        try: 
+            tradingPlatformTime = self.getTradingPlatformTime()
+            list2cancel = []
+            tid = None
+            self.cancel_stoploss(mso.id)
+            #log.debug(repr(res))
+            list2cancel.append(mso)
+            localTime = tradingPlatformTime.strftime(self.fmt)
+            exitTime = mp.exitTime.strftime(self.fmt)
+            msg = f'localTime: {localTime} exit timedouts at: {exitTime} {repr(mso)}'
+            log.info(msg)
+            res = self.new_order(
+                mp.board, mp.seccode, mp.client, mp.union, mso.buysell, mp.expdate, 
+                mp.quantity, price=mp.entryPrice, bymarket=True, usecredit=False
+            )            
+            log.debug(repr(res))
+            tid = res.order.orderId 
+            for mso in list2cancel:
+                if mso in self.monitoredStopOrders:
+                    self.monitoredStopOrders.remove(mso)
+            
+                self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_id != mso.id] 
+        
+        except Exception as e:
+            logging.error(f"Error placing closeExit {mp} , {mso}: {e}")
+            return None
         
         return tid
 
