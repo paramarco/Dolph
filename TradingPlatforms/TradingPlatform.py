@@ -1933,7 +1933,7 @@ class IBTradingPlatform(TradingPlatform):
 
     def cancel_stoploss(self, stop_order_id):
         """ Interactive Brokers """
-        self.ib.cancelOrder(stop_order_id)
+        return self.ib.cancelOrder(stop_order_id)
 
 
     def getTradingPlatformTime(self):
