@@ -16,6 +16,8 @@ from abc import ABC, abstractmethod
 import logging
 from PredictionModels.StochasticAndRSIModel import StochasticAndRSIModel
 from PredictionModels.RsiBasedOnEmaOnlyModel import RsiBasedOnEmaOnlyModel
+from PredictionModels.RsiAndPreviousInfo import RsiAndPreviousInfo
+
 
 
 gc.collect()
@@ -56,6 +58,8 @@ def initPredictionModel(data, security, dolph):
         return StochasticAndRSIModel(data, security, dolph)
     elif alg == 'RsiBasedOnEmaOnlyModel':
         return RsiBasedOnEmaOnlyModel(data, security, dolph)
+    elif alg == 'RsiAndPreviousInfo':
+        return RsiAndPreviousInfo(data, security, dolph)
     else:
         raise ValueError(f"Algorithm '{alg}' not recognized")
 

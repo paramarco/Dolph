@@ -15,7 +15,7 @@ securities = [
         ,'decimals' : 2 
         ,'id' : 0
         ,'params': {
-            'algorithm': 'RsiAndPreviousInfo',
+            'algorithm': 'RsiBasedOnEmaOnlyModel',
             'entryByMarket': False,
             'exitTimeSeconds': 36000,
             'entryTimeSeconds': 3600,
@@ -34,7 +34,7 @@ securities = [
         ,'decimals' : 2
         ,'id' : 0
         ,'params': {
-            'algorithm': 'RsiAndPreviousInfo',
+            'algorithm': 'RsiBasedOnEmaOnlyModel',
             'entryByMarket': False,
             'exitTimeSeconds': 36000,
             'entryTimeSeconds': 3600,
@@ -53,7 +53,7 @@ securities = [
         ,'decimals' : 2
         ,'id' : 0
         ,'params': {
-            'algorithm': 'RsiAndPreviousInfo',
+            'algorithm': 'RsiBasedOnEmaOnlyModel',
             'entryByMarket': False,
             'exitTimeSeconds': 36000,
             'entryTimeSeconds': 3600,
@@ -69,7 +69,7 @@ securities = [
 logLevel = logging.DEBUG 
 #logLevel = logging.INFO
 #MODE = 'OPERATIONAL' # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL' | 'INIT_DB'
-MODE = 'OPERATIONAL'
+MODE = 'TEST_ONLINE'
 periods = ['1Min'] #periods = ['1Min','30Min']
 
 current_tz = pytz.timezone('America/New_York')
