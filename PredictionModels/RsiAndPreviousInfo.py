@@ -100,6 +100,9 @@ class RsiAndPreviousInfo:
             
             # Define lookback period
             lookback_period = 3  # Number of previous RSI and close values to check
+            
+            self.df['RSI'] = self._calculate_rsi(self.df['close'], 14)
+            self.df.dropna(inplace=True)
     
             # Get the last N RSI and close values
             prev_rsi_values = self.df['RSI'].iloc[-lookback_period-1:-1].values
@@ -133,10 +136,11 @@ class RsiAndPreviousInfo:
             return  'no-go'
        
         except Exception as e:        
-            log.error(f"Failed : {e}")            
+            log.error(f"Failed : {e}",e)            
             return 'no-go'
 
     def _calculate_rsi(self, series, period=14):
+        
         delta = series.diff(1)
         gain = delta.where(delta > 0, 0)
         loss = -delta.where(delta < 0, 0)
