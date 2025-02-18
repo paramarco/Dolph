@@ -31,7 +31,7 @@ securities = [
         'seccode': 'INTC'       
         ,'board': 'EQTY'
         ,'market': 'NASDAQ'
-        ,'decimals' : 2
+        ,'decimals' : 3
         ,'id' : 0
         ,'params': {
             'algorithm': 'RsiAndPreviousInfo',

@@ -54,25 +54,48 @@ class RsiAndPreviousInfo:
         seccode = sec['seccode']
         entryPrice = exitPrice = 0.0
 
-        lastClosePrice = self.dolph.getLastClosePrice(seccode)
-        openPosition = self.dolph.tp.isPositionOpen(seccode)
+        lastClosePrice = self.dolph.getLastClosePrice( seccode)
+        openPosition = self.dolph.tp.isPositionOpen( seccode )
         
         if openPosition:            
             positions = self.dolph.tp.get_PositionsByCode(seccode)
-            for p in positions:
+            for p in positions :
                 entryPrice = p.entryPrice
                 exitPrice = p.exitPrice 
                 
         m = f"{seccode} last: {lastClosePrice}, entry: {entryPrice}, exit: {exitPrice}"                
         log.info(m)
 
-        # Ensure df has a mnemonic column and filter by seccode
+        # Ensure df has a mnemonic column, and filter by seccode
         if 'mnemonic' in df.columns:
             df = df[df['mnemonic'] == seccode]
         else:
             log.error(f"DataFrame does not have a 'mnemonic' column.")
-            raise KeyError("DataFrame is missing 'mnemonic' column.")
+            raise KeyError("DataFrame is missing 'mnemonic' column.")            
 
+        # Ensure the necessary columns are renamed to the correct price columns
+        self.df = self.df.rename(columns={
+            'startprice': 'open',
+            'maxprice': 'high',
+            'minprice': 'low',
+            'endprice': 'close'
+        })
+    
+        # Exclude non-price columns ('mnemonic', 'hastrade', 'addedvolume', 'numberoftrades')
+        df = df.drop(columns=['hastrade', 'addedvolume', 'numberoftrades'], errors='ignore')
+        
+        # Ensure df has a datetime index
+        if not isinstance(df.index, pd.DatetimeIndex):
+            raise ValueError("DataFrame must have a datetime index.")
+        
+        # Now proceed with renaming the columns as before
+        self.df = df.rename(columns={
+            'startprice': 'open',
+            'maxprice': 'high',
+            'minprice': 'low',
+            'endprice': 'close'
+        })
+        
         # Define lookback period
         lookback_period = 3  # Number of previous RSI and close values to check
 
