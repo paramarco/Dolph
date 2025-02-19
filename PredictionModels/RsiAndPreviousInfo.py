@@ -99,7 +99,7 @@ class RsiAndPreviousInfo:
             })
             
             # Define lookback period
-            lookback_period = 3  # Number of previous RSI and close values to check
+            lookback_period = 2  # Number of previous RSI and close values to check
             
             self.df['RSI'] = self._calculate_rsi(self.df['close'], 14)
             self.df.dropna(inplace=True)
@@ -115,18 +115,17 @@ class RsiAndPreviousInfo:
     
             # Log the last three RSI and close prices
             log.info(f"Last three RSI values: {prev_rsi_values}")
-            log.info(f"Last three close prices: {prev_close_values}")
     
             # Get the latest RSI and close price
             rsi = self.df['RSI'].iloc[-1]
     
             # Buy conditions: RSI < 30, consistent oversold RSI, and decreasing close prices
-            if all(rsi < 30 for rsi in prev_rsi_values) and rsi < 30 and all(prev_close_values[i] > prev_close_values[i+1] for i in range(lookback_period-1)):
+            if all(rsi < 30 for rsi in prev_rsi_values) and rsi < 30 :
                 log.info("predictor says long")
                 return 'long'  # Buy signal
     
             # Sell conditions: RSI > 70, consistent overbought RSI, and increasing close prices
-            if all(rsi > 70 for rsi in prev_rsi_values) and rsi > 70 and all(prev_close_values[i] < prev_close_values[i+1] for i in range(lookback_period-1)):
+            if all(rsi > 70 for rsi in prev_rsi_values) and rsi > 70 :
                 log.info("predictor says short")
                 return 'short'  # Sell signal
             
