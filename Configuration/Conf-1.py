@@ -15,7 +15,7 @@ securities = [
         ,'decimals' : 2 
         ,'id' : 0
         ,'params': {
-            'algorithm': 'RsiBasedOnEmaOnlyModel',
+            'algorithm': 'RsiAndPreviousInfo',
             'entryByMarket': False,
             'exitTimeSeconds': 36000,
             'entryTimeSeconds': 3600,
@@ -31,10 +31,10 @@ securities = [
         'seccode': 'INTC'       
         ,'board': 'EQTY'
         ,'market': 'NASDAQ'
-        ,'decimals' : 2
+        ,'decimals' : 3
         ,'id' : 0
         ,'params': {
-            'algorithm': 'RsiBasedOnEmaOnlyModel',
+            'algorithm': 'RsiAndPreviousInfo',
             'entryByMarket': False,
             'exitTimeSeconds': 36000,
             'entryTimeSeconds': 3600,
@@ -53,7 +53,7 @@ securities = [
         ,'decimals' : 2
         ,'id' : 0
         ,'params': {
-            'algorithm': 'RsiBasedOnEmaOnlyModel',
+            'algorithm': 'RsiAndPreviousInfo',
             'entryByMarket': False,
             'exitTimeSeconds': 36000,
             'entryTimeSeconds': 3600,
