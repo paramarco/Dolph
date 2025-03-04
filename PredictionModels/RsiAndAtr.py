@@ -155,8 +155,8 @@ class RsiAndAtr:
         return 100 - (100 / (1 + rs))
 
     def _calculate_atr(self, df, period=14):
-        df['high-low'] = df['high'] - df['low']
-        df['high-prevclose'] = abs(df['high'] - df['close'].shift(1))
-        df['low-prevclose'] = abs(df['low'] - df['close'].shift(1))
-        df['true_range'] = df[['high-low', 'high-prevclose', 'low-prevclose']].max(axis=1)
-        return df['true_range'].rolling(period).mean()
+        self.df['high-low'] = self.df['high'] - self.df['low']
+        self.df['high-prevclose'] = abs(self.df['high'] - self.df['close'].shift(1))
+        self.df['low-prevclose'] = abs(self.df['low'] - self.df['close'].shift(1))
+        self.df['true_range'] = self.df[['high-low', 'high-prevclose', 'low-prevclose']].max(axis=1)
+        return self.df['true_range'].rolling(period).mean()
