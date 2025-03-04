@@ -74,6 +74,14 @@ class RsiAndAtr:
             atr = df['ATR'].iloc[-1]
             price = df['close'].iloc[-1]
             atr_threshold = 0.002 * price  # 0.2% of price
+            
+            tpmultiplier = 2
+            coef = ( atr * tpmultiplier ) / price
+
+            log.info(f"setting margin for {seccode}: {coef} ")
+            # updating new calculated params
+            params = {'longPositionMargin': coef, 'stopLossCoefficient': 2 }
+            self.dolph.setSecurityParams( seccode, **params )   
 
             if atr < atr_threshold:
                 log.info(f"{seccode}: ATR too low ({atr} < {atr_threshold}), skipping trade.")
@@ -100,16 +108,12 @@ class RsiAndAtr:
                 return 'short'  # Sell signal
             
             log.info(f"{seccode}: predictor says nogo")
-            
-            # updating new calculated params
-            params = {'longPositionMargin': 0.0035, 'stopLossCoefficient': 3 }
-            self.dolph.setSecurityParams( seccode, **params )            
-            
             return 'no-go'
        
         except Exception as e:        
             log.error(f"{seccode}: Failed : {e}", e)            
             return 'no-go'
+        
 
     def _calculate_rsi(self, series, period=14):
         delta = series.diff(1)
