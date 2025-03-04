@@ -100,6 +100,11 @@ class RsiAndAtr:
                 return 'short'  # Sell signal
             
             log.info(f"{seccode}: predictor says nogo")
+            
+            # updating new calculated params
+            params = {'longPositionMargin': 0.0035, 'stopLossCoefficient': 3 }
+            self.dolph.setSecurityParams( seccode, **params )            
+            
             return 'no-go'
        
         except Exception as e:        
