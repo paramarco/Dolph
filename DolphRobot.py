@@ -227,6 +227,8 @@ class Dolph:
     def isBetterToClosePosition(self, security):
         
         seccode = security['seccode']
+        params = security['params']
+
         position = self.tp.getMonitoredPositionBySeccode(seccode)
         if position is None :
             logging.error(f'{seccode} has an open-position, but there is no MonitoredPosition')
@@ -234,7 +236,9 @@ class Dolph:
         
         lastClosePrice = self.getLastClosePrice(seccode)
         entryPrice = position.entryPrice
-        limitToAcceptFallingOfPrice = entryPrice * cm.factorMargin_Position * cm.stopLossCoefficient
+        factorMargin_Position = params['longPositionMargin']
+        stopLossCoefficient = params['stopLossCoefficient']
+        limitToAcceptFallingOfPrice = entryPrice * factorMargin_Position * stopLossCoefficient
         decision = False
         if ( abs( entryPrice - lastClosePrice ) > limitToAcceptFallingOfPrice):
             decision = True
@@ -304,12 +308,16 @@ class Dolph:
     def calculateMarginQuatityOfPosition (self, security):
         
         seccode = security['seccode']
+        params = security['params']
+
         currentClose = self.getLastClosePrice( seccode)
         cash_balance = self.tp.get_cash_balance()
         net_balance = self.tp.get_net_balance()
+        factorMargin_Position = params['longPositionMargin']
+
         cash_4_position = net_balance * cm.factorPosition_Balance        
         quantity = round(cash_4_position / currentClose)
-        margin = currentClose * cm.factorMargin_Position
+        margin = currentClose * factorMargin_Position
 
         if cash_balance == 0 or net_balance == 0: 
             logging.error("cash_balance == 0 or net_balance == 0")
@@ -430,7 +438,27 @@ class Dolph:
         sys.exit(0)           
         raise SystemExit("Stopping the program") 
 
-        
+
+    def setSecurityParams(self, seccode, **params):
+        """ 
+        How to use:          
+        params = {'longPositionMargin': 0.01, 'shortPositionMargin': 0.0035}
+        self.dolph.setSecurityParams('INTC', **params )        
+        params = {'stopLossCoefficient': 3 }
+        self.dolph.setSecurityParams('INTC', **params )        
+        """
+        for sec in self.securities:
+            if sec['seccode'] == seccode:
+                for key, value in params.items():
+                    if key in sec['params']:
+                        m = f"Updating {seccode}: {sec['params'][key]} -> {value}"
+                        logging.info(m)
+                        sec['params'][key] = value
+                    else:
+                        logging.warning(f"Key '{key}' does not exist in {seccode}")
+                return
+        logging.error(f"Security with seccode '{seccode}' not found")
+    
     
 if __name__== "__main__":
 
