@@ -15,7 +15,7 @@ securities = [
         ,'decimals' : 2 
         ,'id' : 0
         ,'params': {
-            'algorithm': 'RsiAndPreviousInfo',
+            'algorithm': 'RsiAndAtr',
             'entryByMarket': False,
             'exitTimeSeconds': 36000,
             'entryTimeSeconds': 3600,
@@ -34,7 +34,7 @@ securities = [
         ,'decimals' : 3
         ,'id' : 0
         ,'params': {
-            'algorithm': 'RsiAndPreviousInfo',
+            'algorithm': 'RsiAndAtr',
             'entryByMarket': False,
             'exitTimeSeconds': 36000,
             'entryTimeSeconds': 3600,
@@ -53,7 +53,7 @@ securities = [
         ,'decimals' : 2
         ,'id' : 0
         ,'params': {
-            'algorithm': 'RsiAndPreviousInfo',
+            'algorithm': 'RsiAndAtr',
             'entryByMarket': False,
             'exitTimeSeconds': 36000,
             'entryTimeSeconds': 3600,

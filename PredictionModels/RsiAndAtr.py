@@ -58,35 +58,74 @@ class RsiAndAtr:
                 df = df[df['mnemonic'] == seccode]
             else:
                 log.error(f"DataFrame does not have a 'mnemonic' column.")
-                raise KeyError("DataFrame is missing 'mnemonic' column.")            
+
+                raise KeyError("DataFrame is missing 'mnemonic' column.")
+                
+                
+            # Ensure the necessary columns are renamed to the correct price columns
+            self.df = self.df.rename(columns={
+                'startprice': 'open',
+                'maxprice': 'high',
+                'minprice': 'low',
+                'endprice': 'close'
+            })
+        
+            # Exclude non-price columns ('mnemonic', 'hastrade', 'addedvolume', 'numberoftrades')
+            df = df.drop(columns=['hastrade', 'addedvolume', 'numberoftrades'], errors='ignore')
+            
+            # Ensure df has a datetime index
+            if not isinstance(df.index, pd.DatetimeIndex):
+                raise ValueError("DataFrame must have a datetime index.")
+            
+            # Now proceed with renaming the columns as before
+            self.df = df.rename(columns={
+                'startprice': 'open',
+                'maxprice': 'high',
+                'minprice': 'low',
+                'endprice': 'close'
+            })
+            
     
             # Calculate indicators for this specific seccode
-            df['RSI'] = self._calculate_rsi(df['close'], 14)
-            df['PrevRSI'] = df['RSI'].shift(1)
-            df['PrevPrevRSI'] = df['RSI'].shift(2)  # Two steps before
-            df['PrevClose'] = df['close'].shift(1)
-            df['ATR'] = self._calculate_atr(df, 14)
-            df['EMA50'] = df['close'].ewm(span=50, adjust=False).mean()
-            df['EMA200'] = df['close'].ewm(span=200, adjust=False).mean()
-            df.dropna(inplace=True)
+            self.df['RSI'] = self._calculate_rsi(self.df['close'], 14)
+            self.df.dropna(inplace=True)
+
+            self.df['PrevRSI'] = self.df['RSI'].shift(1)
+            self.df['PrevPrevRSI'] = self.df['RSI'].shift(2)  # Two steps before
+            self.df['PrevClose'] = self.df['close'].shift(1)
+            self.df['ATR'] = self._calculate_atr(self.df, 14)
+            self.df['EMA50'] = self.df['close'].ewm(span=50, adjust=False).mean()
+            self.df['EMA200'] = self.df['close'].ewm(span=200, adjust=False).mean()
+            self.df.dropna(inplace=True)
 
             # Get latest ATR value
-            atr = df['ATR'].iloc[-1]
-            price = df['close'].iloc[-1]
+            atr = self.df['ATR'].iloc[-1]
+            price = self.df['close'].iloc[-1]
             atr_threshold = 0.002 * price  # 0.2% of price
+            
+            tpmultiplier = 2
+            coef = ( atr * tpmultiplier ) / price
+
+            log.info(f"setting margin for {seccode}: {coef} ")
+            # updating new calculated params
+            coef = 0.003
+            params = {'longPositionMargin': coef, 'stopLossCoefficient': 2 }
+            self.dolph.setSecurityParams( seccode, **params )   
 
             if atr < atr_threshold:
                 log.info(f"{seccode}: ATR too low ({atr} < {atr_threshold}), skipping trade.")
                 return 'no-go'
     
             # Get the latest and previous RSI values
-            rsi = df['RSI'].iloc[-1]
-            prev_rsi = df['RSI'].iloc[-2]
-            prev_prev_rsi = df['RSI'].iloc[-3]
+
+            rsi = self.df['RSI'].iloc[-1]
+            prev_rsi = self.df['RSI'].iloc[-2]
+            prev_prev_rsi = self.df['RSI'].iloc[-3]
     
             # Get EMA values
-            ema50 = df['EMA50'].iloc[-1]
-            ema200 = df['EMA200'].iloc[-1]
+            ema50 = self.df['EMA50'].iloc[-1]
+            ema200 = self.df['EMA200'].iloc[-1]
+
             log.info(f"Values: {rsi} {prev_rsi} {prev_prev_rsi} {ema50} {ema200}")
     
             # Buy conditions: RSI was below 30, remained there, now increasing; EMA50 > EMA200 (bullish trend); Price > EMA50
@@ -106,6 +145,7 @@ class RsiAndAtr:
             log.error(f"{seccode}: Failed : {e}", e)            
             return 'no-go'
 
+
     def _calculate_rsi(self, series, period=14):
         delta = series.diff(1)
         gain = delta.where(delta > 0, 0)
@@ -119,8 +159,10 @@ class RsiAndAtr:
         return 100 - (100 / (1 + rs))
 
     def _calculate_atr(self, df, period=14):
-        df['high-low'] = df['high'] - df['low']
-        df['high-prevclose'] = abs(df['high'] - df['close'].shift(1))
-        df['low-prevclose'] = abs(df['low'] - df['close'].shift(1))
-        df['true_range'] = df[['high-low', 'high-prevclose', 'low-prevclose']].max(axis=1)
-        return df['true_range'].rolling(period).mean()
+
+        self.df['high-low'] = self.df['high'] - self.df['low']
+        self.df['high-prevclose'] = abs(self.df['high'] - self.df['close'].shift(1))
+        self.df['low-prevclose'] = abs(self.df['low'] - self.df['close'].shift(1))
+        self.df['true_range'] = self.df[['high-low', 'high-prevclose', 'low-prevclose']].max(axis=1)
+        return self.df['true_range'].rolling(period).mean()
+
