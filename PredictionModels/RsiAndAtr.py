@@ -117,22 +117,21 @@ class RsiAndAtr:
             # Get the latest and previous RSI values
 
             rsi = self.df['RSI'].iloc[-1]
-            prev_rsi = self.df['RSI'].iloc[-2]
-            prev_prev_rsi = self.df['RSI'].iloc[-3]
+          
     
             # Get EMA values
             ema50 = self.df['EMA50'].iloc[-1]
             ema200 = self.df['EMA200'].iloc[-1]
 
-            log.info(f"Values: {rsi} {prev_rsi} {prev_prev_rsi} {ema50} {ema200}")
+            log.info(f"Values: {rsi} {ema50} {ema200}")
     
             # Buy conditions: RSI was below 30, remained there, now increasing; EMA50 > EMA200 (bullish trend); Price > EMA50
-            if prev_rsi < 30 and rsi > prev_rsi and ema50 > ema200:
+            if rsi < 30 and ema50 > ema200:
                 log.info(f"{seccode}: predictor says long")
                 return 'long'  # Buy signal
     
             # Sell conditions: RSI was above 70, remained there, now decreasing; EMA50 < EMA200 (bearish trend); Price < EMA50
-            if prev_rsi > 70 and rsi < prev_rsi and ema50 < ema200:
+            if rsi > 70 and ema50 < ema200:
                 log.info(f"{seccode}: predictor says short")
                 return 'short'  # Sell signal
             
