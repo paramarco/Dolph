@@ -127,12 +127,12 @@ class RsiAndAtr:
             log.info(f"Values: {rsi} {prev_rsi} {prev_prev_rsi} {ema50} {ema200}")
     
             # Buy conditions: RSI was below 30, remained there, now increasing; EMA50 > EMA200 (bullish trend); Price > EMA50
-            if prev_prev_rsi < 30 and prev_rsi < 30 and rsi > prev_rsi and ema50 > ema200 and price > ema50:
+            if prev_rsi < 30 and rsi > prev_rsi and ema50 > ema200:
                 log.info(f"{seccode}: predictor says long")
                 return 'long'  # Buy signal
     
             # Sell conditions: RSI was above 70, remained there, now decreasing; EMA50 < EMA200 (bearish trend); Price < EMA50
-            if prev_prev_rsi > 70 and prev_rsi > 70 and rsi < prev_rsi and ema50 < ema200 and price < ema50:
+            if prev_rsi > 70 and rsi < prev_rsi and ema50 < ema200:
                 log.info(f"{seccode}: predictor says short")
                 return 'short'  # Sell signal
             
