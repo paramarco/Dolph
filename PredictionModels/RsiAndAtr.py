@@ -108,8 +108,8 @@ class RsiAndAtr:
 
             log.info(f"setting margin for {seccode}: {coef} ")
             # updating new calculated params
-            coef = 0.002
-            params = {'longPositionMargin': coef, 'stopLossCoefficient': 2 }
+            # coef = 0.002
+            params = {'longPositionMargin': coef, 'stopLossCoefficient': 3 }
             self.dolph.setSecurityParams( seccode, **params )   
 
            
