@@ -103,13 +103,13 @@ class RsiAndAtr:
             price = self.df['close'].iloc[-1]
             atr_threshold = 0.002 * price  # 0.2% of price
             
-            tpmultiplier = 2
-            coef = ( atr * tpmultiplier ) / price
+            # tpmultiplier = 2
+            # coef = ( atr * tpmultiplier ) / price
 
-            log.info(f"setting margin for {seccode}: {coef} ")
+            # log.info(f"setting margin for {seccode}: {coef} ")
             # updating new calculated params
-            # coef = 0.002
-            params = {'longPositionMargin': coef, 'stopLossCoefficient': 3 }
+            coef = 0.001
+            params = {'longPositionMargin': coef, 'stopLossCoefficient': 2 }
             self.dolph.setSecurityParams( seccode, **params )   
 
            
