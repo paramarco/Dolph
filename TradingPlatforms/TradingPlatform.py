@@ -536,12 +536,12 @@ class TradingPlatform(ABC):
             #     logging.info(m)  
             #     return False            
             
-            ct = self.getTradingPlatformTime()                            
-            # if ct.hour in cm.nogoTradingHours and position.takePosition != 'close':
-            if ct.hour in cm.nogoTradingHours :
-                logging.info(f'we are in a no-go Trading hour: {ct.hour}...')  
+            ct = self.getTradingPlatformTime().time()  
+            if not (cm.tradingTimes[0] <= ct <= cm.tradingTimes[1]):
+                logging.info(f'We are outside trading hours: {ct}...')  
                 return False
             
+            ct = self.getTradingPlatformTime()
             if ct.weekday() in [calendar.SATURDAY, calendar.SUNDAY]:
                 logging.info('we are on Saturday or Sunday ...')  
                 return False
