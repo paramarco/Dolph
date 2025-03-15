@@ -1626,14 +1626,13 @@ class IBTradingPlatform(TradingPlatform):
             # Start event loop in a separate thread
             log.info("Startting event loop in a separate thread for IB ...")
                         
-#            thread = Thread(target=self.ib.run, daemon=True, name="event loop for IB")
-            def run_event_loop():
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)                
-                self.ib.run()
-    
-            thread = Thread(target=run_event_loop, daemon=True, name="event loop for IB")
-#          
+            thread = Thread(target=self.ib.run, daemon=True, name="event loop for IB")
+#            def run_event_loop():
+#                 loop = asyncio.new_event_loop()
+#                 asyncio.set_event_loop(loop)                
+#                 self.ib.run()
+#             thread = Thread(target=run_event_loop, daemon=True, name="event loop for IB")
+       
             thread.start()
           
             log.info('Sleeping 10 seconds for the DataServer to load...')
@@ -1651,21 +1650,18 @@ class IBTradingPlatform(TradingPlatform):
                 self.ds.store_candles_from_IB(candles, sec)
     
             self.ordersStatusUpdateTask = IB_OrderStatusTask(self)
-            # t2 = Thread(
-            #     target = self.ordersStatusUpdateTask.run, 
-            #     args = ( ),
-            #     name = "IB_OrderStatusTask",
-            #     daemon=True
-            # )
-            def run_order_status_task():
-                while not self.connected:
-                    log.info("Waiting for connection to complete before starting OrderStatusTask...")
-                    time.sleep(5)
-            
-                log.info("OrderStatusTask now running!")
-                self.ordersStatusUpdateTask.run()  # Ejecutar el monitoreo de órdenes
-            
-            t2 = Thread(target=run_order_status_task, daemon=True, name="IB_OrderStatusTask")
+#            def run_order_status_task():
+#                while not self.connected:
+#                    log.info("Waiting for connection to complete before starting OrderStatusTask...")
+#                    time.sleep(5)           
+#                log.info("OrderStatusTask now running!")
+#                self.ordersStatusUpdateTask.run()  # Ejecutar el monitoreo de órdenes            
+#            t2 = Thread(target=run_order_status_task, daemon=True, name="IB_OrderStatusTask")
+            t2 = Thread(
+                target = self.ordersStatusUpdateTask.run, 
+                args = ( ),
+                name = "IB_OrderStatusTask"
+            )
             t2.start()  
             
             return True  # Successful connection
