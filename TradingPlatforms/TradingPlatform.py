@@ -1651,12 +1651,21 @@ class IBTradingPlatform(TradingPlatform):
                 self.ds.store_candles_from_IB(candles, sec)
     
             self.ordersStatusUpdateTask = IB_OrderStatusTask(self)
-            t2 = Thread(
-                target = self.ordersStatusUpdateTask.run, 
-                args = ( ),
-                name = "IB_OrderStatusTask",
-                daemon=True
-            )
+            # t2 = Thread(
+            #     target = self.ordersStatusUpdateTask.run, 
+            #     args = ( ),
+            #     name = "IB_OrderStatusTask",
+            #     daemon=True
+            # )
+            def run_order_status_task():
+                while not self.connected:
+                    log.info("Waiting for connection to complete before starting OrderStatusTask...")
+                    time.sleep(5)
+            
+                log.info("OrderStatusTask now running!")
+                self.ordersStatusUpdateTask.run()  # Ejecutar el monitoreo de órdenes
+            
+            t2 = Thread(target=run_order_status_task, daemon=True, name="IB_OrderStatusTask")
             t2.start()  
             
             return True  # Successful connection
