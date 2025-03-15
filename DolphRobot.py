@@ -338,7 +338,6 @@ class Dolph:
             # FIXME: Can the decimals be automatically calculated?            
             decimals, marketId = security['decimals'], security['market']
             # FIXME: Are these parameters automatically calculated?
-            entryTimeSeconds = params.get('entryTimeSeconds', cm.entryTimeSeconds)
             exitTimeSeconds = params.get('exitTimeSeconds', cm.exitTimeSeconds)
             k = params.get('stopLossCoefficient', cm.stopLossCoefficient ) 
             correction = params.get('correction', cm.correction) 
@@ -348,14 +347,14 @@ class Dolph:
             ct = self.tp.getTradingPlatformTime()
             exitTime = ct + dt.timedelta(seconds=exitTimeSeconds)
             
-            return (longestPeriod, board, seccode, entryTimeSeconds, exitTimeSeconds, 
+            return (longestPeriod, board, seccode, exitTimeSeconds, 
                 quantity, k, decimals, marketId, spread, correction, margin, exitTime )
         
         except Exception as e:
             logging.error("Failed to get_evaluation_parameters: %s", e)
             k = margin = quantity = correction = spread = decimals = marketId = ct = exitTime = 0            
             
-            return (longestPeriod, board, seccode, entryTimeSeconds, exitTimeSeconds, 
+            return (longestPeriod, board, seccode, exitTimeSeconds, 
                 quantity, k, decimals, marketId, spread, correction, margin, exitTime )
        
 
@@ -363,7 +362,7 @@ class Dolph:
 
     def evaluatePosition (self, security):        
 
-        (longestPeriod, board, seccode, entryTimeSeconds, exitTimeSeconds, 
+        (longestPeriod, board, seccode, exitTimeSeconds, 
          quantity, k, decimals, marketId, spread, correction, margin, exitTime ) = self.get_evaluation_parameters(security)
             
         prediction = copy.deepcopy(security['predictions'][longestPeriod])
@@ -386,7 +385,7 @@ class Dolph:
             stoploss = entryPrice  + k * margin                
        
         position = tp.Position(
-            takePosition, board, seccode, marketId, entryTimeSeconds, 
+            takePosition, board, seccode, marketId,
             quantity, entryPrice, exitPrice, stoploss, decimals, client, 
             exitTime, correction, spread, byMarket 
         )

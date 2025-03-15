@@ -24,7 +24,7 @@ log = logging.getLogger("TradingPlatform")
 
 class Position:
     
-    def __init__(self, takePosition, board, seccode, marketId, entryTimeSeconds,
+    def __init__(self, takePosition, board, seccode, marketId, 
                  quantity, entryPrice, exitPrice, stoploss, 
                  decimals, client, exitTime=None, correction=None, spread=None, bymarket = False, 
                  entry_id=None, exit_id=None, exit_order_no=None , union = None, 
@@ -40,9 +40,6 @@ class Position:
         self.board = board
         self.seccode = seccode
         self.marketId = marketId
-        # entryTimeSeconds := cancel position entry if it isn't executed 
-        # yet within this seconds 
-        self.entryTimeSeconds = entryTimeSeconds
         # quantity := number of lots
         self.quantity = quantity
         # entryPrice := price you want to buy(sell) if it's a long(short)
@@ -76,8 +73,7 @@ class Position:
         msg = ' takePosition='+ self.takePosition 
         msg += ' board=' + self.board 
         msg += ' seccode=' + self.seccode
-        msg += ' marketId=' + str(self.marketId)
-        msg += ' entryTimeSeconds=' + str(self.entryTimeSeconds)
+        msg += ' marketId=' + str(self.marketId)        
         msg += ' quantity=' + str(self.quantity)
         msg += ' entryPrice=' + str(self.entryPrice)
         msg += ' exitPrice=' + str(self.exitPrice)
