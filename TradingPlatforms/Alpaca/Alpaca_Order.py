@@ -31,11 +31,18 @@ class OrderAlpaca(AlpacaOrder):
         if name == 'buysell':
             return self.side  # Map 'buysell' to 'side'
         if name == 'time':
-            try:
-                # Convert 'created_at' string to datetime object with timezone UTC
-                return datetime.fromisoformat(self.created_at.rstrip('Z')).replace(tzinfo=timezone.utc)
-            except (AttributeError, ValueError, TypeError):
+            created_at_str = getattr(self, "created_at", None)  # Obtener 'created_at' si existe
+
+            if created_at_str:
+                try:
+                    # Convertir 'created_at' en un datetime UTC
+                    return datetime.fromisoformat(created_at_str.rstrip('Z')).replace(tzinfo=timezone.utc)
+                except ValueError:
+                    raise AttributeError(f"'OrderAlpaca' object has invalid 'created_at' format: {created_at_str}")
+            else:
                 raise AttributeError("'OrderAlpaca' object has no valid 'created_at' attribute")
+
+
 
         try:
             # If the attribute is not 'seccode', defer to the superclass (AlpacaOrder)
