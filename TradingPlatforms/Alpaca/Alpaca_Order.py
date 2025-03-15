@@ -1,5 +1,6 @@
 from alpaca_trade_api.entity import Order as AlpacaOrder  # Assuming this is the module where Alpaca's Order is defined
 from datetime import datetime, timezone
+import pandas as pd
 
 class OrderAlpaca(AlpacaOrder):
     
@@ -31,16 +32,32 @@ class OrderAlpaca(AlpacaOrder):
         if name == 'buysell':
             return self.side  # Map 'buysell' to 'side'
         if name == 'time':
-            created_at_str = getattr(self, "created_at", None)  # Obtener 'created_at' si existe
+            created_at = getattr(self, "created_at", None)  # Obtener 'created_at' si existe
 
-            if created_at_str:
+            if created_at:
                 try:
-                    # Convertir 'created_at' en un datetime UTC
-                    return datetime.fromisoformat(created_at_str.rstrip('Z')).replace(tzinfo=timezone.utc)
-                except ValueError:
-                    raise AttributeError(f"'OrderAlpaca' object has invalid 'created_at' format: {created_at_str}")
+                    # Si es un string, convertirlo usando fromisoformat
+                    if isinstance(created_at, str):
+                        return datetime.fromisoformat(created_at.rstrip('Z')).replace(tzinfo=timezone.utc)
+                    
+                    # Si es un objeto Timestamp (por ejemplo, de Pandas), convertirlo a datetime
+                    elif isinstance(created_at, pd.Timestamp):
+                        return created_at.to_pydatetime().replace(tzinfo=timezone.utc)
+                    
+                    # Si ya es un objeto datetime, devolverlo directamente
+                    elif isinstance(created_at, datetime):
+                        return created_at
+                    
+                    else:
+                        raise TypeError(f"Unexpected type for 'created_at': {type(created_at)}")
+                
+                except (ValueError, TypeError) as e:
+                    raise AttributeError(f"'OrderAlpaca' object has an invalid 'created_at' format: {created_at} ({e})")
+
             else:
                 raise AttributeError("'OrderAlpaca' object has no valid 'created_at' attribute")
+
+
 
 
 
