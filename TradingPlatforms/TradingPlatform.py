@@ -1069,7 +1069,8 @@ class OrderStatusUpdateTask:
             except Exception as e:
                 log.error(f"Failed to poll order updates: {e}")
             
-            self.tp.reportCurrentOpenPositions()
+            self.tp.cancelTimedoutEntries()
+            self.tp.cancelTimedoutExits()   
             # Sleep for 5 seconds before the next poll
             time.sleep(5) 
 
@@ -1564,6 +1565,9 @@ class IB_OrderStatusTask:
                         log.error(f"Unknown Order type : {order}")
             except Exception as e:
                 log.error(f"Failed to poll order updates: {e}")
+            
+            self.tp.cancelTimedoutEntries()
+            self.tp.cancelTimedoutExits()           
             
             # Sleep for 5 seconds before the next poll
             time.sleep(5)
