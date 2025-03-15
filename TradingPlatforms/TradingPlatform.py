@@ -1625,7 +1625,15 @@ class IBTradingPlatform(TradingPlatform):
             
             # Start event loop in a separate thread
             log.info("Startting event loop in a separate thread for IB ...")
-            thread = Thread(target=self.ib.run, daemon=True, name="event loop for IB")
+                        
+#            thread = Thread(target=self.ib.run, daemon=True, name="event loop for IB")
+            def run_event_loop():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                self.ib.run()
+    
+            thread = Thread(target=run_event_loop, daemon=True, name="event loop for IB")
+#          
             thread.start()
           
             log.info('Sleeping 10 seconds for the DataServer to load...')
