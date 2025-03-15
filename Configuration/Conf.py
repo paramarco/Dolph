@@ -109,9 +109,9 @@ statusStopOrderFilled = ['filled','Filled']
 ########### default-fallback values ##########################################
 factorPosition_Balance = 0.3
 factorMargin_Position  = 0.0035
-entryTimeSeconds = 3600
+entryTimeSeconds = 300
 exitTimeSeconds = 36000
 stopLossCoefficient = 3
 correction = 0.0
 spread = 0.0
-
+time2close = dt.time(16, 30)  # Definido como 16:30 (4:30 PM)

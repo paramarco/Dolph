@@ -4,6 +4,7 @@ import asyncio
 from abc import ABC, abstractmethod
 import logging
 import datetime
+from datetime import timezone
 import time
 import pytz
 import calendar
@@ -546,7 +547,7 @@ class TradingPlatform(ABC):
                 return False
             
             if ct.weekday() in [calendar.SATURDAY, calendar.SUNDAY]:
-                logging.info(f'we are on Saturday or Sunday ...')  
+                logging.info('we are on Saturday or Sunday ...')  
                 return False
     
             # Only check self.tc if it's relevant, e.g., for platforms that use tc
@@ -575,23 +576,18 @@ class TradingPlatform(ABC):
  
     def cancelTimedoutEntries(self):
         """common"""        
-        tradingPlatformTime = self.getTradingPlatformTime()
         list2cancel = []
+        nSec = datetime.timedelta( seconds=cm.entryTimeSeconds)
+        currentTime = datetime.now(timezone.utc)
         
         for mp in self.monitoredPositions:
             for mo in self.monitoredOrders:
-                
                 if mp.entry_id == mo.id:
-                    nSec = mp.entryTimeSeconds
-                    orderTime_plusNsec = mo.time + datetime.timedelta(seconds=nSec)
-                
-                    if tradingPlatformTime > orderTime_plusNsec:
-                        res = self.cancel_order(mo.id)
-                        log.debug(repr(res))
+                    expTime = mo.time + nSec                
+                    if currentTime > expTime:
+                        self.cancel_order(mo.id)
                         list2cancel.append(mo)
-                        localTime = tradingPlatformTime.strftime(self.fmt)
-                        expTime = orderTime_plusNsec.strftime(self.fmt)
-                        msg = f'localTime: {localTime} entry timedouts at: {expTime} {repr(mo)}'
+                        msg = f'Cancelling Order expiring at {expTime.isoformat()}, {mo}'
                         log.info(msg)
                     break
                 
@@ -599,15 +595,17 @@ class TradingPlatform(ABC):
             if mo in self.monitoredOrders:
                 self.monitoredOrders.remove(mo)
                 self.monitoredPositions = [p for p in self.monitoredPositions if p.entry_id != mo.id]
-
+                     
 
     def cancelTimedoutExits(self):
         """common"""        
         tradingPlatformTime = self.getTradingPlatformTime()
+        current_time_only = tradingPlatformTime.time()
+        
         for mp in self.monitoredPositions:
             for mso in self.monitoredStopOrders:
-                if mp.exit_id == mso.id and tradingPlatformTime > mp.exitTime:
-                    log.info('time-out exit detected, closing exit')
+                if mp.exit_id == mso.id and current_time_only > cm.time2close:
+                    log.info(f'time-out exit detected, closing exit for {mso}')
                     self.closeExit(mp, mso)
                     break
 
@@ -2112,7 +2110,7 @@ class IBTradingPlatform(TradingPlatform):
         )
         
         if res is None:
-            log.error(f"Failed to create stop order: new_stoporder returned None")
+            log.error("Failed to create stop order: new_stoporder returned None")
             
         elif res.orderStatus.status in cm.statusOrderForwarding or res.orderStatus.status in cm.statusOrderExecuted:
                         
@@ -2204,5 +2202,4 @@ if __name__== "__main__":
          seccode = sec['seccode']
          candles = tp.get_candles( seccode, since, until, period)
          tp.ds.store_candles(candles, seccode)        
-     
      

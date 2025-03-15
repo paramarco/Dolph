@@ -1,4 +1,5 @@
 from ib_insync import Trade
+from datetime import datetime, timezone
 
 class OrderIB:
 
@@ -13,6 +14,8 @@ class OrderIB:
         self.side = 'buy' if trade.order.action.lower() == 'buy' else 'sell'
         self._raw = trade  # Keep the original Trade object for any advanced usage
         self.order = trade.order
+        # Store the creation time as UTC timestamp
+        self.time = datetime.now(timezone.utc)
 
     def __eq__(self, other):
         """
@@ -26,7 +29,9 @@ class OrderIB:
         """
         String representation for debugging.
         """
-        return f"OrderIB(id={self.id}, symbol={self.symbol}, side={self.side}, status={self.status})"
+        msg = f"OrderIB(id={self.id}, symbol={self.symbol}, side={self.side}, "
+        msg += f"status={self.status}, time={self.time.isoformat()})"
+        return msg
 
     def __getattr__(self, name):
         """
