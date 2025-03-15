@@ -1629,11 +1629,7 @@ class IBTradingPlatform(TradingPlatform):
 #            thread = Thread(target=self.ib.run, daemon=True, name="event loop for IB")
             def run_event_loop():
                 loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-    
-                self.ordersStatusUpdateTask = IB_OrderStatusTask(self)
-                loop.run_in_executor(None, self.ordersStatusUpdateTask.run)
-                
+                asyncio.set_event_loop(loop)                
                 self.ib.run()
     
             thread = Thread(target=run_event_loop, daemon=True, name="event loop for IB")
@@ -1654,13 +1650,14 @@ class IBTradingPlatform(TradingPlatform):
                 candles = self.get_candles(sec, months_ago, now, period='1Min')
                 self.ds.store_candles_from_IB(candles, sec)
     
-            # self.ordersStatusUpdateTask = IB_OrderStatusTask(self)
-            # t2 = Thread(
-            #     target = self.ordersStatusUpdateTask.run, 
-            #     args = ( ),
-            #     name = "IB_OrderStatusTask"
-            # )
-            # t2.start()  
+            self.ordersStatusUpdateTask = IB_OrderStatusTask(self)
+            t2 = Thread(
+                target = self.ordersStatusUpdateTask.run, 
+                args = ( ),
+                name = "IB_OrderStatusTask",
+                daemon=True
+            )
+            t2.start()  
             
             return True  # Successful connection
         
