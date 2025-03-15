@@ -574,7 +574,7 @@ class TradingPlatform(ABC):
         """common"""        
         list2cancel = []
         nSec = datetime.timedelta( seconds=cm.entryTimeSeconds)
-        currentTime = datetime.now(timezone.utc)
+        currentTime = datetime.datetime.now(timezone.utc)
         
         for mp in self.monitoredPositions:
             for mo in self.monitoredOrders:
