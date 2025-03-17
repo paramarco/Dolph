@@ -392,7 +392,7 @@ class Dolph:
         
         if takePosition in ['long','short']:            
             if self.positionExceedsBalance(position):
-                takePosition = 'no-go' 
+                position.takePosition = 'no-go' 
         
         logging.info( 'dolph decides: ' + str(position))    
             
