@@ -436,16 +436,22 @@ class TradingPlatform(ABC):
                 self.removeMonitoredPositionByExit(stopOrder)
                 if stopOrder in self.monitoredStopOrders:
                     self.monitoredStopOrders.remove(stopOrder)
-                    m = f'stopOrder: {stopOrder.id} in status: {s} deleted from monitoredStopOrders'
-                
+                    m = f'stopOrder: {stopOrder.id} in status: {s} deleted from monitoredStopOrders'                
             
             elif s in cm.statusOrderCanceled:
-                
-                self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_id != stopOrder.id] 
-                if stopOrder in self.monitoredStopOrders:
-                    self.monitoredStopOrders.remove(stopOrder)
-                    m = f'id: {stopOrder.id} with status: {s} deleted from monitoredStopOrders'
-                
+
+                for mp in self.monitoredPositions: 
+                    if mp.exit_id == stopOrder.id: 
+                        mp.stopOrderRequested = True
+                        res = self.new_order(
+                            mp.board, mp.seccode, mp.client, mp.union, stopOrder.buysell, mp.expdate, 
+                            mp.quantity, price=mp.entryPrice, bymarket=True, usecredit=False
+                        )   
+                        mp.exit_id = res.order.orderId 
+                        if stopOrder in self.monitoredStopOrders:
+                            self.monitoredStopOrders.remove(stopOrder)             
+                        m = f'New Exit Order {mp.exit_id} due to cancelling {mp}'
+               
             else:
                 logging.debug(f'status: {s} skipped, belongs to: {cm.statusOrderOthers}')
             
@@ -1969,27 +1975,27 @@ class IBTradingPlatform(TradingPlatform):
         tid = None
         
         try: 
-            tradingPlatformTime = self.getTradingPlatformTime()
-            list2cancel = []
-            tid = None
+            # tradingPlatformTime = self.getTradingPlatformTime()
+            # list2cancel = []
+            # tid = None
             self.cancel_stoploss(mso.order)
             #log.debug(repr(res))
-            list2cancel.append(mso)
-            localTime = tradingPlatformTime.strftime(self.fmt)
-            exitTime = mp.exitTime.strftime(self.fmt)
-            msg = f'localTime: {localTime} exit timedouts at: {exitTime} {repr(mso)}'
-            log.info(msg)
-            res = self.new_order(
-                mp.board, mp.seccode, mp.client, mp.union, mso.buysell, mp.expdate, 
-                mp.quantity, price=mp.entryPrice, bymarket=True, usecredit=False
-            )            
-            log.debug(repr(res))
-            tid = res.order.orderId 
-            for mso in list2cancel:
-                if mso in self.monitoredStopOrders:
-                    self.monitoredStopOrders.remove(mso)
+            # list2cancel.append(mso)
+            # localTime = tradingPlatformTime.strftime(self.fmt)
+            # exitTime = mp.exitTime.strftime(self.fmt)
+            # msg = f'localTime: {localTime} exit timedouts at: {exitTime} {repr(mso)}'
+            # log.info(msg)
+            # res = self.new_order(
+            #     mp.board, mp.seccode, mp.client, mp.union, mso.buysell, mp.expdate, 
+            #     mp.quantity, price=mp.entryPrice, bymarket=True, usecredit=False
+            # )            
+            # log.debug(repr(res))
+            # tid = res.order.orderId 
+            # for mso in list2cancel:
+            #     if mso in self.monitoredStopOrders:
+            #         self.monitoredStopOrders.remove(mso)
             
-                self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_id != mso.id] 
+            #     self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_id != mso.id] 
         
         except Exception as e:
             logging.error(f"Error placing closeExit {mp} , {mso}: {e}")
