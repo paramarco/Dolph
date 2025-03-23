@@ -90,31 +90,16 @@ class RsiAndAtr:
             self.df['RSI'] = self._calculate_rsi(self.df['close'], 14)
             self.df.dropna(inplace=True)
 
-            self.df['PrevRSI'] = self.df['RSI'].shift(1)
-            self.df['PrevPrevRSI'] = self.df['RSI'].shift(2)  # Two steps before
+        # Two steps before
             self.df['PrevClose'] = self.df['close'].shift(1)
-            self.df['ATR'] = self._calculate_atr(self.df, 14)
             self.df['EMA50'] = self.df['close'].ewm(span=50, adjust=False).mean()
             self.df['EMA200'] = self.df['close'].ewm(span=200, adjust=False).mean()
             self.df.dropna(inplace=True)
 
-            # Get latest ATR value
-            atr = self.df['ATR'].iloc[-1]
-            price = self.df['close'].iloc[-1]
-            atr_threshold = 0.002 * price  # 0.2% of price
-            
-            # tpmultiplier = 2
-            # coef = ( atr * tpmultiplier ) / price
+         
 
-            # log.info(f"setting margin for {seccode}: {coef} ")
-            # updating new calculated params
-            # coef = 0.001
-            # params = {'longPositionMargin': coef, 'stopLossCoefficient': 2 }
-            # self.dolph.setSecurityParams( seccode, **params )   
-
-           
     
-            # Get the latest and previous RSI values
+            # Get the latest RSI value
 
             rsi = self.df['RSI'].iloc[-1]
           
@@ -123,7 +108,7 @@ class RsiAndAtr:
             ema50 = self.df['EMA50'].iloc[-1]
             ema200 = self.df['EMA200'].iloc[-1]
 
-            log.info(f"Values: {rsi} {ema50} {ema200}")
+            log.info(f"Values rsi ema50 ema200 : {rsi} {ema50} {ema200}")
     
             # Buy conditions: RSI was below 30, remained there, now increasing; EMA50 > EMA200 (bullish trend); Price > EMA50
             if rsi < 30 and ema50 > ema200:
@@ -148,12 +133,38 @@ class RsiAndAtr:
         gain = delta.where(delta > 0, 0)
         loss = -delta.where(delta < 0, 0)
     
-        # Compute EMA for average gain and average loss
-        avg_gain = gain.ewm(span=period, adjust=False).mean()
-        avg_loss = loss.ewm(span=period, adjust=False).mean()
+        # Initialize average gain/loss using SMA
+        avg_gain = gain[:period].mean()
+        avg_loss = loss[:period].mean()
     
-        rs = avg_gain / avg_loss
-        return 100 - (100 / (1 + rs))
+        if avg_loss == 0:
+            rs = float('inf')
+            rsi = 100.0
+        else:
+            rs = avg_gain / avg_loss
+            rsi = 100 - (100 / (1 + rs))
+    
+        # If not enough data, return None
+        if len(series) < period:
+            return None
+    
+        # Smooth over remaining data, if available
+        for i in range(period, len(series) - 1):
+            current_gain = gain.iloc[i + 1]
+            current_loss = loss.iloc[i + 1]
+    
+            avg_gain = (avg_gain * (period - 1) + current_gain) / period
+            avg_loss = (avg_loss * (period - 1) + current_loss) / period
+    
+            if avg_loss == 0:
+                rs = float('inf')
+                rsi = 100.0
+            else:
+                rs = avg_gain / avg_loss
+                rsi = 100 - (100 / (1 + rs))
+    
+        return rsi
+
 
     def _calculate_atr(self, df, period=14):
 
