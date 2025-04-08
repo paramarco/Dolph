@@ -81,7 +81,7 @@ between_time = (
     current_tz.localize(dt.datetime.strptime('07:00', '%H:%M')).time(),
     current_tz.localize(dt.datetime.strptime('23:40', '%H:%M')).time()
 )
-tradingTimes = (dt.time(8, 30), dt.time(16, 45))
+nogoTradingHours = [0,1,2,3,4,5,6,7,8,9,20,21,22,23]
 
 numTestSample = 500
 TrainingHour = 10  # 10:00 
@@ -114,4 +114,5 @@ exitTimeSeconds = 36000
 stopLossCoefficient = 3
 correction = 0.0
 spread = 0.0
-time2close = dt.time(16, 46) 
+time2close = dt.time(16, 30)  # Definido como 16:30 (4:30 PM)
+

@@ -20,9 +20,9 @@ securities = [
             'exitTimeSeconds': 36000,
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51
-            ,"longPositionMargin": 0.001 
-            ,"shortPositionMargin": 0.001 
-            ,"stopLossCoefficient": 1
+            ,"longPositionMargin": 0.0035 
+            ,"shortPositionMargin": 0.0035 
+            ,"stopLossCoefficient": 3 
             ,"acceptableTrainingError": 0.000192
             ,'period': '1Min'
         }
@@ -31,7 +31,7 @@ securities = [
         'seccode': 'INTC'       
         ,'board': 'EQTY'
         ,'market': 'NASDAQ'
-        ,'decimals' : 2
+        ,'decimals' : 3
         ,'id' : 0
         ,'params': {
             'algorithm': 'stochastic_and_rsi',
@@ -39,9 +39,9 @@ securities = [
             'exitTimeSeconds': 36000,
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51
-            ,"longPositionMargin": 0.001
-            ,"shortPositionMargin": 0.001
-            ,"stopLossCoefficient": 1 
+            ,"longPositionMargin": 0.0035 
+            ,"shortPositionMargin": 0.0035 
+            ,"stopLossCoefficient": 3 
             ,"acceptableTrainingError": 0.000192
             ,'period': '1Min'
         }
@@ -58,9 +58,9 @@ securities = [
             'exitTimeSeconds': 36000,
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51
-            ,"longPositionMargin": 0.001
-            ,"shortPositionMargin": 0.001
-            ,"stopLossCoefficient": 1
+            ,"longPositionMargin": 0.0035 
+            ,"shortPositionMargin": 0.0035 
+            ,"stopLossCoefficient": 3 
             ,"acceptableTrainingError": 0.000192
             ,'period': '1Min'
         }
@@ -108,10 +108,10 @@ statusStopOrderFilled = ['filled','Filled']
 
 ########### default-fallback values ##########################################
 factorPosition_Balance = 0.3
-factorMargin_Position  = 0.001
+factorMargin_Position  = 0.0035
 entryTimeSeconds = 3600
 exitTimeSeconds = 36000
-stopLossCoefficient = 1
+stopLossCoefficient = 3
 correction = 0.0
 spread = 0.0
 

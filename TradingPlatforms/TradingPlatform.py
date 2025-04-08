@@ -22,6 +22,14 @@ import pandas as pd
 
 log = logging.getLogger("TradingPlatform")
 
+class SimpleTrade:
+    def __init__(self, order_id, status):
+        self.id = order_id
+        self.status = status
+
+    def __repr__(self):
+        return f"SimpleTrade(id={self.id}, status='{self.status}')"
+
 class Position:
     
     def __init__(self, takePosition, board, seccode, marketId, 
@@ -359,7 +367,32 @@ class TradingPlatform(ABC):
             position2invert = copy.deepcopy(position)
             self.counterPositions = list(filter(lambda x: x[0] != transactionId, self.counterPositions))            
             self.onCounterPosition(position2invert)
+    
+    
+    def triggerExitByMarket(self, stopOrder, monitoredPosition):
+        """ common """
+                
+        if monitoredPosition.exit_id != stopOrder.id: 
+            return
         
+        mp = monitoredPosition
+        mp.stopOrderRequested = True
+        logging.info(f"trigerring exit by Market {mp.exit_id} due to cancelling {mp}")  
+
+        res = self.new_order(
+            mp.board, mp.seccode, mp.client, mp.union, stopOrder.buysell, mp.expdate, 
+            mp.quantity, price=mp.entryPrice, bymarket=True, usecredit=False
+        )
+        if res is None:
+            logging.info("Failed to create order by Market for the exit")  
+            
+        if res.status in cm.statusOrderForwarding or res.status in cm.statusOrderExecuted:
+    
+            if stopOrder in self.monitoredStopOrders:
+                self.monitoredStopOrders.remove(stopOrder)
+ 
+            self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_id != stopOrder.id] 
+
         
     def processOrderStatus(self, order):
         """ common """
@@ -386,13 +419,7 @@ class TradingPlatform(ABC):
                         logging.info(f"exit complete: {str(monitoredPosition)}")                                   
                 
             elif s in cm.statusOrderForwarding :
-                
-                # if monitoredPosition is not None:
-                #     monitoredPosition.entry_id = order.id
-                #     logging.info(f'entry order {order.id} in status:{s} linked to monitoredPosition')
-                # else:
-                #     logging.error(f'entry order {order.id} in status:{s} unlinked ...')
-                
+               
                 if order not in self.monitoredOrders:
                     self.monitoredOrders.append(order)
                     logging.info(f'order {order.id} in status:{s} added to monitoredOrders')   
@@ -440,17 +467,10 @@ class TradingPlatform(ABC):
             
             elif s in cm.statusOrderCanceled:
 
-                for mp in self.monitoredPositions: 
-                    if mp.exit_id == stopOrder.id: 
-                        mp.stopOrderRequested = True
-                        res = self.new_order(
-                            mp.board, mp.seccode, mp.client, mp.union, stopOrder.buysell, mp.expdate, 
-                            mp.quantity, price=mp.entryPrice, bymarket=True, usecredit=False
-                        )   
-                        mp.exit_id = res.order.orderId 
-                        if stopOrder in self.monitoredStopOrders:
-                            self.monitoredStopOrders.remove(stopOrder)             
-                        m = f'New Exit Order {mp.exit_id} due to cancelling {mp}'
+                monitoredPosition = self.getPositionByOrder(stopOrder)  
+                if monitoredPosition is not None:
+                    self.triggerExitByMarket(stopOrder, monitoredPosition)                    
+                    m = f'Exit Order {monitoredPosition.exit_id} due to cancelling {monitoredPosition}'
                
             else:
                 logging.debug(f'status: {s} skipped, belongs to: {cm.statusOrderOthers}')
@@ -514,17 +534,7 @@ class TradingPlatform(ABC):
         else:
             log.info('close action received, closing position...')
             self.closeExit(monitoredPosition, monitoredStopOrder)
-            
-            # currently not supported
-            # cloneMP = copy.deepcopy(monitoredPosition)
-            # tid = self.closeExit(monitoredPosition, monitoredStopOrder)
-            # if withCounterPosition:
-            #     log.info('adding position to counterPositions ...') 
-            #     cloneMP.stopOrderRequested = False
-            #     cloneMP.entry_id = None
-            #     cloneMP.exit_id = None
-            #     cp = (tid, cloneMP)
-            #     self.counterPositions.append(cp)
+
     
     
     def processingCheck(self, position):
@@ -1315,8 +1325,7 @@ class AlpacaTradingPlatform(TradingPlatform):
             price = round(position.entryPrice, position.decimals)
             price = "{0:0.{prec}f}".format(price, prec=position.decimals)
             
-            log.debug("in openPosition after getExpDate ")
-    
+            log.debug("in openPosition after getExpDate ")    
         
             res = self.new_order(
                 position.board, position.seccode, position.client, position.union,
@@ -1372,28 +1381,15 @@ class AlpacaTradingPlatform(TradingPlatform):
     
     def closeExit(self, mp, mso):
         """ Alpaca """
-        
-        tradingPlatformTime = self.getTradingPlatformTime()
-        list2cancel = []
+
         tid = None
-        res = self.cancel_stoploss(mso.id)
-        log.debug(repr(res))
-        list2cancel.append(mso)
-        localTime = tradingPlatformTime.strftime(self.fmt)
-        exitTime = mp.exitTime.strftime(self.fmt)
-        msg = f'localTime: {localTime} exit timedouts at: {exitTime} {repr(mso)}'
-        log.info(msg)
-        res = self.new_order(
-            mp.board, mp.seccode, mp.client, mp.union, mso.buysell,
-            mp.expdate, mp.quantity, price=mp.entryPrice, bymarket=True, usecredit=False
-        )            
-        log.debug(repr(res))
-        tid = res.id        
-        for mso in list2cancel:
-            if mso in self.monitoredStopOrders:
-                self.monitoredStopOrders.remove(mso)
+        try: 
+            res = self.cancel_stoploss(mso.id)
+            log.debug(repr(res))
         
-            self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_id != mso.id] 
+        except Exception as e:
+            logging.error(f"Error placing closeExit {mp} , {mso}: {e}")
+            return None     
         
         return tid
         
@@ -1898,14 +1894,11 @@ class IBTradingPlatform(TradingPlatform):
                 # Use UTC format: 'yyyymmdd-hh:mm:ss'
                 order.goodTillDate = expdate.strftime('%Y%m%d-%H:%M:%S')
                 
-
-            # Log the trade details and return the trade object
-            #log.info(f"placing {order.orderType} {buysell} {quantity} of {seccode}")
-            
             # Place order via IB API
             trade = self.ib.placeOrder(contract, order)
 
-            return trade
+            # Return a simplified object with only orderId and status
+            return SimpleTrade(trade.order.orderId, trade.orderStatus.status)
     
         except Exception as e:
             log.error(f"Error placing order for {seccode}: {e}")
@@ -1972,30 +1965,9 @@ class IBTradingPlatform(TradingPlatform):
     def closeExit(self, mp, mso):
         """ Interactive Brokers """
         
-        tid = None
-        
+        tid = None        
         try: 
-            # tradingPlatformTime = self.getTradingPlatformTime()
-            # list2cancel = []
-            # tid = None
             self.cancel_stoploss(mso.order)
-            #log.debug(repr(res))
-            # list2cancel.append(mso)
-            # localTime = tradingPlatformTime.strftime(self.fmt)
-            # exitTime = mp.exitTime.strftime(self.fmt)
-            # msg = f'localTime: {localTime} exit timedouts at: {exitTime} {repr(mso)}'
-            # log.info(msg)
-            # res = self.new_order(
-            #     mp.board, mp.seccode, mp.client, mp.union, mso.buysell, mp.expdate, 
-            #     mp.quantity, price=mp.entryPrice, bymarket=True, usecredit=False
-            # )            
-            # log.debug(repr(res))
-            # tid = res.order.orderId 
-            # for mso in list2cancel:
-            #     if mso in self.monitoredStopOrders:
-            #         self.monitoredStopOrders.remove(mso)
-            
-            #     self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_id != mso.id] 
         
         except Exception as e:
             logging.error(f"Error placing closeExit {mp} , {mso}: {e}")
@@ -2090,24 +2062,25 @@ class IBTradingPlatform(TradingPlatform):
         if res is None:
             log.error("Failed to create order: new_order returned None")            
         
-        elif res.orderStatus.status in cm.statusOrderForwarding or res.orderStatus.status in cm.statusOrderExecuted:
+        elif res.status in cm.statusOrderForwarding or res.status in cm.statusOrderExecuted:
         
-            position.entry_id = res.order.orderId  # Capture the IB order ID
+            position.entry_id = res.id  # Capture the IB order ID
             self.monitoredPositions.append(position)
-            log.info(f"orderId: {res.order.orderId}, status: {res.orderStatus.status}")
-            log.debug(repr(res))
+            log.info(f"orderId: {res.id}, status: {res.status}")
         
         else:
-            log.error(f"Order failed or in invalid state: {res.orderStatus.status}")
+            log.error(f"Order failed or in invalid state: {res.status}")
         
 
     def removeMonitoredPositionByExit(self, order):
         """ Interactive Brokers """
         self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_id != order.id]   
+
         
     def set_exit_order_no_to_MonitoredPosition (self, stopOrder):
         """ Interactive Brokers """
         pass
+
     
     def triggerStopOrder(self, order, monitoredPosition):
         """ Interactive Brokers """    
