@@ -109,9 +109,10 @@ statusStopOrderFilled = ['filled','Filled']
 ########### default-fallback values ##########################################
 factorPosition_Balance = 0.3
 factorMargin_Position  = 0.0035
-entryTimeSeconds = 3600
+entryTimeSeconds = 60
 exitTimeSeconds = 36000
 stopLossCoefficient = 3
 correction = 0.0
 spread = 0.0
 
+openaikey = platform['secrets']['openaikey']

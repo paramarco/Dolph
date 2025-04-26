@@ -115,3 +115,4 @@ stopLossCoefficient = 3
 correction = 0.0
 spread = 0.0
 
+openaikey = platform['secrets']['openaikey']

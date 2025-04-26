@@ -6,6 +6,10 @@ sudo apt install docker.io
 
 # To build the Image just once
 sudo docker build -t dolph-container .
+
+or alternatively:
+
+sudo docker build --network=host -t dolph-container .
     
 # Start Docker Container with X11 Support   
  
@@ -19,7 +23,7 @@ sudo docker run -it --name dolph-container \
     --privileged \
     dolph-container /bin/bash
    
-# Start Docker Container with X11 Supporton the VPS as soon as it is registered  
+# Start Docker Container with X11 Support on the VPS as soon as it is registered  
 
 sudo docker run \
     --entrypoint /usr/local/bin/entrypoint.sh \

@@ -15,14 +15,14 @@ securities = [
         ,'decimals' : 2 
         ,'id' : 0
         ,'params': {
-            'algorithm': 'RsiBasedOnEmaOnlyModel',
+            'algorithm': 'RsiAndAtr',
             'entryByMarket': False,
             'exitTimeSeconds': 36000,
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51
-            ,"longPositionMargin": 0.0035 
-            ,"shortPositionMargin": 0.0035 
-            ,"stopLossCoefficient": 3 
+            ,"longPositionMargin": 0.002 
+            ,"shortPositionMargin": 0.002 
+            ,"stopLossCoefficient": 2 
             ,"acceptableTrainingError": 0.000192
             ,'period': '1Min'
         }
@@ -31,17 +31,17 @@ securities = [
         'seccode': 'INTC'       
         ,'board': 'EQTY'
         ,'market': 'NASDAQ'
-        ,'decimals' : 3
+        ,'decimals' : 2
         ,'id' : 0
         ,'params': {
-            'algorithm': 'RsiBasedOnEmaOnlyModel',
+            'algorithm': 'RsiAndAtr',
             'entryByMarket': False,
             'exitTimeSeconds': 36000,
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51
-            ,"longPositionMargin": 0.0035 
-            ,"shortPositionMargin": 0.0035 
-            ,"stopLossCoefficient": 3 
+            ,"longPositionMargin": 0.002 
+            ,"shortPositionMargin": 0.002 
+            ,"stopLossCoefficient": 2 
             ,"acceptableTrainingError": 0.000192
             ,'period': '1Min'
         }
@@ -53,14 +53,14 @@ securities = [
         ,'decimals' : 2
         ,'id' : 0
         ,'params': {
-            'algorithm': 'RsiBasedOnEmaOnlyModel',
+            'algorithm': 'RsiAndAtr',
             'entryByMarket': False,
             'exitTimeSeconds': 36000,
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51
-            ,"longPositionMargin": 0.0035 
-            ,"shortPositionMargin": 0.0035 
-            ,"stopLossCoefficient": 3 
+            ,"longPositionMargin": 0.002 
+            ,"shortPositionMargin": 0.002 
+            ,"stopLossCoefficient": 2 
             ,"acceptableTrainingError": 0.000192
             ,'period': '1Min'
         }
@@ -81,7 +81,7 @@ between_time = (
     current_tz.localize(dt.datetime.strptime('07:00', '%H:%M')).time(),
     current_tz.localize(dt.datetime.strptime('23:40', '%H:%M')).time()
 )
-nogoTradingHours = [0,1,2,3,4,5,6,7,8,9,20,21,22,23]
+tradingTimes = (dt.time(9, 45), dt.time(15, 45))
 
 numTestSample = 500
 TrainingHour = 10  # 10:00 
@@ -108,10 +108,12 @@ statusStopOrderFilled = ['filled','Filled']
 
 ########### default-fallback values ##########################################
 factorPosition_Balance = 0.3
-factorMargin_Position  = 0.0035
-entryTimeSeconds = 3600
+factorMargin_Position  = 0.001
+entryTimeSeconds = 60
 exitTimeSeconds = 36000
-stopLossCoefficient = 3
+stopLossCoefficient = 2
 correction = 0.0
 spread = 0.0
+time2close = dt.time(15, 46)  # Definido como 16:30 (4:30 PM)
 
+openaikey = platform['secrets']['openaikey']

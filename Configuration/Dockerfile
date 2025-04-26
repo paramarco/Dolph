@@ -20,36 +20,49 @@ ENV PATH /usr/lib/postgresql/14/bin:$PATH
 # Update PATH for Miniconda
 ENV PATH="/opt/conda/bin:$PATH"
 
+# Ensure bash is explicitly called
+SHELL ["/bin/bash", "-c"]
+
 # Install the dependencies listed in apt-packages.txt
-COPY new-apt-packages.txt /tmp/new-apt-packages.txt
+COPY apt-packages.txt /tmp/apt-packages.txt
 RUN apt-get update && \
-    xargs apt-get install -y < /tmp/new-apt-packages.txt && \
+    xargs apt-get install -y < /tmp/apt-packages.txt && \
     rm -rf /var/lib/apt/lists/*
- 
+  
+# Instalar Firefox desde el canal oficial
+RUN wget -O /tmp/firefox.tar.xz "https://download.mozilla.org/?product=firefox-latest&os=linux64&lang=en-US" && \
+    mkdir -p /opt/firefox && \
+    tar -xJf /tmp/firefox.tar.xz -C /opt/firefox --strip-components=1 && \
+    ln -sf /opt/firefox/firefox /usr/bin/firefox && \
+    echo 'export PATH=/opt/firefox:$PATH' >> /etc/profile.d/firefox.sh
+     
 # Add commands to configure dbus and the GNOME environment   
 RUN mkdir -p /var/run/dbus && \
     dbus-uuidgen > /var/lib/dbus/machine-id
 
+# Instalar Python 3.11.2 desde código fuente
+#RUN wget https://www.python.org/ftp/python/3.11.2/Python-3.11.2.tgz && \
+#    tar xvf Python-3.11.2.tgz && \
+#    cd Python-3.11.2 && \
+#    ./configure --enable-optimizations && \
+#    make -j$(nproc) && \
+#    make altinstall && \
+#    ln -sf /usr/local/bin/python3.11 /usr/bin/python3 && \
+#    ln -sf /usr/local/bin/pip3.11 /usr/bin/pip3
 
-# Install Miniconda
-RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh && \
-    bash /tmp/miniconda.sh -b -p /opt/conda && \
-    rm /tmp/miniconda.sh && \
-    /opt/conda/bin/conda init bash && \
-    /opt/conda/bin/conda config --set auto_activate_base false
+# Install Python 3.11 precompiled
+RUN apt-get update && apt-get install -y software-properties-common && \
+    add-apt-repository -y ppa:deadsnakes/ppa && \
+    apt-get update && apt-get install --reinstall -y \
+    python3.11 \
+    python3.11-venv \
+    python3.11-dev \
+    python3-pip && \
+    ln -sf /usr/bin/python3.11 /usr/bin/python3 && \
+    ln -sf /usr/bin/pip3 /usr/bin/pip
 
-# Create a conda environment with Python 3.7.0
-RUN /opt/conda/bin/conda create -y -n py37 python=3.7.0 && \
-    /opt/conda/bin/conda clean -afy
-
-# Ensure bash is explicitly called
-SHELL ["/bin/bash", "-c"]
-
-# Activate the environment by default
-RUN echo "source activate py37" >> ~/.bashrc
-
-# Create an additional virtual environment using python3.7
-RUN /opt/conda/envs/py37/bin/python3.7 -m venv /opt/venv
+# virtual environment on /opt/venv using Python 3.11
+RUN python3 -m venv /opt/venv
 
 # Upgrade pip to the latest version
 RUN /opt/venv/bin/pip install --upgrade pip
@@ -85,8 +98,8 @@ VOLUME /home/dolph_user/
 VOLUME /var/lib/postgresql/14/main
 
 # Download IB Gateway installation script
-ADD https://download2.interactivebrokers.com/installers/ibgateway/stable-standalone/ibgateway-stable-standalone-linux-x64.sh /opt/ibgateway-installer.sh
-RUN chmod +x /opt/ibgateway-installer.sh
+#ADD https://download2.interactivebrokers.com/installers/ibgateway/stable-standalone/ibgateway-stable-standalone-linux-x64.sh /opt/ibgateway-installer.sh
+#RUN chmod +x /opt/ibgateway-installer.sh
 
 # Copy entrypoint script and make it executable
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh

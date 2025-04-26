@@ -152,6 +152,7 @@ chown $USER:$USER $HOME/.vnc/xstartup
 
 # Start the VNC server
 echo "Starting VNC server..."
+sleep 2
 su -c "vncserver :1 -geometry 1920x1080 -depth 24" $USER
 if [ $? -ne 0 ]; then
     echo "Error: Failed to start VNC server!"
@@ -171,14 +172,13 @@ dbus-daemon --system --fork
 echo "VNC server and Xfce session are running on DISPLAY=:1."
 
 # Starting IB Gateway in API mode (headless)
-echo "Starting IB Gateway in API mode.."
+#echo "Starting IB Gateway in API mode.."
 
 # sudo chmod 777 /opt/ibgateway-installer.sh
 # dolph_user@container:~$  /opt/ibgateway-installer.sh
 
-
-echo "Starting Dolph..."
-sudo -u dolph_user /home/dolph_user/deploy.sh 1
+#echo "Starting Dolph..."
+#sudo -u dolph_user /home/dolph_user/deploy.sh 1
 
 # Keep the container running (in Kubernetes)
 tail -f /var/log/postgresql/postgresql-14-main.log

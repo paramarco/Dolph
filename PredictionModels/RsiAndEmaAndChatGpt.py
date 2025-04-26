@@ -6,7 +6,6 @@ import openai
 import matplotlib.pyplot as plt
 import mplfinance as mpf
 log = logging.getLogger("PredictionModel")
-openai.api_key =""
 
 
 
@@ -90,7 +89,7 @@ class RsiAndEmaAndChatGpt:
         })
         self.params = params
         self.dolph = dolph
-
+        openai.api_key =self.dolph.open_ai_key
     def build_model(self):
         pass
 

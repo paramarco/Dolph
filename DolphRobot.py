@@ -29,7 +29,6 @@ class Dolph:
         self.tv = tv.TrendViewer( self.evaluatePosition )
         self.data = {}
         self._init_signaling()
-
         
 
     def _init_configuration(self):
@@ -43,7 +42,8 @@ class Dolph:
         self.periods = cm.periods
         self.securities = cm.securities
         self.currentTestIndex = cm.currentTestIndex
-    
+        self.open_ai_key=cm.openaikey
+
 
     def _init_securities(self):
         
