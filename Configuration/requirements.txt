@@ -25,6 +25,10 @@ eulxml==1.1.3
 # OpenAI API
 openai==1.23.2
 
+# Predictor peaks&Valleys
+pyampd==0.0.1
+joblib==0.16.0
+
 # Spyder IDE (for development inside container)
 spyder==5.5.1
 spyder-kernels==2.5.1
