@@ -151,7 +151,7 @@ class RsiAndEmaAndChatGpt:
                 'endprice': 'close'
             })
             
-    
+            print("i am inside predict before figure")
             # Calculate indicators for this specific seccode
             self.df['RSI'] = self._calculate_rsi(self.df['close'], 14)
             self.df.dropna(inplace=True)
@@ -178,7 +178,8 @@ class RsiAndEmaAndChatGpt:
                 # File name per seccode
             image_filename = f"{seccode}_decision_chart.png"
             plot_candles_with_indicators(self.df, seccode, filename=image_filename, share_name=seccode)
-            
+            print("i am inside predict after figure")
+
             # Decide based on GPT
             if rsi < 30 and ema50 > ema200:
                 gpt_reply = ask_chatgpt_image_decision(image_filename, action_type="long")

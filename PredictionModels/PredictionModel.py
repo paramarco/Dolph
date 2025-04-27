@@ -18,6 +18,8 @@ from PredictionModels.StochasticAndRSIModel import StochasticAndRSIModel
 from PredictionModels.RsiBasedOnEmaOnlyModel import RsiBasedOnEmaOnlyModel
 from PredictionModels.RsiAndPreviousInfo import RsiAndPreviousInfo
 from PredictionModels.RsiAndAtr import RsiAndAtr
+from PredictionModels.RsiAndEmaAndChatGpt import RsiAndEmaAndChatGpt
+
 
 gc.collect()
 log = logging.getLogger("PredictionModel")
@@ -61,7 +63,8 @@ def initPredictionModel(data, security, dolph):
         return RsiAndPreviousInfo(data, security, dolph)
     elif alg == 'RsiAndAtr':
         return RsiAndAtr(data, security, dolph)
-    
+    elif alg == 'RsiAndEmaAndChatGpt':
+        return RsiAndEmaAndChatGpt(data, security, dolph)
     else:
         raise ValueError(f"Algorithm '{alg}' not recognized")
 
