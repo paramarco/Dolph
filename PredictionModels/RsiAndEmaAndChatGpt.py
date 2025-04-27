@@ -202,41 +202,37 @@ class RsiAndEmaAndChatGpt:
 
 
     def _calculate_rsi(self, series, period=14):
-        delta = series.diff(1)
-        gain = delta.where(delta > 0, 0)
-        loss = -delta.where(delta < 0, 0)
+        delta = series.diff()
+        gain = delta.clip(lower=0)
+        loss = -delta.clip(upper=0)
     
-        # Initialize average gain/loss using SMA
-        avg_gain = gain[:period].mean()
-        avg_loss = loss[:period].mean()
+        # Step 1: calculate first average gain and loss
+        avg_gain = gain.rolling(window=period, min_periods=period).mean()
+        avg_loss = loss.rolling(window=period, min_periods=period).mean()
     
-        if avg_loss == 0:
-            rs = float('inf')
-            rsi = 100.0
-        else:
-            rs = avg_gain / avg_loss
-            rsi = 100 - (100 / (1 + rs))
+        # Step 2: create a series to hold RSI values
+        rsi = pd.Series(dtype=float, index=series.index)
     
-        # If not enough data, return None
-        if len(series) < period:
-            return None
+        # Step 3: first RSI value after initial SMA
+        rs = avg_gain.iloc[period] / avg_loss.iloc[period]
+        rsi.iloc[period] = 100 - (100 / (1 + rs))
     
-        # Smooth over remaining data, if available
-        for i in range(period, len(series) - 1):
-            current_gain = gain.iloc[i + 1]
-            current_loss = loss.iloc[i + 1]
+        # Step 4: smoothing
+        for i in range(period + 1, len(series)):
+            current_gain = gain.iloc[i]
+            current_loss = loss.iloc[i]
     
-            avg_gain = (avg_gain * (period - 1) + current_gain) / period
-            avg_loss = (avg_loss * (period - 1) + current_loss) / period
+            avg_gain.iloc[i] = (avg_gain.iloc[i-1] * (period - 1) + current_gain) / period
+            avg_loss.iloc[i] = (avg_loss.iloc[i-1] * (period - 1) + current_loss) / period
     
-            if avg_loss == 0:
-                rs = float('inf')
-                rsi = 100.0
+            if avg_loss.iloc[i] == 0:
+                rsi.iloc[i] = 100
             else:
-                rs = avg_gain / avg_loss
-                rsi = 100 - (100 / (1 + rs))
+                rs = avg_gain.iloc[i] / avg_loss.iloc[i]
+                rsi.iloc[i] = 100 - (100 / (1 + rs))
     
         return rsi
+
 
 
     def _calculate_atr(self, df, period=14):
