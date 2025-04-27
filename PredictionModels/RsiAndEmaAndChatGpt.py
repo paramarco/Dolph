@@ -178,7 +178,7 @@ class RsiAndEmaAndChatGpt:
                 # File name per seccode
             image_filename = f"{seccode}_decision_chart.png"
             plot_candles_with_indicators(self.df, seccode, filename=image_filename, share_name=seccode)
-            print("i am inside predict after figure")
+            log.info(f"Making plot for {seccode} ")
 
             # Decide based on GPT
             if rsi < 30 and ema50 > ema200:
