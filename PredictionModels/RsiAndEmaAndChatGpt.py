@@ -235,11 +235,4 @@ class RsiAndEmaAndChatGpt:
 
 
 
-    def _calculate_atr(self, df, period=14):
-
-        self.df['high-low'] = self.df['high'] - self.df['low']
-        self.df['high-prevclose'] = abs(self.df['high'] - self.df['close'].shift(1))
-        self.df['low-prevclose'] = abs(self.df['low'] - self.df['close'].shift(1))
-        self.df['true_range'] = self.df[['high-low', 'high-prevclose', 'low-prevclose']].max(axis=1)
-        return self.df['true_range'].rolling(period).mean()
-
+    
