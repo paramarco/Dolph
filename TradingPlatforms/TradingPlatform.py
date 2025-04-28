@@ -1893,7 +1893,9 @@ class IBTradingPlatform(TradingPlatform):
                 order.tif = 'GTD'  # Good 'Til Cancel --> Good until date
                 # Use UTC format: 'yyyymmdd-hh:mm:ss'
                 order.goodTillDate = expdate.strftime('%Y%m%d-%H:%M:%S')
-                
+            
+            order.account = self.account_number
+            
             # Place order via IB API
             trade = self.ib.placeOrder(contract, order)
 
@@ -1928,6 +1930,7 @@ class IBTradingPlatform(TradingPlatform):
             order.auxPrice = stop_price  # The stop (trigger) price
             order.lmtPrice = limit_price  # The limit price
             order.tif = 'GTC'  # Good 'Til Cancel
+            order.account = self.account_number
     
             # Log the order details and return the trade object
             #log.info(f"placing {buysell} {quantity} of {seccode}, stop price={stop_price}")
