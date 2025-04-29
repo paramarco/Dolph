@@ -151,7 +151,6 @@ class RsiAndEmaAndChatGpt:
                 'endprice': 'close'
             })
             
-            print("i am inside predict before figure")
             # Calculate indicators for this specific seccode
             self.df['RSI'] = self._calculate_rsi(self.df['close'], 14)
             self.df.dropna(inplace=True)
@@ -162,11 +161,8 @@ class RsiAndEmaAndChatGpt:
             self.df['EMA200'] = self.df['close'].ewm(span=200, adjust=False).mean()
             self.df.dropna(inplace=True)
 
-         
-
     
             # Get the latest RSI value
-
             rsi = self.df['RSI'].iloc[-1]
           
     
@@ -178,18 +174,20 @@ class RsiAndEmaAndChatGpt:
                 # File name per seccode
             image_filename = f"{seccode}_decision_chart.png"
             plot_candles_with_indicators(self.df, seccode, filename=image_filename, share_name=seccode)
-            log.info(f"Making plot for {seccode} ")
+            log.info(f"Making plot for {seccode} ...")
 
             # Decide based on GPT
             if rsi < 30 and ema50 > ema200:
+                log.info(f"{seccode}: RSI={rsi:.2f}, EMA50={ema50:.2f}, EMA200={ema200:.2f} next then asking GPT ...")
                 gpt_reply = ask_chatgpt_image_decision(image_filename, action_type="long")
-                log.info(f"{seccode}: 📈 RSI={rsi:.2f}, EMA50={ema50:.2f}, EMA200={ema200:.2f} → GPT: {gpt_reply}")
+                log.info(f"{seccode}: RSI={rsi:.2f}, EMA50={ema50:.2f}, EMA200={ema200:.2f} → GPT: {gpt_reply}")
                 if gpt_reply.lower().startswith("yes"):
                     return 'long'
             
             elif rsi > 70 and ema50 < ema200:
+                log.info(f"{seccode}: RSI={rsi:.2f}, EMA50={ema50:.2f}, EMA200={ema200:.2f} next then asking GPT ...")
                 gpt_reply = ask_chatgpt_image_decision(image_filename, action_type="short")
-                log.info(f"{seccode}: 📉 RSI={rsi:.2f}, EMA50={ema50:.2f}, EMA200={ema200:.2f} → GPT: {gpt_reply}")
+                log.info(f"{seccode}: RSI={rsi:.2f}, EMA50={ema50:.2f}, EMA200={ema200:.2f} → GPT: {gpt_reply}")
                 if gpt_reply.lower().startswith("yes"):
                     return 'short'
             
