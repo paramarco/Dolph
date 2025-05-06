@@ -36,7 +36,7 @@ class Position:
                  quantity, entryPrice, exitPrice, stoploss, 
                  decimals, client, exitTime=None, correction=None, spread=None, bymarket = False, 
                  entry_id=None, exit_id=None, exit_order_no=None , union = None, 
-                 expdate = None, buysell = None , stopOrderRequested = None) :
+                 expdate = None, buysell = None , stopOrderRequested = None, stopOrderAlreadyCancelled = None) :
         
         # id:= transactionid of the first order, "your entry" of the Position
         # will be assigned once upon successful entry of the Position
@@ -74,6 +74,7 @@ class Position:
         # exit_order_no := it's the number Transaq gives to the order which is 
         # automatically triggered by a tp_executed or sl_executed 
         self.exit_order_no = exit_order_no  # Add exit_order_no field
+        self.stopOrderAlreadyCancelled = stopOrderAlreadyCancelled if stopOrderAlreadyCancelled else False
 
     def __str__(self):
         
@@ -616,7 +617,7 @@ class TradingPlatform(ABC):
         
         for mp in self.monitoredPositions:
             for mso in self.monitoredStopOrders:
-                if mp.exit_id == mso.id and current_time_only > cm.time2close:
+                if mp.exit_id == mso.id and current_time_only > cm.time2close and mp.stopOrderAlreadyCancelled == False:
                     log.info(f'time-out exit detected, closing exit for {mso}')
                     self.closeExit(mp, mso)
                     break
@@ -1382,16 +1383,15 @@ class AlpacaTradingPlatform(TradingPlatform):
     def closeExit(self, mp, mso):
         """ Alpaca """
 
-        tid = None
         try: 
             res = self.cancel_stoploss(mso.id)
             log.debug(repr(res))
         
         except Exception as e:
             logging.error(f"Error placing closeExit {mp} , {mso}: {e}")
-            return None     
+            mp.stopOrderAlreadyCancelled = False
         
-        return tid
+        mp.stopOrderAlreadyCancelled = True        
         
 
     def set_exit_order_no_to_MonitoredPosition (self, stopOrder):
@@ -1968,15 +1968,15 @@ class IBTradingPlatform(TradingPlatform):
     def closeExit(self, mp, mso):
         """ Interactive Brokers """
         
-        tid = None        
         try: 
             self.cancel_stoploss(mso.order)
         
         except Exception as e:
             logging.error(f"Error placing closeExit {mp} , {mso}: {e}")
-            return None
+            mp.stopOrderAlreadyCancelled = False
         
-        return tid
+        mp.stopOrderAlreadyCancelled = True
+
 
     
     def getClientId(self):
