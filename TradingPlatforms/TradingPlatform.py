@@ -80,15 +80,12 @@ class Position:
         
         #fmt = "%d.%m.%Y %H:%M:%S"
         msg = ' takePosition='+ self.takePosition 
-        msg += ' board=' + self.board 
         msg += ' seccode=' + self.seccode
-        msg += ' marketId=' + str(self.marketId)        
         msg += ' quantity=' + str(self.quantity)
         msg += ' entryPrice=' + str(self.entryPrice)
         msg += ' exitPrice=' + str(self.exitPrice)
         msg += ' stoploss=' + str(self.stoploss)
         msg += ' decimals=' + str(self.decimals)
-        msg += ' bymarket=' + str(self.bymarket)
         msg += ' entry_id=' + str(self.entry_id)
         msg += ' exit_id=' + str(self.exit_id)
         msg += ' exit_order_no=' + str(self.exit_order_no)
