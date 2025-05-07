@@ -382,7 +382,7 @@ class Dolph:
             
         elif takePosition == 'short':
             exitPrice = entryPrice  - margin
-            stoploss = entryPrice  + k * margin                
+        stoploss = entryPrice  + k * margin                
        
         position = tp.Position(
             takePosition, board, seccode, marketId,
