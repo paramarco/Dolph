@@ -56,10 +56,8 @@ def ask_chatgpt_image_decision(image_path, action_type="long"):
     with open(image_path, "rb") as image_file:
         image_b64 = base64.b64encode(image_file.read()).decode("utf-8")
 
-    client = openai.OpenAI(api_key=openai.api_key)
-
     try:
-        response = client.chat.completions.create(
+        response = openai.chat.completions.create(
             model="gpt-4-vision-preview",
             messages=[
                 {
@@ -79,7 +77,7 @@ def ask_chatgpt_image_decision(image_path, action_type="long"):
             max_tokens=10
         )
         return response.choices[0].message.content.strip()
-    except Exception as e:
+    except Exception:
         log.exception("Failed to get ChatGPT decision.")
         return "no"
 
@@ -88,15 +86,14 @@ class RsiAndEmaAndChatGpt:
     def __init__(self, data, params, dolph):
         self.params = params
         self.dolph = dolph
-        self.df = data['1Min'].copy()
+        self.df = self._prepare_df(data['1Min'].copy())
 
-        self.df = self._prepare_df(self.df)
-
+        # Set global OpenAI key
         openai.api_key = self.dolph.open_ai_key
 
+        # Simple check if key works
         try:
-            client = openai.OpenAI(api_key=openai.api_key)
-            test_response = client.chat.completions.create(
+            response = openai.chat.completions.create(
                 model="gpt-4",
                 messages=[
                     {"role": "system", "content": "You are a test bot."},
@@ -104,7 +101,7 @@ class RsiAndEmaAndChatGpt:
                 ],
                 max_tokens=10
             )
-            log.info(f"OpenAI key is valid. GPT says: {test_response.choices[0].message.content}")
+            log.info(f"OpenAI key is valid. GPT says: {response.choices[0].message.content}")
         except Exception:
             log.exception("OpenAI API key check failed.")
 
