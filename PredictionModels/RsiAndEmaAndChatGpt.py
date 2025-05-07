@@ -90,6 +90,22 @@ class RsiAndEmaAndChatGpt:
         self.params = params
         self.dolph = dolph
         openai.api_key =self.dolph.open_ai_key
+        
+        
+        try:
+            response = openai.ChatCompletion.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": "You are a test bot."},
+                    {"role": "user", "content": "Say hello."}
+                ],
+                max_tokens=10
+            )
+            log.info(f"OpenAI key is valid. GPT says: {response.choices[0].message.content}")
+        except Exception as e:
+            log.exception("OpenAI API key check failed. GPT call is not working.")
+
+        
     def build_model(self):
         pass
 
