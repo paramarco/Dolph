@@ -2,6 +2,11 @@ import pandas as pd
 import logging
 import os
 import base64
+
+
+# Remove proxy variables that interfere with OpenAI's client
+for var in ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"]:
+    os.environ.pop(var, None)
 import openai
 import matplotlib.pyplot as plt
 import mplfinance as mpf
