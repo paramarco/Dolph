@@ -5,8 +5,11 @@ import base64
 
 
 # Remove proxy variables that interfere with OpenAI's client
+
+# REMOVE PROXY VARIABLES that cause openai to break
 for var in ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"]:
-    os.environ.pop(var, None)
+    if var in os.environ:
+        del os.environ[var]
 import openai
 import matplotlib.pyplot as plt
 import mplfinance as mpf
@@ -99,7 +102,7 @@ class RsiAndEmaAndChatGpt:
         # Simple check if key works
         try:
             response = openai.chat.completions.create(
-                model="gpt-4",
+                model="gpt-4-vision-preview",                
                 messages=[
                     {"role": "system", "content": "You are a test bot."},
                     {"role": "user", "content": "Say hello."}
