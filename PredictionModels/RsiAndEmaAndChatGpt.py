@@ -90,10 +90,10 @@ class RsiAndEmaAndChatGpt:
         self.params = params
         self.dolph = dolph
         openai.api_key =self.dolph.open_ai_key
-        
+        client = openai.OpenAI(api_key=self.dolph.open_ai_key)
         
         try:
-            response = openai.ChatCompletion.create(
+            response = client.chat.completions.create(
                 model="gpt-4",
                 messages=[
                     {"role": "system", "content": "You are a test bot."},
