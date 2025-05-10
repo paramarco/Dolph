@@ -32,9 +32,9 @@ class RsiAndPreviousInfo:
         })
         self.params = params
         self.dolph = dolph
-
+        self.rsiCoeff = self.params['rsiCoeff']
         # Calculate RSI and additional indicators
-        self.df['RSI'] = self._calculate_rsi(self.df['close'], 14)
+        self.df['RSI'] = self._calculate_rsi(self.df['close'], self.rsiCoeff)
         self.df['PrevRSI'] = self.df['RSI'].shift(1)
         self.df['PrevClose'] = self.df['close'].shift(1)
         self.df.dropna(inplace=True)
@@ -101,7 +101,7 @@ class RsiAndPreviousInfo:
             # Define lookback period
             lookback_period = 2  # Number of previous RSI and close values to check
             
-            self.df['RSI'] = self._calculate_rsi(self.df['close'], 14)
+            self.df['RSI'] = self._calculate_rsi(self.df['close'], self.rsiCoeff)
             self.df.dropna(inplace=True)
     
             # Get the last N RSI and close values
@@ -138,7 +138,7 @@ class RsiAndPreviousInfo:
             log.error(f"Failed : {e}",e)            
             return 'no-go'
 
-    def _calculate_rsi(self, series, period=14):
+    def _calculate_rsi(self, series, period=self.rsiCoeff):
         
         delta = series.diff(1)
         gain = delta.where(delta > 0, 0)
