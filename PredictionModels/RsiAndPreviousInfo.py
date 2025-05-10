@@ -138,7 +138,7 @@ class RsiAndPreviousInfo:
             log.error(f"Failed : {e}",e)            
             return 'no-go'
 
-    def _calculate_rsi(self, series, period=self.rsiCoeff):
+    def _calculate_rsi(self, series, period):
         
         delta = series.diff(1)
         gain = delta.where(delta > 0, 0)
