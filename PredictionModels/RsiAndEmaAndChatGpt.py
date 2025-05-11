@@ -3,14 +3,11 @@ import logging
 import os
 import base64
 
-
 # Remove proxy variables that interfere with OpenAI's client
 
-# REMOVE PROXY VARIABLES that cause openai to break
-for var in ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"]:
-    if var in os.environ:
-        del os.environ[var]
 import openai
+from openai import OpenAI
+
 import matplotlib.pyplot as plt
 import mplfinance as mpf
 
@@ -95,13 +92,12 @@ class RsiAndEmaAndChatGpt:
         self.params = params
         self.dolph = dolph
         self.df = self._prepare_df(data['1Min'].copy())
-
+        self.client = OpenAI(api_key=self.dolph.open_ai_key)
         # Set global OpenAI key
         openai.api_key = self.dolph.open_ai_key
-
         # Simple check if key works
         try:
-            response = openai.chat.completions.create(
+            response = self.client.chat.completions.create(
                 model="gpt-4-vision-preview",                
                 messages=[
                     {"role": "system", "content": "You are a test bot."},
@@ -112,6 +108,7 @@ class RsiAndEmaAndChatGpt:
             log.info(f"OpenAI key is valid. GPT says: {response.choices[0].message.content}")
         except Exception:
             log.exception("OpenAI API key check failed.")
+
 
     def _prepare_df(self, df):
         df = df.drop(columns=['hastrade', 'addedvolume', 'numberoftrades'], errors='ignore')
