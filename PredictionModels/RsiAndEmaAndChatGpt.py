@@ -3,11 +3,7 @@ import logging
 import os
 import base64
 
-# Remove proxy variables that interfere with OpenAI's client
-
-import openai
 from openai import OpenAI
-
 import matplotlib.pyplot as plt
 import mplfinance as mpf
 
@@ -55,14 +51,14 @@ def plot_candles_with_indicators(df, seccode, filename="chart.png", share_name="
     return filename
 
 
-def ask_chatgpt_image_decision(image_path, action_type="long"):
+def ask_chatgpt_image_decision(image_path, action_type="long", client=None):
     prompt = f"Should I open a {action_type} position?"
 
     with open(image_path, "rb") as image_file:
         image_b64 = base64.b64encode(image_file.read()).decode("utf-8")
 
     try:
-        response = openai.chat.completions.create(
+        response = client.chat.completions.create(
             model="gpt-4-vision-preview",
             messages=[
                 {
@@ -81,6 +77,7 @@ def ask_chatgpt_image_decision(image_path, action_type="long"):
             ],
             max_tokens=10
         )
+        log.info(f"GPT raw reply: {response}")
         return response.choices[0].message.content.strip()
     except Exception:
         log.exception("Failed to get ChatGPT decision.")
@@ -93,8 +90,7 @@ class RsiAndEmaAndChatGpt:
         self.dolph = dolph
         self.df = self._prepare_df(data['1Min'].copy())
         self.client = OpenAI(api_key=self.dolph.open_ai_key)
-        # Set global OpenAI key
-        openai.api_key = self.dolph.open_ai_key
+
         # Simple check if key works
         try:
             response = self.client.chat.completions.create(
@@ -108,7 +104,6 @@ class RsiAndEmaAndChatGpt:
             log.info(f"OpenAI key is valid. GPT says: {response.choices[0].message.content}")
         except Exception:
             log.exception("OpenAI API key check failed.")
-
 
     def _prepare_df(self, df):
         df = df.drop(columns=['hastrade', 'addedvolume', 'numberoftrades'], errors='ignore')
@@ -169,14 +164,14 @@ class RsiAndEmaAndChatGpt:
 
             if rsi < 30 and ema50 > ema200:
                 log.info(f"{seccode}: RSI={rsi:.2f}, EMA50={ema50:.2f}, EMA200={ema200:.2f} → asking GPT...")
-                gpt_reply = ask_chatgpt_image_decision(image_filename, action_type="long")
+                gpt_reply = ask_chatgpt_image_decision(image_filename, action_type="long", client=self.client)
                 log.info(f"{seccode} GPT reply: {gpt_reply}")
                 if gpt_reply.lower().startswith("yes"):
                     return 'long'
 
             elif rsi > 70 and ema50 < ema200:
                 log.info(f"{seccode}: RSI={rsi:.2f}, EMA50={ema50:.2f}, EMA200={ema200:.2f} → asking GPT...")
-                gpt_reply = ask_chatgpt_image_decision(image_filename, action_type="short")
+                gpt_reply = ask_chatgpt_image_decision(image_filename, action_type="short", client=self.client)
                 log.info(f"{seccode} GPT reply: {gpt_reply}")
                 if gpt_reply.lower().startswith("yes"):
                     return 'short'
