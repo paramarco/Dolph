@@ -91,14 +91,19 @@ class RsiAndEmaAndChatGpt:
         self.df = self._prepare_df(data['1Min'].copy())
         log.info("i am initilizing next is chat gpt")
         log.info(f"OpenAI key being used: {self.dolph.open_ai_key}")
+     
         client = OpenAI(api_key=self.dolph.open_ai_key)
         response = client.chat.completions.create(
-        model="gpt-4-vision-preview",
+        model="gpt-4-turbo",
         messages=[{"role": "user", "content": "Hello, who won the last world cup?"}],
-        max_tokens=10
+        max_tokens=10,
+        timeout=10  # seconds
           )
       
-        log.info(f"GPT says: {response.choices[0].message.content}")        # Simple check if key works
+        if response and response.choices and response.choices[0].message:
+            log.info(f"GPT says: {response.choices[0].message.content}")
+        else:
+            log.warning("Received empty or incomplete response from OpenAI.")
         try:
             response = self.client.chat.completions.create(
                 model="gpt-4-vision-preview",                
