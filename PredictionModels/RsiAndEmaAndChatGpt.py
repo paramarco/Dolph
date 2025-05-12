@@ -89,8 +89,10 @@ class RsiAndEmaAndChatGpt:
         self.params = params
         self.dolph = dolph
         self.df = self._prepare_df(data['1Min'].copy())
+        log.info("i am initilizing next is chat gpt")
+
         self.client = OpenAI(api_key=self.dolph.open_ai_key)
-        log.info(f"i am initilizing next is chat gpt")
+        log.info("i am initilizing next is chat gpt")
 
         # Simple check if key works
         try:
