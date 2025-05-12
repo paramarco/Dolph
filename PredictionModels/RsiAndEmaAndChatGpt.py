@@ -98,8 +98,7 @@ class RsiAndEmaAndChatGpt:
         max_tokens=10
           )
       
-        print(response.choices[0].message.content)
-        # Simple check if key works
+        log.info(f"GPT says: {response.choices[0].message.content}")        # Simple check if key works
         try:
             response = self.client.chat.completions.create(
                 model="gpt-4-vision-preview",                
