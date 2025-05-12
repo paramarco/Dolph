@@ -90,6 +90,7 @@ class RsiAndEmaAndChatGpt:
         self.dolph = dolph
         self.df = self._prepare_df(data['1Min'].copy())
         self.client = OpenAI(api_key=self.dolph.open_ai_key)
+        log.info(f"i am initilizing next is chat gpt")
 
         # Simple check if key works
         try:
@@ -128,6 +129,8 @@ class RsiAndEmaAndChatGpt:
 
     def predict(self, df, sec, period):
         try:
+            log.info(f"i am in predictiong")
+
             seccode = sec['seccode']
             entryPrice = exitPrice = 0.0
             lastClosePrice = self.dolph.getLastClosePrice(seccode)
