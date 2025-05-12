@@ -90,9 +90,14 @@ class RsiAndEmaAndChatGpt:
         self.dolph = dolph
         self.df = self._prepare_df(data['1Min'].copy())
         log.info("i am initilizing next is chat gpt")
-
-        self.client = OpenAI(api_key=self.dolph.open_ai_key)
-        log.info("i am initilizing next is chat gpt")
+        log.info(f"OpenAI key being used: {self.dolph.open_ai_key}")
+        try:
+            self.client = OpenAI(api_key=self.dolph.open_ai_key)
+            log.info("OpenAI client successfully created")
+        except Exception as e:
+            log.exception("Failed to initialize OpenAI client")
+            raise  # re-raise so the crash still propagates
+            log.info("i am initilizing next is chat gpt")
 
         # Simple check if key works
         try:
