@@ -143,26 +143,26 @@ class RsiAndEmaAndChatGpt:
             return 'no-go'
 
 
-    def _calculate_rsi(self, series, period):
+    def _calculate_rsi(self, series, periodRsi):
         delta = series.diff()
         gain = delta.clip(lower=0)
         loss = -delta.clip(upper=0)
 
-        avg_gain = gain.rolling(window=period, min_periods=period).mean()
-        avg_loss = loss.rolling(window=period, min_periods=period).mean()
+        avg_gain = gain.rolling(window=periodRsi, min_periods=periodRsi).mean()
+        avg_loss = loss.rolling(window=periodRsi, min_periods=periodRsi).mean()
         rsi = pd.Series(dtype=float, index=series.index)
 
-        if avg_loss.iloc[period] == 0:
-            rsi.iloc[period] = 100
+        if avg_loss.iloc[periodRsi] == 0:
+            rsi.iloc[periodRsi] = 100
         else:
-            rs = avg_gain.iloc[period] / avg_loss.iloc[period]
-            rsi.iloc[period] = 100 - (100 / (1 + rs))
+            rs = avg_gain.iloc[periodRsi] / avg_loss.iloc[periodRsi]
+            rsi.iloc[periodRsi] = 100 - (100 / (1 + rs))
 
-        for i in range(period + 1, len(series)):
+        for i in range(periodRsi + 1, len(series)):
             current_gain = gain.iloc[i]
             current_loss = loss.iloc[i]
-            avg_gain.iloc[i] = (avg_gain.iloc[i-1] * (period - 1) + current_gain) / period
-            avg_loss.iloc[i] = (avg_loss.iloc[i-1] * (period - 1) + current_loss) / period
+            avg_gain.iloc[i] = (avg_gain.iloc[i-1] * (periodRsi - 1) + current_gain) / periodRsi
+            avg_loss.iloc[i] = (avg_loss.iloc[i-1] * (periodRsi - 1) + current_loss) / periodRsi
 
             if avg_loss.iloc[i] == 0:
                 rsi.iloc[i] = 100
