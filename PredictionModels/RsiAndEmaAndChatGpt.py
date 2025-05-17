@@ -49,6 +49,7 @@ def plot_candles_with_indicators(df, seccode, filename="chart.png", share_name="
     plt.close(fig)
     return filename
 
+
 class RsiAndEmaAndChatGpt:
     def __init__(self, data, params, dolph):
         self.params = params
@@ -79,6 +80,7 @@ class RsiAndEmaAndChatGpt:
     def predict(self, df, sec, period):
         try:
             log.info("i am in predictiong")
+
             seccode = sec['seccode']
             entryPrice = exitPrice = 0.0
             lastClosePrice = self.dolph.getLastClosePrice(seccode)
@@ -98,7 +100,13 @@ class RsiAndEmaAndChatGpt:
             df = df[df['mnemonic'] == seccode]
             df = self._prepare_df(df)
 
-            # Resample to 5-minute candles
+            # ✅ Only make prediction on 5-minute boundary
+            now = df.index[-1]
+            if now.minute % 5 != 0 or now.second != 0:
+                log.info(f"{seccode}: Skipping prediction — not a 5-min boundary (now={now})")
+                return 'no-go'
+
+            # === 5-minute candles ===
             df_5min = df.resample('5min').agg({
                 'open': 'first',
                 'high': 'max',
@@ -118,11 +126,11 @@ class RsiAndEmaAndChatGpt:
 
             log.info(f"5-minute Values RSI={rsi:.2f}, EMA50={ema50:.2f}, EMA200={ema200:.2f}")
 
-            image_filename = f"{seccode}_5min_chart.png"
+            # ✅ Plot only on new 5-min candle
+            image_filename = f"{seccode}_5min_chart_{now.strftime('%Y%m%d_%H%M')}.png"
             plot_candles_with_indicators(df_5min, seccode, filename=image_filename, share_name=f"{seccode} (5min)")
-            log.info(f"Making plot for {seccode} ...")
+            log.info(f"5-min plot saved: {image_filename}")
 
-            # Decision using only 5-min indicators
             if rsi < 30 and ema50 > ema200:
                 return 'long'
             elif rsi > 70 and ema50 < ema200:
