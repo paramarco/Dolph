@@ -9,7 +9,6 @@ import mplfinance as mpf
 
 log = logging.getLogger("PredictionModel")
 
-
 def plot_candles_with_indicators(df, seccode, filename="chart.png", share_name="Stock"):
     sub_df = df.tail(200).copy()
     sub_df.index.name = 'Date'
@@ -50,73 +49,12 @@ def plot_candles_with_indicators(df, seccode, filename="chart.png", share_name="
     plt.close(fig)
     return filename
 
-
-def ask_chatgpt_image_decision(image_path, action_type="long", client=None):
-    prompt = f"Should I open a {action_type} position?"
-
-    with open(image_path, "rb") as image_file:
-        image_b64 = base64.b64encode(image_file.read()).decode("utf-8")
-
-    try:
-        response = client.chat.completions.create(
-            model="gpt-4-vision-preview",
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/png;base64,{image_b64}",
-                                "detail": "auto"
-                            }
-                        }
-                    ]
-                }
-            ],
-            max_tokens=10
-        )
-        log.info(f"GPT raw reply: {response}")
-        return response.choices[0].message.content.strip()
-    except Exception:
-        log.exception("Failed to get ChatGPT decision.")
-        return "no"
-
-
 class RsiAndEmaAndChatGpt:
     def __init__(self, data, params, dolph):
         self.params = params
         self.dolph = dolph
         self.df = self._prepare_df(data['1Min'].copy())
-        log.info("i am initilizing next is chat gpt")
-        log.info(f"OpenAI key being used: {self.dolph.open_ai_key}")
-     
-        client = OpenAI(api_key=self.dolph.open_ai_key)
-        response = client.chat.completions.create(
-        model="gpt-4-turbo",
-        messages=[{"role": "user", "content": "Hello, who won the last world cup?"}],
-        max_tokens=10,
-        timeout=10  # seconds
-          )
-      
-        if response and response.choices and response.choices[0].message:
-            log.info(f"GPT says: {response.choices[0].message.content}")
-        else:
-            log.warning("Received empty or incomplete response from OpenAI.")
-        try:
-            response = self.client.chat.completions.create(
-                model="gpt-4-vision-preview",                
-                messages=[
-                    {"role": "system", "content": "You are a test bot."},
-                    {"role": "user", "content": "Say hello."}
-                ],
-                max_tokens=10
-            )
-            log.info(f"OpenAI key is valid. GPT says: {response.choices[0].message.content}")
-        except Exception:
-            log.exception("OpenAI API key check failed.")
-
+    
     def _prepare_df(self, df):
         df = df.drop(columns=['hastrade', 'addedvolume', 'numberoftrades'], errors='ignore')
         df = df.rename(columns={
@@ -140,8 +78,7 @@ class RsiAndEmaAndChatGpt:
 
     def predict(self, df, sec, period):
         try:
-            log.info(f"i am in predictiong")
-
+            log.info("i am in predictiong")
             seccode = sec['seccode']
             entryPrice = exitPrice = 0.0
             lastClosePrice = self.dolph.getLastClosePrice(seccode)
@@ -161,40 +98,40 @@ class RsiAndEmaAndChatGpt:
             df = df[df['mnemonic'] == seccode]
             df = self._prepare_df(df)
 
-            df['RSI'] = self._calculate_rsi(df['close'], 14)
-            df['EMA50'] = df['close'].ewm(span=50, adjust=False).mean()
-            df['EMA200'] = df['close'].ewm(span=200, adjust=False).mean()
-            df.dropna(inplace=True)
+            # Resample to 5-minute candles
+            df_5min = df.resample('5min').agg({
+                'open': 'first',
+                'high': 'max',
+                'low': 'min',
+                'close': 'last',
+                'volume': 'sum'
+            }).dropna()
 
-            rsi = df['RSI'].iloc[-1]
-            ema50 = df['EMA50'].iloc[-1]
-            ema200 = df['EMA200'].iloc[-1]
+            df_5min['RSI'] = self._calculate_rsi(df_5min['close'], 14)
+            df_5min['EMA50'] = df_5min['close'].ewm(span=50, adjust=False).mean()
+            df_5min['EMA200'] = df_5min['close'].ewm(span=200, adjust=False).mean()
+            df_5min.dropna(inplace=True)
 
-            log.info(f"Values rsi ema50 ema200 : {rsi} {ema50} {ema200}")
+            rsi = df_5min['RSI'].iloc[-1]
+            ema50 = df_5min['EMA50'].iloc[-1]
+            ema200 = df_5min['EMA200'].iloc[-1]
 
-            image_filename = f"{seccode}_decision_chart.png"
-            plot_candles_with_indicators(df, seccode, filename=image_filename, share_name=seccode)
+            log.info(f"5-minute Values RSI={rsi:.2f}, EMA50={ema50:.2f}, EMA200={ema200:.2f}")
+
+            image_filename = f"{seccode}_5min_chart.png"
+            plot_candles_with_indicators(df_5min, seccode, filename=image_filename, share_name=f"{seccode} (5min)")
             log.info(f"Making plot for {seccode} ...")
 
+            # Decision using only 5-min indicators
             if rsi < 30 and ema50 > ema200:
-                log.info(f"{seccode}: RSI={rsi:.2f}, EMA50={ema50:.2f}, EMA200={ema200:.2f} → asking GPT...")
-                gpt_reply = ask_chatgpt_image_decision(image_filename, action_type="long", client=self.client)
-                log.info(f"{seccode} GPT reply: {gpt_reply}")
-                if gpt_reply.lower().startswith("yes"):
-                    return 'long'
-
+                return 'long'
             elif rsi > 70 and ema50 < ema200:
-                log.info(f"{seccode}: RSI={rsi:.2f}, EMA50={ema50:.2f}, EMA200={ema200:.2f} → asking GPT...")
-                gpt_reply = ask_chatgpt_image_decision(image_filename, action_type="short", client=self.client)
-                log.info(f"{seccode} GPT reply: {gpt_reply}")
-                if gpt_reply.lower().startswith("yes"):
-                    return 'short'
+                return 'short'
 
-            log.info(f"{seccode}: predictor says no-go")
             return 'no-go'
 
         except Exception:
-            log.exception(f"{seccode}: Failed during prediction")
+            log.exception(f"{sec.get('seccode', 'UNKNOWN')}: Failed during prediction")
             return 'no-go'
 
     def _calculate_rsi(self, series, period=14):

@@ -10,7 +10,45 @@ import logging
 
 log = logging.getLogger("PredictionModel")
 
+def plot_candles_with_indicators(df, seccode, filename="chart.png", share_name="Stock"):
+    sub_df = df.tail(200).copy()
+    sub_df.index.name = 'Date'
 
+    apds = [
+        mpf.make_addplot(sub_df['EMA50'], color='blue', linestyle='dashed'),
+        mpf.make_addplot(sub_df['EMA200'], color='purple', linestyle='dotted'),
+        mpf.make_addplot(sub_df['RSI'], panel=1, color='orange', ylabel='RSI'),
+        mpf.make_addplot([30] * len(sub_df), panel=1, color='gray', linestyle='--'),
+        mpf.make_addplot([70] * len(sub_df), panel=1, color='gray', linestyle='--')
+    ]
+
+    fig, axes = mpf.plot(
+        sub_df,
+        type='candle',
+        style='charles',
+        volume=False,
+        addplot=apds,
+        panel_ratios=(2, 1),
+        figscale=1.2,
+        figratio=(10, 6),
+        returnfig=True
+    )
+
+    axes[0].set_title(f"{share_name} ({seccode})", fontsize=14)
+    axes[0].legend(
+        handles=[
+            plt.Line2D([0], [0], color='blue', linestyle='dashed', label='EMA50'),
+            plt.Line2D([0], [0], color='purple', linestyle='dotted', label='EMA200'),
+            plt.Line2D([0], [0], color='orange', label='RSI'),
+            plt.Line2D([0], [0], color='gray', linestyle='--', label='RSI Limits (30/70)')
+        ],
+        loc='upper left',
+        frameon=True
+    )
+
+    fig.savefig(filename)
+    plt.close(fig)
+    return filename
 class RsiAndPreviousInfo:
     
     def __init__(self, data, params, dolph):
@@ -118,7 +156,9 @@ class RsiAndPreviousInfo:
     
             # Get the latest RSI and close price
             rsi = self.df['RSI'].iloc[-1]
-    
+            image_filename = f"{seccode}_decision_chart.png"
+            plot_candles_with_indicators(df, seccode, filename=image_filename, share_name=seccode)
+            log.info(f"Making plot for {seccode} ...")
             # Buy conditions: RSI < 30, consistent oversold RSI, and decreasing close prices
             if all(rsi < 30 for rsi in prev_rsi_values) and rsi < 30 :
                 log.info("predictor says long")
