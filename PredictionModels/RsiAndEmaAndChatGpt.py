@@ -55,7 +55,7 @@ class RsiAndEmaAndChatGpt:
         self.params = params
         self.dolph = dolph
         self.df = self._prepare_df(data['1Min'].copy())
-    
+        self.rsiCoeff = self.params['rsiCoeff']
     def _prepare_df(self, df):
         df = df.drop(columns=['hastrade', 'addedvolume', 'numberoftrades'], errors='ignore')
         df = df.rename(columns={
@@ -80,33 +80,31 @@ class RsiAndEmaAndChatGpt:
     def predict(self, df, sec, period):
         try:
             log.info("i am in predictiong")
-
+    
             seccode = sec['seccode']
             entryPrice = exitPrice = 0.0
             lastClosePrice = self.dolph.getLastClosePrice(seccode)
             openPosition = self.dolph.tp.isPositionOpen(seccode)
-
+    
             if openPosition:
                 positions = self.dolph.tp.get_PositionsByCode(seccode)
                 for p in positions:
                     entryPrice = p.entryPrice
                     exitPrice = p.exitPrice
-
+    
             log.info(f"{seccode} last: {lastClosePrice}, entry: {entryPrice}, exit: {exitPrice}")
-
+    
             if 'mnemonic' not in df.columns:
                 raise KeyError("DataFrame is missing 'mnemonic' column.")
-
+    
             df = df[df['mnemonic'] == seccode]
             df = self._prepare_df(df)
-
-            # ✅ Only make prediction on 5-minute boundary
+    
             now = df.index[-1]
             if now.minute % 5 != 0 or now.second != 0:
                 log.info(f"{seccode}: Skipping prediction — not a 5-min boundary (now={now})")
                 return 'no-go'
-
-            # === 5-minute candles ===
+    
             df_5min = df.resample('5min').agg({
                 'open': 'first',
                 'high': 'max',
@@ -114,35 +112,38 @@ class RsiAndEmaAndChatGpt:
                 'close': 'last',
                 'volume': 'sum'
             }).dropna()
-
-            df_5min['RSI'] = self._calculate_rsi(df_5min['close'], 14)
+    
+            df_5min['RSI'] = self._calculate_rsi(df_5min['close'], self.rsiCoeff)
             df_5min['EMA50'] = df_5min['close'].ewm(span=50, adjust=False).mean()
             df_5min['EMA200'] = df_5min['close'].ewm(span=200, adjust=False).mean()
             df_5min.dropna(inplace=True)
-
-            rsi = df_5min['RSI'].iloc[-1]
+    
+            rsi_now = df_5min['RSI'].iloc[-1]
+            rsi_prev = df_5min['RSI'].iloc[-2]
             ema50 = df_5min['EMA50'].iloc[-1]
             ema200 = df_5min['EMA200'].iloc[-1]
-
-            log.info(f"5-minute Values RSI={rsi:.2f}, EMA50={ema50:.2f}, EMA200={ema200:.2f}")
-
-            # ✅ Plot only on new 5-min candle
+    
+            log.info(f"5-min RSI now={rsi_now:.2f}, prev={rsi_prev:.2f}, EMA50={ema50:.2f}, EMA200={ema200:.2f}")
+    
             image_filename = f"{seccode}_5min_chart_{now.strftime('%Y%m%d_%H%M')}.png"
             plot_candles_with_indicators(df_5min, seccode, filename=image_filename, share_name=f"{seccode} (5min)")
             log.info(f"5-min plot saved: {image_filename}")
-
-            if rsi < 30 and ema50 > ema200:
+    
+            #  Enhanced decision logic: confirm RSI exit and EMA trend
+            if rsi_prev < 30 and rsi_now > 30 and ema50 > ema200:
                 return 'long'
-            elif rsi > 70 and ema50 < ema200:
+    
+            if rsi_prev > 70 and rsi_now < 70 and ema50 < ema200:
                 return 'short'
-
+    
             return 'no-go'
-
+    
         except Exception:
             log.exception(f"{sec.get('seccode', 'UNKNOWN')}: Failed during prediction")
             return 'no-go'
 
-    def _calculate_rsi(self, series, period=14):
+
+    def _calculate_rsi(self, series, period):
         delta = series.diff()
         gain = delta.clip(lower=0)
         loss = -delta.clip(upper=0)
