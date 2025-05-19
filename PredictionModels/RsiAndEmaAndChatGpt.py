@@ -3,7 +3,6 @@ import logging
 import os
 import base64
 
-from openai import OpenAI
 import matplotlib.pyplot as plt
 import mplfinance as mpf
 
@@ -52,21 +51,27 @@ def plot_candles_with_indicators(df, seccode, filename="chart.png", share_name="
 
 class RsiAndEmaAndChatGpt:
     def __init__(self, data, params, dolph):
-        self.params = params
-        self.dolph = dolph
-        self.df = self._prepare_df(data['1Min'].copy())
-        self.rsiCoeff = self.params['rsiCoeff']
-    def _prepare_df(self, df):
-        df = df.drop(columns=['hastrade', 'addedvolume', 'numberoftrades'], errors='ignore')
-        df = df.rename(columns={
+        
+        # Exclude non-price columns ('mnemonic', 'hastrade', 'addedvolume', 'numberoftrades')
+        self.df = self.df.drop(columns=['hastrade', 'addedvolume', 'numberoftrades'], errors='ignore')
+        
+        # Ensure df has a datetime index
+        if not isinstance(self.df.index, pd.DatetimeIndex):
+            raise ValueError("DataFrame must have a datetime index.")
+        
+        # Rename the columns to standard format
+        self.df = self.df.rename(columns={
             'startprice': 'open',
             'maxprice': 'high',
             'minprice': 'low',
             'endprice': 'close'
         })
-        if not isinstance(df.index, pd.DatetimeIndex):
-            raise ValueError("DataFrame must have a datetime index.")
-        return df
+        self.params = params
+        self.dolph = dolph
+        self.df = self._prepare_df(data['1Min'].copy())
+        self.rsiCoeff = self.params['rsiCoeff']
+        log.info("i am in intials")
+
 
     def build_model(self):
         pass
@@ -99,7 +104,28 @@ class RsiAndEmaAndChatGpt:
     
             df = df[df['mnemonic'] == seccode]
             df = self._prepare_df(df)
-    
+            # Ensure the necessary columns are renamed to the correct price columns
+            self.df = self.df.rename(columns={
+                'startprice': 'open',
+                'maxprice': 'high',
+                'minprice': 'low',
+                'endprice': 'close'
+            })
+        
+            # Exclude non-price columns ('mnemonic', 'hastrade', 'addedvolume', 'numberoftrades')
+            df = df.drop(columns=['hastrade', 'addedvolume', 'numberoftrades'], errors='ignore')
+            
+            # Ensure df has a datetime index
+            if not isinstance(df.index, pd.DatetimeIndex):
+                raise ValueError("DataFrame must have a datetime index.")
+            
+            # Now proceed with renaming the columns as before
+            self.df = df.rename(columns={
+                'startprice': 'open',
+                'maxprice': 'high',
+                'minprice': 'low',
+                'endprice': 'close'
+            })
             now = df.index[-1]
             if now.minute % 5 != 0 or now.second != 0:
                 log.info(f"{seccode}: Skipping prediction — not a 5-min boundary (now={now})")
