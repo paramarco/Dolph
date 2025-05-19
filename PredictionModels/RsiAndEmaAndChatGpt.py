@@ -51,7 +51,8 @@ def plot_candles_with_indicators(df, seccode, filename="chart.png", share_name="
 
 class RsiAndEmaAndChatGpt:
     def __init__(self, data, params, dolph):
-        
+        self.df = data['1Min'].copy()
+
         # Exclude non-price columns ('mnemonic', 'hastrade', 'addedvolume', 'numberoftrades')
         self.df = self.df.drop(columns=['hastrade', 'addedvolume', 'numberoftrades'], errors='ignore')
         
@@ -99,11 +100,15 @@ class RsiAndEmaAndChatGpt:
     
             log.info(f"{seccode} last: {lastClosePrice}, entry: {entryPrice}, exit: {exitPrice}")
     
-            if 'mnemonic' not in df.columns:
+           
+            # Ensure df has a mnemonic column, and filter by seccode
+            if 'mnemonic' in df.columns:
+                df = df[df['mnemonic'] == seccode]
+            else:
+                log.error(f"DataFrame does not have a 'mnemonic' column.")
+
                 raise KeyError("DataFrame is missing 'mnemonic' column.")
-    
-            df = df[df['mnemonic'] == seccode]
-            df = self._prepare_df(df)
+                
             # Ensure the necessary columns are renamed to the correct price columns
             self.df = self.df.rename(columns={
                 'startprice': 'open',
@@ -126,6 +131,7 @@ class RsiAndEmaAndChatGpt:
                 'minprice': 'low',
                 'endprice': 'close'
             })
+            
             now = df.index[-1]
             if now.minute % 5 != 0 or now.second != 0:
                 log.info(f"{seccode}: Skipping prediction — not a 5-min boundary (now={now})")
