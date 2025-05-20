@@ -49,7 +49,7 @@ def plot_candles_with_indicators(df, seccode, filename="chart.png", share_name="
     return filename
 
 
-class RsiAndEmaAndChatGpt:
+class RsiAndPreviousInfo:
     def __init__(self, data, params, dolph):
         self.df = data['1Min'].copy()
 
