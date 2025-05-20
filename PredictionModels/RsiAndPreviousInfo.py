@@ -1,12 +1,10 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Sun Feb  9 15:07:13 2025
-
-@author: klio_ks
-"""
-
 import pandas as pd
 import logging
+import os
+import base64
+
+import matplotlib.pyplot as plt
+import mplfinance as mpf
 
 log = logging.getLogger("PredictionModel")
 
@@ -49,20 +47,21 @@ def plot_candles_with_indicators(df, seccode, filename="chart.png", share_name="
     fig.savefig(filename)
     plt.close(fig)
     return filename
-class RsiAndPreviousInfo:
-    
+
+
+class RsiAndEmaAndChatGpt:
     def __init__(self, data, params, dolph):
-        df = data['1Min']
-       
+        self.df = data['1Min'].copy()
+
         # Exclude non-price columns ('mnemonic', 'hastrade', 'addedvolume', 'numberoftrades')
-        df = df.drop(columns=['hastrade', 'addedvolume', 'numberoftrades'], errors='ignore')
+        self.df = self.df.drop(columns=['hastrade', 'addedvolume', 'numberoftrades'], errors='ignore')
         
         # Ensure df has a datetime index
-        if not isinstance(df.index, pd.DatetimeIndex):
+        if not isinstance(self.df.index, pd.DatetimeIndex):
             raise ValueError("DataFrame must have a datetime index.")
         
         # Rename the columns to standard format
-        self.df = df.rename(columns={
+        self.df = self.df.rename(columns={
             'startprice': 'open',
             'maxprice': 'high',
             'minprice': 'low',
@@ -70,12 +69,10 @@ class RsiAndPreviousInfo:
         })
         self.params = params
         self.dolph = dolph
+        self.df = self._prepare_df(data['1Min'].copy())
         self.rsiCoeff = self.params['rsiCoeff']
-        # Calculate RSI and additional indicators
-        self.df['RSI'] = self._calculate_rsi(self.df['close'], self.rsiCoeff)
-        self.df['PrevRSI'] = self.df['RSI'].shift(1)
-        self.df['PrevClose'] = self.df['close'].shift(1)
-        self.df.dropna(inplace=True)
+        log.info("i am in intials")
+
 
     def build_model(self):
         pass
@@ -87,32 +84,31 @@ class RsiAndPreviousInfo:
         return True
 
     def predict(self, df, sec, period):
-        """
-        Predict whether to go long, short, or no-go based on RSI and price action trends.
-        """
         try:
+            log.info("i am in predictiong")
+    
             seccode = sec['seccode']
             entryPrice = exitPrice = 0.0
+            lastClosePrice = self.dolph.getLastClosePrice(seccode)
+            openPosition = self.dolph.tp.isPositionOpen(seccode)
     
-            lastClosePrice = self.dolph.getLastClosePrice( seccode)
-            openPosition = self.dolph.tp.isPositionOpen( seccode )
-            
-            if openPosition:            
+            if openPosition:
                 positions = self.dolph.tp.get_PositionsByCode(seccode)
-                for p in positions :
+                for p in positions:
                     entryPrice = p.entryPrice
-                    exitPrice = p.exitPrice 
-                    
-            m = f"{seccode} last: {lastClosePrice}, entry: {entryPrice}, exit: {exitPrice}"                
-            log.info(m)
+                    exitPrice = p.exitPrice
     
+            log.info(f"{seccode} last: {lastClosePrice}, entry: {entryPrice}, exit: {exitPrice}")
+    
+           
             # Ensure df has a mnemonic column, and filter by seccode
             if 'mnemonic' in df.columns:
                 df = df[df['mnemonic'] == seccode]
             else:
                 log.error(f"DataFrame does not have a 'mnemonic' column.")
-                raise KeyError("DataFrame is missing 'mnemonic' column.")            
-    
+
+                raise KeyError("DataFrame is missing 'mnemonic' column.")
+                
             # Ensure the necessary columns are renamed to the correct price columns
             self.df = self.df.rename(columns={
                 'startprice': 'open',
@@ -136,58 +132,74 @@ class RsiAndPreviousInfo:
                 'endprice': 'close'
             })
             
-            # Define lookback period
-            lookback_period = 2  # Number of previous RSI and close values to check
-            
-            self.df['RSI'] = self._calculate_rsi(self.df['close'], self.rsiCoeff)
-            self.df.dropna(inplace=True)
-    
-            # Get the last N RSI and close values
-            prev_rsi_values = self.df['RSI'].iloc[-lookback_period-1:-1].values
-            prev_close_values = self.df['close'].iloc[-lookback_period-1:-1].values
-    
-            # Ensure sufficient data exists
-            if len(prev_rsi_values) < lookback_period or len(prev_close_values) < lookback_period:
-                log.warning("Insufficient data for prediction")
+            now = df.index[-1]
+            if now.minute % 5 != 0 or now.second != 0:
+                log.info(f"{seccode}: Skipping prediction — not a 5-min boundary (now={now})")
                 return 'no-go'
     
-            # Log the last three RSI and close prices
-            log.info(f"Last three RSI values: {prev_rsi_values}")
+            df_5min = df.resample('5min').agg({
+                'open': 'first',
+                'high': 'max',
+                'low': 'min',
+                'close': 'last',
+                'volume': 'sum'
+            }).dropna()
     
-            # Get the latest RSI and close price
-            rsi = self.df['RSI'].iloc[-1]
-            image_filename = f"{seccode}_decision_chart.png"
-            plot_candles_with_indicators(df, seccode, filename=image_filename, share_name=seccode)
-            log.info(f"Making plot for {seccode} ...")
-            # Buy conditions: RSI < 30, consistent oversold RSI, and decreasing close prices
-            if all(rsi < 30 for rsi in prev_rsi_values) and rsi < 30 :
-                log.info("predictor says long")
-                return 'long'  # Buy signal
+            df_5min['RSI'] = self._calculate_rsi(df_5min['close'], self.rsiCoeff)
+            df_5min['EMA50'] = df_5min['close'].ewm(span=50, adjust=False).mean()
+            df_5min['EMA200'] = df_5min['close'].ewm(span=200, adjust=False).mean()
+            df_5min.dropna(inplace=True)
     
-            # Sell conditions: RSI > 70, consistent overbought RSI, and increasing close prices
-            if all(rsi > 70 for rsi in prev_rsi_values) and rsi > 70 :
-                log.info("predictor says short")
-                return 'short'  # Sell signal
-            
-            log.info("predictor says nogo")
-            # No clear signal to buy or sell
-            
-            return  'no-go'
-       
-        except Exception as e:        
-            log.error(f"Failed : {e}",e)            
+            rsi_now = df_5min['RSI'].iloc[-1]
+            rsi_prev = df_5min['RSI'].iloc[-2]
+            ema50 = df_5min['EMA50'].iloc[-1]
+            ema200 = df_5min['EMA200'].iloc[-1]
+    
+            log.info(f"5-min RSI now={rsi_now:.2f}, prev={rsi_prev:.2f}, EMA50={ema50:.2f}, EMA200={ema200:.2f}")
+    
+            image_filename = f"{seccode}_5min_chart_{now.strftime('%Y%m%d_%H%M')}.png"
+            plot_candles_with_indicators(df_5min, seccode, filename=image_filename, share_name=f"{seccode} (5min)")
+            log.info(f"5-min plot saved: {image_filename}")
+    
+            #  Enhanced decision logic: confirm RSI exit and EMA trend
+            if rsi_prev < 30 and rsi_now > 30 and ema50 > ema200:
+                return 'long'
+    
+            if rsi_prev > 70 and rsi_now < 70 and ema50 < ema200:
+                return 'short'
+    
+            return 'no-go'
+    
+        except Exception:
+            log.exception(f"{sec.get('seccode', 'UNKNOWN')}: Failed during prediction")
             return 'no-go'
 
-    def _calculate_rsi(self, series, period):
-        
-        delta = series.diff(1)
-        gain = delta.where(delta > 0, 0)
-        loss = -delta.where(delta < 0, 0)
-    
-        # Compute EMA for average gain and average loss
-        avg_gain = gain.ewm(span=period, adjust=False).mean()
-        avg_loss = loss.ewm(span=period, adjust=False).mean()
-    
-        rs = avg_gain / avg_loss
-        return 100 - (100 / (1 + rs))
 
+    def _calculate_rsi(self, series, periodRsi):
+        delta = series.diff()
+        gain = delta.clip(lower=0)
+        loss = -delta.clip(upper=0)
+
+        avg_gain = gain.rolling(window=periodRsi, min_periods=periodRsi).mean()
+        avg_loss = loss.rolling(window=periodRsi, min_periods=periodRsi).mean()
+        rsi = pd.Series(dtype=float, index=series.index)
+
+        if avg_loss.iloc[periodRsi] == 0:
+            rsi.iloc[periodRsi] = 100
+        else:
+            rs = avg_gain.iloc[periodRsi] / avg_loss.iloc[periodRsi]
+            rsi.iloc[periodRsi] = 100 - (100 / (1 + rs))
+
+        for i in range(periodRsi + 1, len(series)):
+            current_gain = gain.iloc[i]
+            current_loss = loss.iloc[i]
+            avg_gain.iloc[i] = (avg_gain.iloc[i-1] * (periodRsi - 1) + current_gain) / periodRsi
+            avg_loss.iloc[i] = (avg_loss.iloc[i-1] * (periodRsi - 1) + current_loss) / periodRsi
+
+            if avg_loss.iloc[i] == 0:
+                rsi.iloc[i] = 100
+            else:
+                rs = avg_gain.iloc[i] / avg_loss.iloc[i]
+                rsi.iloc[i] = 100 - (100 / (1 + rs))
+
+        return rsi
