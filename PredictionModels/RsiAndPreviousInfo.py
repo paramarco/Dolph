@@ -3,7 +3,7 @@ import logging
 
 log = logging.getLogger("PredictionModel")
 
-class RsiAndAtr:
+class RsiAndPreviousInfo:
     def __init__(self, data, params, dolph):
         self.df = data['1Min'].copy()
        
