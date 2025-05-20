@@ -87,7 +87,7 @@ class RsiAndPreviousInfo:
             
     
             # Calculate indicators for this specific seccode
-            self.df['RSI'] = self._calculate_rsi(self.df['close'], 14)
+            self.df['RSI'] = self._calculate_rsi(self.df['close'], 7)
             self.df.dropna(inplace=True)
 
         # Two steps before
@@ -128,7 +128,7 @@ class RsiAndPreviousInfo:
             return 'no-go'
 
 
-    def _calculate_rsi(self, series, period=14):
+    def _calculate_rsi(self, series, period):
         delta = series.diff(1)
         gain = delta.where(delta > 0, 0)
         loss = -delta.where(delta < 0, 0)
@@ -166,7 +166,7 @@ class RsiAndPreviousInfo:
         return rsi
 
 
-    def _calculate_atr(self, df, period=14):
+    def _calculate_atr(self, df, period):
 
         self.df['high-low'] = self.df['high'] - self.df['low']
         self.df['high-prevclose'] = abs(self.df['high'] - self.df['close'].shift(1))
