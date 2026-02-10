@@ -91,8 +91,17 @@ RUN usermod -aG sudo dolph_user
 # Configure sudoers to allow passwordless sudo for dolph_user
 RUN echo "dolph_user ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
-# Define the dolph_user data volume
-VOLUME /home/dolph_user/
+# Install Node.js 20 and Claude Code
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs && \
+    npm install -g @anthropic-ai/claude-code && \
+    rm -rf /var/lib/apt/lists/*
+
+# ── REMOVED: VOLUME /home/dolph_user/ ──────────────────────────────────
+# Removing this VOLUME declaration prevents Docker from overriding
+# the chown above with an empty root-owned mount at container start.
+# The /data subdirectory is still mounted via docker run -v flag.
+# ───────────────────────────────────────────────────────────────────────
 
 # Define the PostgreSQL data volume
 VOLUME /var/lib/postgresql/14/main
