@@ -1614,7 +1614,7 @@ class IBTradingPlatform(TradingPlatform):
             self.connect()
 
 
- def connect(self):
+    def connect(self):
      """ Interactive Brokers """
      try:
          # Connect to the IB gateway or TWS
