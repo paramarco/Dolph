@@ -1,0 +1,29 @@
+{
+  "name": "Dolph Trading Bot",
+  "image": "dolph-container",
+  "runArgs": [
+    "--privileged",
+    "-e", "DISPLAY=${localEnv:DISPLAY}",
+    "-v", "/tmp/.X11-unix:/tmp/.X11-unix",
+    "-v", "${env:HOME}/data-dolph-container:/home/dolph_user/data",
+    "-v", "${env:HOME}/pgdata:/var/lib/postgresql/14/main",
+    "-p", "10171:5901"
+  ],
+  "overrideCommand": false,
+  "remoteUser": "root",
+  "postStartCommand": "bash -c 'chown -R dolph_user:dolph_user /home/dolph_user && . /opt/venv/bin/activate'",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "python.defaultInterpreterPath": "/opt/venv/bin/python",
+        "python.terminal.activateEnvironment": true,
+        "terminal.integrated.defaultProfile.linux": "bash"
+      },
+      "extensions": [
+        "ms-python.python",
+        "ms-python.pylance",
+        "ms-python.debugpy"
+      ]
+    }
+  }
+}
