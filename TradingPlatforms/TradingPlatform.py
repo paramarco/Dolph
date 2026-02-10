@@ -1614,60 +1614,57 @@ class IBTradingPlatform(TradingPlatform):
             self.connect()
 
 
-    def connect(self):
-        """ Interactive Brokers """
-        try:
-            # Connect to the IB gateway or TWS
-            log.info('connecting to Interactive Brokers...')
-            self.ib.connect(self.host, self.port, clientId=self.client_id)
-            self.connected = True
-            
-            # Start event loop in a separate thread
-            log.info("Startting event loop in a separate thread for IB ...")
-                        
-            thread = Thread(target=self.ib.run, daemon=True, name="event loop for IB")
-#            def run_event_loop():
-#                 loop = asyncio.new_event_loop()
-#                 asyncio.set_event_loop(loop)                
-#                 self.ib.run()
-#             thread = Thread(target=run_event_loop, daemon=True, name="event loop for IB")
-       
-            thread.start()
-          
-            log.info('Sleeping 10 seconds for the DataServer to load...')
-            time.sleep(10)    
-  
-            log.info("subscribing to Market data...")
-            self.subscribe_to_market_data()                
-            
-            log.info("Retrieving and storing initial candles...")
-            now = self.getTradingPlatformTime()
-            months_ago = now - datetime.timedelta(days=30)
-            
-            for sec in self.securities:
-                candles = self.get_candles(sec, months_ago, now, period='1Min')
-                self.ds.store_candles_from_IB(candles, sec)
-    
-            self.ordersStatusUpdateTask = IB_OrderStatusTask(self)
-#            def run_order_status_task():
-#                while not self.connected:
-#                    log.info("Waiting for connection to complete before starting OrderStatusTask...")
-#                    time.sleep(5)           
-#                log.info("OrderStatusTask now running!")
-#                self.ordersStatusUpdateTask.run()  # Ejecutar el monitoreo de órdenes            
-#            t2 = Thread(target=run_order_status_task, daemon=True, name="IB_OrderStatusTask")
-            t2 = Thread(
-                target = self.ordersStatusUpdateTask.run, 
-                args = ( ),
-                name = "IB_OrderStatusTask"
-            )
-            t2.start()  
-            
-            return True  # Successful connection
-        
-        except Exception as e:
-            log.error(f"Failed to connect to IB: {e}")
-            return False
+ def connect(self):
+     """ Interactive Brokers """
+     try:
+         # Connect to the IB gateway or TWS
+         log.info('connecting to Interactive Brokers...')
+         self.ib.connect(self.host, self.port, clientId=self.client_id)
+         self.connected = True
+
+         # Subscribe to market data BEFORE starting the event loop thread
+         # (reqHistoricalData uses loop.run_until_complete() which works fine here)
+         log.info("subscribing to Market data...")
+         self.subscribe_to_market_data()
+
+         log.info("Retrieving and storing initial candles...")
+         now = self.getTradingPlatformTime()
+         months_ago = now - datetime.timedelta(days=30)
+
+         for sec in self.securities:
+             candles = self.get_candles(sec, months_ago, now, period='1Min')
+             self.ds.store_candles_from_IB(candles, sec)
+
+         # Get the event loop that ib.connect() created/used
+         ib_loop = asyncio.get_event_loop()
+
+         # Start event loop in a separate thread, passing the SAME loop
+         # In Python 3.11+, daemon threads don't inherit the main thread's loop,
+         # so we must explicitly set it before calling ib.run()
+         log.info("Starting event loop in a separate thread for IB ...")
+         def run_event_loop():
+             asyncio.set_event_loop(ib_loop)
+             self.ib.run()
+
+         thread = Thread(target=run_event_loop, daemon=True, name="event loop for IB")
+         thread.start()
+
+         log.info('Event loop started, waiting 5 seconds...')
+         time.sleep(5)
+
+         self.ordersStatusUpdateTask = IB_OrderStatusTask(self)
+         t2 = Thread(
+             target = self.ordersStatusUpdateTask.run,
+             args = ( ),
+             name = "IB_OrderStatusTask"
+         )
+         t2.start()
+
+         return True  # Successful connection
+
+     except Exception as e:
+         log.error(f"Failed to connect to IB: {e}")
+         return False
       
 
     def subscribe_to_market_data(self):
