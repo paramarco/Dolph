@@ -81,14 +81,14 @@ class MinerviniClaude:
                 'endprice': 'close'
             })
 
-        try:
-            df = self._prepare_ohlcv(df)
-            df = self._compute_indicators(df)
+       
+            self.df = self._prepare_ohlcv(self.df)
+            self.df = self._compute_indicators(self.df)
 
-            phase = self._detect_phase(df)
-            signal = self._generate_signal(phase, df)
+            phase = self._detect_phase(self.df)
+            signal = self._generate_signal(self.df)
 
-            self._adapt_margin(sec, phase, df)
+            self._adapt_margin(sec, phase, self.df)
 
             log.info(
                 f"{self.seccode}: phase={phase}, "
