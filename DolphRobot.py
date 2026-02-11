@@ -236,7 +236,7 @@ class Dolph:
         
         lastClosePrice = self.getLastClosePrice(seccode)
         entryPrice = position.entryPrice
-        factorMargin_Position = params['longPositionMargin']
+        factorMargin_Position = params['positionMargin']
         stopLossCoefficient = params['stopLossCoefficient']
         limitToAcceptFallingOfPrice = entryPrice * factorMargin_Position * stopLossCoefficient
         decision = False
@@ -313,7 +313,7 @@ class Dolph:
         currentClose = self.getLastClosePrice( seccode)
         cash_balance = self.tp.get_cash_balance()
         net_balance = self.tp.get_net_balance()
-        factorMargin_Position = params['longPositionMargin']
+        factorMargin_Position = params['positionMargin']
 
         cash_4_position = net_balance * cm.factorPosition_Balance        
         quantity = round(cash_4_position / currentClose)
@@ -441,7 +441,7 @@ class Dolph:
     def setSecurityParams(self, seccode, **params):
         """ 
         How to use:          
-        params = {'longPositionMargin': 0.01, 'shortPositionMargin': 0.0035}
+        params = {'positionMargin': 0.01}
         self.dolph.setSecurityParams('INTC', **params )        
         params = {'stopLossCoefficient': 3 }
         self.dolph.setSecurityParams('INTC', **params )        
