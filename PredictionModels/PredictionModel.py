@@ -19,6 +19,7 @@ from PredictionModels.RsiBasedOnEmaOnlyModel import RsiBasedOnEmaOnlyModel
 from PredictionModels.RsiAndPreviousInfo import RsiAndPreviousInfo
 from PredictionModels.RsiAndAtr import RsiAndAtr
 from PredictionModels.RsiAndEmaAndChatGpt import RsiAndEmaAndChatGpt
+from PredictionModels.MinerviniClaude import MinerviniClaude
 
 
 gc.collect()
