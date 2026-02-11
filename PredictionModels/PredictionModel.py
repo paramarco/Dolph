@@ -65,6 +65,8 @@ def initPredictionModel(data, security, dolph):
         return RsiAndAtr(data, security, dolph)
     elif alg == 'RsiAndEmaAndChatGpt':
         return RsiAndEmaAndChatGpt(data, security, dolph)
+    elif alg == 'MinerviniClaude':
+        return MinerviniClaude(data, security, dolph)
     else:
         raise ValueError(f"Algorithm '{alg}' not recognized")
 

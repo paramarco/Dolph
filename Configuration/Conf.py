@@ -20,8 +20,7 @@ securities = [
             'exitTimeSeconds': 36000,
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51
-            ,"longPositionMargin": 0.0035 
-            ,"shortPositionMargin": 0.0035 
+            ,"positionMargin": 0.0035 
             ,"stopLossCoefficient": 3 
             ,"acceptableTrainingError": 0.000192
             ,'period': '1Min'
