@@ -1711,7 +1711,7 @@ class IBTradingPlatform(TradingPlatform):
 
     def on_bar_update(self, bars, hasNewBar):
         """ Interactive Brokers """
-        log.debug (f"DEBUG bars all {bars}")
+        #log.debug (f"DEBUG bars all {bars}")
         
         if not hasNewBar:
             return  # Only process when there is a new bar
