@@ -94,6 +94,13 @@ class MinerviniClaude:
 
     def _prepare_ohlcv(self, df):
 
+        # Ensure df has a mnemonic column, and filter by seccode
+        if 'mnemonic' in df.columns:
+            df = df[df['mnemonic'] == seccode]
+        else:
+            log.error(f"DataFrame does not have a 'mnemonic' column.")
+            raise KeyError("DataFrame is missing 'mnemonic' column.")
+
         df = df[df['mnemonic'] == self.seccode].copy()
 
         # Exclude non-price columns ('mnemonic', 'hastrade', 'numberoftrades')
@@ -283,8 +290,8 @@ class MinerviniClaude:
         try:
 
             since = dt.datetime.now() - dt.timedelta(days=90)
-
             df = self.dolph.ds.searchData(since)
+            df = df['1Min'].copy()
 
             hist = self._prepare_ohlcv(df)
 
