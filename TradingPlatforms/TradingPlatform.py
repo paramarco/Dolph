@@ -1670,31 +1670,31 @@ class IBTradingPlatform(TradingPlatform):
       
 
     def _run_ib(self, coro, timeout=60):
-    """Run an IB async coroutine from a non-event-loop thread.
+        """Run an IB async coroutine from a non-event-loop thread.
 
-    Once ib.run() is running in the daemon thread, we can no longer use
-    loop.run_until_complete(). Instead, schedule the coroutine on the
-    running loop via run_coroutine_threadsafe().
-    """
-    # Verificar que el loop esté disponible y corriendo
-    if not self.ib_loop or not self.ib_loop.is_running():
-        log.warning("IB event loop not running, cannot execute async operation")
-        return None
-    
-    # Usar lock para evitar llamadas concurrentes
-    with self.ib_lock:
-        try:
-            future = asyncio.run_coroutine_threadsafe(coro, self.ib_loop)
-            result = future.result(timeout=timeout)
-            return result
-        except TimeoutError:
-            log.error(f"IB operation timed out after {timeout} seconds")
+        Once ib.run() is running in the daemon thread, we can no longer use
+        loop.run_until_complete(). Instead, schedule the coroutine on the
+        running loop via run_coroutine_threadsafe().
+        """
+        # Verificar que el loop esté disponible y corriendo
+        if not self.ib_loop or not self.ib_loop.is_running():
+            log.warning("IB event loop not running, cannot execute async operation")
             return None
-        except Exception as e:
-            log.error(f"Error executing IB operation: {e}")
-            import traceback
-            log.error(traceback.format_exc())
-            return None
+        
+        # Usar lock para evitar llamadas concurrentes
+        with self.ib_lock:
+            try:
+                future = asyncio.run_coroutine_threadsafe(coro, self.ib_loop)
+                result = future.result(timeout=timeout)
+                return result
+            except TimeoutError:
+                log.error(f"IB operation timed out after {timeout} seconds")
+                return None
+            except Exception as e:
+                log.error(f"Error executing IB operation: {e}")
+                import traceback
+                log.error(traceback.format_exc())
+                return None
 
 
     def subscribe_to_market_data(self):
