@@ -1738,6 +1738,22 @@ class IBTradingPlatform(TradingPlatform):
             'close': bar.close,
             'volume': bar.volume
         }
+
+
+        # --- Do not store the bar if we are currently outside_trading_time & VOLUME = 0 ---
+        current_time = self.getTradingPlatformTime().time()
+
+        outside_trading_time = not (
+            cm.tradingTimes[0] <= current_time <= cm.tradingTimes[1]
+        )
+
+        if outside_trading_time and bar.volume == 0:
+        log.debug(
+            f"Skipping bar for {symbol} (outside trading time and volume=0)"
+        )
+        return
+        # ---------------------
+
         self.ds.store_bar(symbol, updated_data)
            
 

@@ -73,14 +73,16 @@ periods = ['1Min'] #periods = ['1Min','30Min']
 
 current_tz = pytz.timezone('America/New_York')
 # Localize the 'since' and 'until' datetime objects to the specified timezone
-since = current_tz.localize(dt.datetime(year=2023, month=12, day=11, hour=10, minute=0))
-until = current_tz.localize(dt.datetime(year=2024, month=11, day=1, hour=10, minute=0))
+since = current_tz.localize(dt.datetime(year=2024, month=12, day=11, hour=10, minute=0))
+until = current_tz.localize(dt.datetime(year=2026, month=2, day=12, hour=10, minute=0))
 #until = current_tz.localize(dt.datetime.now())
 between_time = (
     current_tz.localize(dt.datetime.strptime('07:00', '%H:%M')).time(),
     current_tz.localize(dt.datetime.strptime('23:40', '%H:%M')).time()
 )
-nogoTradingHours = [0,1,2,3,4,5,6,7,8,9,20,21,22,23]
+nogoTradingHours = [0,1,2,3,4,5,6,7,8,20,21,22,23]
+tradingTimes = (dt.time(9, 00), dt.time(15, 45))
+
 
 numTestSample = 500
 TrainingHour = 10  # 10:00 

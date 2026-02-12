@@ -11,7 +11,7 @@
   ],
   "overrideCommand": false,
   "remoteUser": "root",
-  "postStartCommand": "bash -c 'chown -R dolph_user:dolph_user /home/dolph_user && . /opt/venv/bin/activate'",
+  "postStartCommand": "bash -c 'chown -R dolph_user:dolph_user /home/dolph_user && . /opt/venv/bin/activate && git config --global user.email \"4086177+paramarco@users.noreply.github.com\" && git config --global user.name \"paramarco\"'",
   "customizations": {
     "vscode": {
       "settings": {
