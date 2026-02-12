@@ -96,7 +96,7 @@ class MinerviniClaude:
 
         # Ensure df has a mnemonic column, and filter by seccode
         if 'mnemonic' in df.columns:
-            df = df[df['mnemonic'] == seccode]
+            df = df[df['mnemonic'] == self.seccode]
         else:
             log.error(f"DataFrame does not have a 'mnemonic' column.")
             raise KeyError("DataFrame is missing 'mnemonic' column.")
