@@ -78,9 +78,9 @@ class MinerviniClaude:
             utc_now = dt.datetime.now(dt.timezone.utc)
             factorMargin_Position = sec['params']['positionMargin']
             margin = lastClosePrice * factorMargin_Position
-            if takePosition == 'long':
+            if signal == 'long':
                 exitPrice = lastClosePrice  + margin                     
-            elif takePosition == 'short':
+            elif signal == 'short':
                 exitPrice = lastClosePrice  - margin            
 
             log.info(
