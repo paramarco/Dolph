@@ -1709,7 +1709,7 @@ class IBTradingPlatform(TradingPlatform):
             bars = self.ib.reqHistoricalData(
                 contract,
                 endDateTime='',
-                durationStr='120 S',
+                durationStr='300 S',
                 barSizeSetting='1 min',
                 whatToShow='TRADES',
                 useRTH=False,

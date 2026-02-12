@@ -479,40 +479,81 @@ class DataServer:
 
         elif self.MODE in ['TEST_ONLINE', 'OPERATIONAL']:
             since = dt.datetime.now() - dt.timedelta(days=5)
-            max_retries = 5
-            retry_count = 0
-            while retry_count < max_retries:                
+            max_iterations = 60  # Máximo 60 iteraciones (90 segundos con sleep de 1.5)
+            iteration = 0
+            dfs = None
+            
+            log.info(f"Starting sync loop, max iterations: {max_iterations}")
+            
+            while iteration < max_iterations:
+                iteration += 1
+                
                 try:
+                    log.debug(f"Sync iteration {iteration}/{max_iterations}")
                     dfs = self.searchData(since)
-                    if dfs:
-                        log.info("Data found, waiting for synchronization.")
+                    
+                    # Verificar que searchData retornó algo válido
+                    if not dfs:
+                        log.warning(f"No data returned for synchronization (iteration {iteration})")
+                        time.sleep(1.5)
+                        continue
+                    
+                    log.info(f"Data found in iteration {iteration}, checking sufficiency...")
+                    
+                    # Verificar datos suficientes
+                    if not self.isSufficientData(dfs):
+                        log.debug(f"Insufficient data (iteration {iteration})")
+                        time.sleep(1.5)
+                        continue
+                    
+                    log.info(f"Sufficient data found, checking sync status...")
+                    
+                    # Verificar sincronización
+                    if self.isPeriodSynced(dfs):
+                        log.info(f"Period synced successfully on iteration {iteration}")
+                        break
                     else:
-                        log.error("No data returned for synchronization.")
+                        log.debug(f"Period not synced yet (iteration {iteration})")
+                        time.sleep(1.5)
+                        
                 except Exception as e:
-                    log.error(f"Error during synchronization: {e}")
-                    retry_count += 1
-                    time.sleep(2)  # Esperar antes de reintentar
+                    log.error(f"Error during synchronization iteration {iteration}: {e}")
+                    import traceback
+                    log.error(traceback.format_exc())
+                    time.sleep(1.5)
                     continue
-                
-                if not self.isSufficientData(dfs):
-                    continue
-                
-                if self.isPeriodSynced(dfs):
-                    break
-
-                time.sleep(1.5)
             
-            if retry_count >= max_retries:
-                log.error("Max retries reached in syncData, continuing anyway")
+            # Si salimos del loop, verificar si fue por timeout o por éxito
+            if iteration >= max_iterations:
+                log.error(f"Sync timeout after {max_iterations} iterations, using last available data")
+                # Intentar usar los últimos datos disponibles si existen
+                if not dfs:
+                    log.error("No data available after timeout, sync failed")
+                    return
+                else:
+                    log.warning("Using last fetched data despite timeout")
             
-            for p in self.periods:
-                data[p] = pd.concat([data[p], dfs[p]]).drop_duplicates().sort_index()
+            # Actualizar los datos
+            try:
+                for p in self.periods:
+                    if p in data and p in dfs:
+                        data[p] = pd.concat([data[p], dfs[p]]).drop_duplicates().sort_index()
+                        log.debug(f"Updated period {p} with new data")
+                    else:
+                        log.warning(f"Period {p} not found in data or dfs")
+            except Exception as e:
+                log.error(f"Error updating data: {e}")
+                import traceback
+                log.error(traceback.format_exc())
 
 
     def searchData(self, since, until=None):
+        """Search for data in the database with improved logging"""
         securities = self.securities
         periods = self.periods
-        #log.debug(f"Searching into database..{since} til {until}")
+        
+        log.debug(f"searchData called: since={since}, until={until}")
+        
         tb, te = self.between_time
         agg_dict = {
             'minprice': 'min',
@@ -523,94 +564,159 @@ class DataServer:
             'addedvolume': 'sum',
             'numberoftrades': 'sum'
         }    
+        
         try:
             conn = psycopg2.connect(**cm.db_connection_params)
             data = {}
+            
             for p in periods:
                 list_df = []
                 for sec in securities:
                     query = self.__querySearchSec(sec, since, until)
                     df = pd.read_sql_query(query, conn)
+                    
+                    log.debug(f"Query returned {len(df)} rows for {sec['seccode']} period {p}")
+                    
                     # Convert 'date_time' to datetime with UTC
                     df['date_time'] = pd.to_datetime(df['date_time'], utc=True)
-    
+
                     # Set 'date_time' as the index
                     df.set_index('date_time', inplace=True)                    
-    
+
                     # Ensure 'since' is timezone aware and in UTC
                     if since.tzinfo is None:
                         since = since.replace(tzinfo=pytz.UTC)
-    
+
                     df = df.loc[since:]
                     df = df.between_time(tb, te)
-    
+
                     # Resampling
                     resampled_df = df.resample(p, closed='right', origin='start_day', convention='end').agg(agg_dict).dropna()
-    
+
                     # Adding back the non-numeric column 'mnemonic' after resampling
                     resampled_df['mnemonic'] = sec['seccode']
-    
+
                     list_df.append(resampled_df)
-    
+
                 df = pd.concat(list_df, axis=0)
+                
                 if df.empty:
-                    logging.error(f"No data found for seccode: {sec}")
-                    return None  
+                    log.warning(f"No data found for period {p}")
+                else:
+                    log.debug(f"Period {p}: {len(df)} total rows")
+                    
                 data[p] = df
-    
+
+            conn.close()
+            
+            # Validar que se encontraron datos
+            if not data or all(df.empty for df in data.values()):
+                log.warning("searchData returned empty dataframes")
+                return None
+                
             return data
-    
-        except psycopg2.Error as error:
-            log.error("Failed to read from database", error)
-        finally:
-            if conn:
-                conn.close()
-                #log.debug("Finished searching")
-    
+
+        except Exception as e:
+            log.error(f"Error in searchData: {e}")
+            import traceback
+            log.error(traceback.format_exc())
+            return None
+
 
     def isSufficientData(self, dataFrame):
-        dataFrame = dataFrame['1Min']
-        msg = 'There are only %s samples now; you need at least %s samples for the model to predict.'
-        sufficient = True
-        for sec in self.securities:
-            seccode = sec['seccode']
-            minNumPastSamples = sec['params']['minNumPastSamples']
-            df = dataFrame[dataFrame['mnemonic'] == seccode]
-            numSamplesNow = len(df.index)
-            if numSamplesNow < minNumPastSamples:
-                logging.warning(msg, numSamplesNow, minNumPastSamples)
-                sufficient = False
-                break
+        """Check if there's sufficient data for predictions"""
+        try:
+            if dataFrame is None:
+                log.error("isSufficientData received None")
+                return False
+            
+            if '1Min' not in dataFrame:
+                log.error("'1Min' key not found in dataFrame")
+                return False
+            
+            df_1min = dataFrame['1Min']
+            
+            if df_1min is None or df_1min.empty:
+                log.warning("1Min dataframe is empty")
+                return False
+            
+            msg = 'There are only %s samples now; you need at least %s samples for the model to predict.'
+            sufficient = True
+            
+            for sec in self.securities:
+                seccode = sec['seccode']
+                minNumPastSamples = sec['params']['minNumPastSamples']
+                
+                df = df_1min[df_1min['mnemonic'] == seccode]
+                numSamplesNow = len(df.index)
+                
+                if numSamplesNow < minNumPastSamples:
+                    log.debug(msg % (numSamplesNow, minNumPastSamples))
+                    sufficient = False
+                    break
 
-        return sufficient
+            return sufficient
+            
+        except Exception as e:
+            log.error(f"Error in isSufficientData: {e}")
+            import traceback
+            log.error(traceback.format_exc())
+            return False
+
 
     def isPeriodSynced(self, dfs):
-        synced = False
-        numPeriod = 1
-        dataFrame = dfs['1Min']
-        dataFrame_1min = dfs['1Min']
+        """Check if the period is synchronized"""
+        try:
+            # Validar que dfs no sea None
+            if dfs is None:
+                log.error("isPeriodSynced received None")
+                return False
+            
+            # Validar que '1Min' esté en dfs
+            if '1Min' not in dfs:
+                log.error("'1Min' key not found in dfs")
+                return False
+            
+            synced = False
+            numPeriod = 1
+            dataFrame = dfs['1Min']
+            dataFrame_1min = dfs['1Min']
+            
+            # Validar que los dataframes no estén vacíos
+            if dataFrame is None or dataFrame.empty:
+                log.warning("dataFrame is empty in isPeriodSynced")
+                return False
 
-        for sec in self.securities:
-            seccode = sec['seccode']
-            df = dataFrame[dataFrame['mnemonic'] == seccode]
-            df_1min = dataFrame_1min[dataFrame_1min['mnemonic'] == seccode]
-            timelastPeriod = df.tail(1).index
-            timelastPeriod = timelastPeriod.to_pydatetime()
-            timelast1Min = df_1min.tail(1).index
-            timelast1Min = timelast1Min.to_pydatetime()
-            nMin = -numPeriod + 1
-            timeAux = timelast1Min + dt.timedelta(minutes=nMin)
+            for sec in self.securities:
+                seccode = sec['seccode']
+                df = dataFrame[dataFrame['mnemonic'] == seccode]
+                df_1min = dataFrame_1min[dataFrame_1min['mnemonic'] == seccode]
+                
+                # Validar que hay datos para este security
+                if df.empty or df_1min.empty:
+                    log.debug(f"No data for {seccode} in isPeriodSynced")
+                    continue
+                
+                timelastPeriod = df.tail(1).index
+                timelastPeriod = timelastPeriod.to_pydatetime()
+                timelast1Min = df_1min.tail(1).index
+                timelast1Min = timelast1Min.to_pydatetime()
+                nMin = -numPeriod + 1
+                timeAux = timelast1Min + dt.timedelta(minutes=nMin)
 
-            if timeAux >= timelastPeriod and self.lastUpdate != timelastPeriod:
-                synced = True
-                self.lastUpdate = timelastPeriod
-                #logging.info(f'synced, Time of lastPeriod: {timelastPeriod}')
-                log.info('synced ...')
-            else:
-                log.info(f'Not synced yet...Time of lastPeriod: {timelastPeriod}')
+                if timeAux >= timelastPeriod and self.lastUpdate != timelastPeriod:
+                    synced = True
+                    self.lastUpdate = timelastPeriod
+                    log.info(f'synced for {seccode}, Time of lastPeriod: {timelastPeriod}')
 
+            return synced
+            
+        except Exception as e:
+            log.error(f"Error in isPeriodSynced: {e}")
+            import traceback
+            log.error(traceback.format_exc())
+            return False
 
-        return synced
 
     def __querySearchSec(self, security, since, until):
         
