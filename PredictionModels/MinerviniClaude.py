@@ -290,7 +290,7 @@ class MinerviniClaude:
         try:
 
             since = dt.datetime.now() - dt.timedelta(days=90)
-            df = self.dolph.ds.searchData(since, limitResult=3000)
+            df = self.dolph.ds.searchData(since, limitResult=5000)
             df = df['1Min'].copy()
 
             hist = self._prepare_ohlcv(df)
