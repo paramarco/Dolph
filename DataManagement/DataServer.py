@@ -490,7 +490,7 @@ class DataServer:
                 
                 try:
                     log.debug(f"Sync iteration {iteration}/{max_iterations}")
-                    dfs = self.searchData(since)
+                    dfs = self.searchData(since, limitResult=800)
                     
                     # Verificar que searchData retornó algo válido
                     if not dfs:
@@ -547,7 +547,7 @@ class DataServer:
                 log.error(traceback.format_exc())
 
 
-    def searchData(self, since, until=None):
+    def searchData(self, since, until=None, limitResult=None):
         """Search for data in the database with improved logging"""
         securities = self.securities
         periods = self.periods
@@ -595,6 +595,11 @@ class DataServer:
 
                     # Adding back the non-numeric column 'mnemonic' after resampling
                     resampled_df['mnemonic'] = sec['seccode']
+
+                    # Limit to most recent N entries if requested
+                    if limitResult is not None and limitResult > 0:
+                        resampled_df = resampled_df.tail(limitResult)
+                        log.debug(f"Limited {sec['seccode']} to {limitResult} rows")
 
                     list_df.append(resampled_df)
 
