@@ -10,7 +10,7 @@ class MinerviniClaude:
 
     _calibration_cache = {}
 
-    def __init__(self, data, params, dolph):
+    def __init__(self, data, security, dolph):
         self.df = data['1Min'].copy()
        
         # Exclude non-price columns ('mnemonic', 'hastrade', 'addedvolume', 'numberoftrades')
@@ -27,7 +27,10 @@ class MinerviniClaude:
             'minprice': 'low',
             'endprice': 'close'
         })
-        self.params = params
+        self.security = security
+        self.seccode = security['seccode']      
+        self.security_id = security['id']       
+        self.params = security['params']  
         self.dolph = dolph
 
         if self.seccode not in MinerviniClaude._calibration_cache:
@@ -86,7 +89,7 @@ class MinerviniClaude:
             self.df = self._compute_indicators(self.df)
 
             phase = self._detect_phase(self.df)
-            signal = self._generate_signal(self.df)
+            signal = self._generate_signal(self.df, phase)
 
             self._adapt_margin(sec, phase, self.df)
 
