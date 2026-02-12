@@ -80,7 +80,6 @@ between_time = (
     current_tz.localize(dt.datetime.strptime('07:00', '%H:%M')).time(),
     current_tz.localize(dt.datetime.strptime('23:40', '%H:%M')).time()
 )
-nogoTradingHours = [0,1,2,3,4,5,6,7,8,20,21,22,23]
 tradingTimes = (dt.time(9, 00), dt.time(15, 45))
 
 
