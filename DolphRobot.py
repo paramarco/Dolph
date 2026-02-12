@@ -463,11 +463,51 @@ if __name__== "__main__":
 
     dolph = Dolph()
 
+    iteration = 0
+
     while True:
+        iteration += 1
         
-        dolph.dataAcquisition()
-        dolph.predict()
-        dolph.displayPredictions()
-        dolph.takePosition()    
+        try:
+            logging.info(f"\n{'='*60}")
+            logging.info(f"MAIN LOOP ITERATION {iteration} - START")
+            logging.info(f"{'='*60}")
+            
+            logging.info(f"[Iter {iteration}] Step 1/4: Data Acquisition")
+            dolph.dataAcquisition()
+            logging.info(f"[Iter {iteration}] Step 1/4: ✓ COMPLETED")
+            
+            logging.info(f"[Iter {iteration}] Step 2/4: Predict")
+            dolph.predict()
+            logging.info(f"[Iter {iteration}] Step 2/4: ✓ COMPLETED")
+            
+            logging.info(f"[Iter {iteration}] Step 3/4: Display Predictions")
+            dolph.displayPredictions()
+            logging.info(f"[Iter {iteration}] Step 3/4: ✓ COMPLETED")
+            
+            logging.info(f"[Iter {iteration}] Step 4/4: Take Position")
+            dolph.takePosition()
+            logging.info(f"[Iter {iteration}] Step 4/4: ✓ COMPLETED")
+            
+            logging.info(f"\n{'='*60}")
+            logging.info(f"MAIN LOOP ITERATION {iteration} - FINISHED")
+            logging.info(f"{'='*60}\n")
+            
+        except KeyboardInterrupt:
+            logging.info("Keyboard interrupt received, shutting down...")
+            break
+            
+        except Exception as e:
+            logging.error(f"\n{'!'*60}")
+            logging.error(f"ERROR IN MAIN LOOP ITERATION {iteration}")
+            logging.error(f"{'!'*60}")
+            logging.error(f"Error: {e}")
+            import traceback
+            logging.error(traceback.format_exc())
+            logging.error(f"{'!'*60}\n")
+            
+            logging.info("Waiting 10 seconds before retrying...")
+            time.sleep(10)
+
     
     
