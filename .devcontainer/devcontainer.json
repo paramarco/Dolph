@@ -7,7 +7,8 @@
     "-v", "/tmp/.X11-unix:/tmp/.X11-unix",
     "-v", "${env:HOME}/data-dolph-container:/home/dolph_user/data",
     "-v", "${env:HOME}/pgdata:/var/lib/postgresql/14/main",
-    "-p", "10171:5901"
+    "-p", "10171:5901",
+    "-v", "${env:HOME}/.ssh:/home/dolph_user/.ssh:ro"
   ],
   "overrideCommand": false,
   "remoteUser": "root",
