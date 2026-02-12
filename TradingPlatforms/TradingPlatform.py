@@ -1610,7 +1610,8 @@ class IBTradingPlatform(TradingPlatform):
         self.client_id = self.secrets.get("client_id", 1)
         self.req_id_to_symbol = {}
         self.symbol_to_bars = {}  # A dictionary to store symbol -> Bars mapping
-
+        self.ib_lock = Lock() 
+        
         if self.connectOnInit :
             self.connect()
 
@@ -1669,14 +1670,31 @@ class IBTradingPlatform(TradingPlatform):
       
 
     def _run_ib(self, coro, timeout=60):
-        """Run an IB async coroutine from a non-event-loop thread.
+    """Run an IB async coroutine from a non-event-loop thread.
 
-        Once ib.run() is running in the daemon thread, we can no longer use
-        loop.run_until_complete(). Instead, schedule the coroutine on the
-        running loop via run_coroutine_threadsafe().
-        """
-        future = asyncio.run_coroutine_threadsafe(coro, self.ib_loop)
-        return future.result(timeout=timeout)
+    Once ib.run() is running in the daemon thread, we can no longer use
+    loop.run_until_complete(). Instead, schedule the coroutine on the
+    running loop via run_coroutine_threadsafe().
+    """
+    # Verificar que el loop esté disponible y corriendo
+    if not self.ib_loop or not self.ib_loop.is_running():
+        log.warning("IB event loop not running, cannot execute async operation")
+        return None
+    
+    # Usar lock para evitar llamadas concurrentes
+    with self.ib_lock:
+        try:
+            future = asyncio.run_coroutine_threadsafe(coro, self.ib_loop)
+            result = future.result(timeout=timeout)
+            return result
+        except TimeoutError:
+            log.error(f"IB operation timed out after {timeout} seconds")
+            return None
+        except Exception as e:
+            log.error(f"Error executing IB operation: {e}")
+            import traceback
+            log.error(traceback.format_exc())
+            return None
 
 
     def subscribe_to_market_data(self):
@@ -1839,6 +1857,17 @@ class IBTradingPlatform(TradingPlatform):
                 bars = self._run_ib(self.ib.reqHistoricalDataAsync(
                     contract, endDateTime=end_date_time, durationStr=duration,
                     barSizeSetting=barSize, whatToShow='TRADES', useRTH=False))
+
+                if bars is None:
+                    log.warning(f"Async historical data call failed for {seccode}, trying sync")
+                    bars = self.ib.reqHistoricalData(
+                        contract, 
+                        endDateTime=end_date_time, 
+                        durationStr=duration,
+                        barSizeSetting=barSize, 
+                        whatToShow='TRADES', 
+                        useRTH=False
+                    )
             else:
                 bars = self.ib.reqHistoricalData(
                     contract, endDateTime=end_date_time, durationStr=duration,
@@ -1877,14 +1906,28 @@ class IBTradingPlatform(TradingPlatform):
 
 
     def get_history(self, board, seccode, period, count, reset=True):
-
+        
         contract = Stock(seccode, 'SMART', 'USD')
         end_dt = self.getTradingPlatformTime()
         duration = f'{period * count} D'  # assuming each period is one day
-        bars = self._run_ib(self.ib.reqHistoricalDataAsync(
-            contract, endDateTime=end_dt, durationStr=duration,
-            barSizeSetting='1 day', whatToShow='MIDPOINT', useRTH=True))
-        return bars
+        
+        if not self.ib_loop or not self.ib_loop.is_running():
+            log.warning("IB event loop not running for get_history")
+            return []
+        
+        bars = self._run_ib(
+            self.ib.reqHistoricalDataAsync(
+                contract, 
+                endDateTime=end_dt, 
+                durationStr=duration,
+                barSizeSetting='1 day', 
+                whatToShow='MIDPOINT', 
+                useRTH=True
+            ),
+            timeout=30  # Timeout de 30 segundos
+        )
+        
+        return bars if bars is not None else []
 
 
     def new_order(self, board, seccode, client, union, buysell, expdate, quantity, price, bymarket, usecredit):
@@ -2031,12 +2074,25 @@ class IBTradingPlatform(TradingPlatform):
     def get_cash_balance(self):
         """ Interactive Brokers """
         try:
-            # Retrieve the account summary
-            account_summary = self._run_ib(self.ib.accountSummaryAsync(account=self.account_number))
+            # Verificar que el loop esté disponible
+            if not self.ib_loop or not self.ib_loop.is_running():
+                log.warning("IB event loop not running, cannot get cash balance")
+                return 0.0
+            
+            # Retrieve the account summary con timeout corto
+            account_summary = self._run_ib(
+                self.ib.accountSummaryAsync(account=self.account_number),
+                timeout=10  # Timeout de 10 segundos
+            )
+            
+            if account_summary is None:
+                log.error("Failed to get account summary, returning 0.0")
+                return 0.0
 
             # Extract the cash balance
             cash_balance = next(
-                (float(item.value) for item in account_summary if item.tag == 'TotalCashValue'), 0.0
+                (float(item.value) for item in account_summary if item.tag == 'TotalCashValue'), 
+                0.0
             )
             log.info(f"Cash balance: ${cash_balance}")
             return cash_balance
@@ -2049,12 +2105,25 @@ class IBTradingPlatform(TradingPlatform):
     def get_net_balance(self):
         """ Interactive Brokers """
         try:
+            # Verificar que el loop esté disponible
+            if not self.ib_loop or not self.ib_loop.is_running():
+                log.warning("IB event loop not running, cannot get net balance")
+                return 0.0
+            
             # Retrieve the account summary
-            account_summary = self._run_ib(self.ib.accountSummaryAsync(account=self.account_number))
+            account_summary = self._run_ib(
+                self.ib.accountSummaryAsync(account=self.account_number),
+                timeout=10  # Timeout de 10 segundos
+            )
+            
+            if account_summary is None:
+                log.error("Failed to get account summary, returning 0.0")
+                return 0.0
 
             # Extract the net liquidation value
             net_balance = next(
-                (float(item.value) for item in account_summary if item.tag == 'NetLiquidation'), 0.0
+                (float(item.value) for item in account_summary if item.tag == 'NetLiquidation'), 
+                0.0
             )
             log.info(f"Net balance (NetLiquidation): ${net_balance}")
             return net_balance
@@ -2157,7 +2226,21 @@ class IBTradingPlatform(TradingPlatform):
                                                                                          
         return utc_datetime   
                                                            
-  
+    def _check_ib_ready(self):
+        """ Interactive Brokers: Verify IB is connected and event loop is running"""
+        try:
+            if not self.ib.isConnected():
+                log.error("IB is not connected")
+                return False
+            if not self.ib_loop or not self.ib_loop.is_running():
+                log.error("IB event loop is not running")
+                return False
+            return True
+        except Exception as e:
+            log.error(f"Error checking IB readiness: {e}")
+            return False
+
+
     def isMarketOpen(self, seccode):
         """ Interactive Brokers
         Check if the market is open for a specific security code on Interactive Brokers.
@@ -2171,12 +2254,21 @@ class IBTradingPlatform(TradingPlatform):
         try:
             # Define the contract
             contract = Stock(seccode, "SMART", "USD")
+
+            if not self.ib_loop or not self.ib_loop.is_running():
+                log.warning(f"IB event loop not running, cannot check market status for {seccode}")
+                return False
+
+            # Get contract details with timeout
+            details = self._run_ib(
+                self.ib.reqContractDetailsAsync(contract),
+                timeout=10  # Timeout de 10 segundos
+            )
             
-            # Get contract details
-            details = self._run_ib(self.ib.reqContractDetailsAsync(contract))
             if not details:
                 log.error(f"No contract details found for security '{seccode}'.")
                 return False
+
 
             # Get the trading hours for the contract
             current_time = self.getTradingPlatformTime().astimezone(pytz.utc)  # Convert to UTC

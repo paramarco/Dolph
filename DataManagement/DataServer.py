@@ -479,7 +479,9 @@ class DataServer:
 
         elif self.MODE in ['TEST_ONLINE', 'OPERATIONAL']:
             since = dt.datetime.now() - dt.timedelta(days=5)
-            while True:
+            max_retries = 5
+            retry_count = 0
+            while retry_count < max_retries:                
                 try:
                     dfs = self.searchData(since)
                     if dfs:
@@ -487,12 +489,22 @@ class DataServer:
                     else:
                         log.error("No data returned for synchronization.")
                 except Exception as e:
-                    log.error(f"Error during synchronization: {e}")  
+                    log.error(f"Error during synchronization: {e}")
+                    retry_count += 1
+                    time.sleep(2)  # Esperar antes de reintentar
+                    continue
+                
                 if not self.isSufficientData(dfs):
                     continue
+                
                 if self.isPeriodSynced(dfs):
                     break
+
                 time.sleep(1.5)
+            
+            if retry_count >= max_retries:
+                log.error("Max retries reached in syncData, continuing anyway")
+            
             for p in self.periods:
                 data[p] = pd.concat([data[p], dfs[p]]).drop_duplicates().sort_index()
 
