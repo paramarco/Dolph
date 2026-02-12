@@ -594,7 +594,7 @@ class DataServer:
                 self.lastUpdate = timelastPeriod
                 #logging.info(f'synced, Time of lastPeriod: {timelastPeriod}')
                 log.info('synced ...')
-            else
+            else:
                 log.info(f'Not synced yet...Time of lastPeriod: {timelastPeriod}')
 
 
