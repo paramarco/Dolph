@@ -14,7 +14,7 @@ class MinerviniClaude:
         self.df = data['1Min'].copy()
        
         # Exclude non-price columns ('mnemonic', 'hastrade', 'addedvolume', 'numberoftrades')
-        self.df = self.df.drop(columns=['hastrade', 'addedvolume', 'numberoftrades'], errors='ignore')
+        self.df = self.df.drop(columns=['hastrade', 'numberoftrades'], errors='ignore')
         
         # Ensure df has a datetime index
         if not isinstance(self.df.index, pd.DatetimeIndex):
@@ -67,25 +67,8 @@ class MinerviniClaude:
                     
             m = f"{seccode} last: {lastClosePrice}, entry: {entryPrice}, exit: {exitPrice}"                
             log.info(m)
-    
-                   
-            # Exclude non-price columns ('mnemonic', 'hastrade', 'addedvolume', 'numberoftrades')
-            df = df.drop(columns=['hastrade', 'addedvolume', 'numberoftrades'], errors='ignore')
-            
-            # Ensure df has a datetime index
-            if not isinstance(df.index, pd.DatetimeIndex):
-                raise ValueError("DataFrame must have a datetime index.")
-            
-            # Now proceed with renaming the columns as before
-            self.df = df.rename(columns={
-                'startprice': 'open',
-                'maxprice': 'high',
-                'minprice': 'low',
-                'endprice': 'close'
-            })
-
        
-            self.df = self._prepare_ohlcv(self.df)
+            self.df = self._prepare_ohlcv(df)
             self.df = self._compute_indicators(self.df)
 
             phase = self._detect_phase(self.df)
@@ -113,17 +96,23 @@ class MinerviniClaude:
 
         df = df[df['mnemonic'] == self.seccode].copy()
 
+        # Exclude non-price columns ('mnemonic', 'hastrade', 'numberoftrades')
+        df = df.drop(columns=['hastrade', 'numberoftrades'], errors='ignore')
+            
+        # Ensure df has a datetime index
+        if not isinstance(df.index, pd.DatetimeIndex):
+            raise ValueError("DataFrame must have a datetime index.")
+
+        # Now proceed with renaming the columns as before
         df = df.rename(columns={
             'startprice': 'open',
             'maxprice': 'high',
             'minprice': 'low',
-            'endprice': 'close'
+            'endprice': 'close',
+            'addedvolume' : 'volume'
         })
 
-        df = df[['open', 'high', 'low', 'close']]
-
-        if not isinstance(df.index, pd.DatetimeIndex):
-            raise ValueError("DataFrame must have DatetimeIndex")
+        df = df[['open', 'high', 'low', 'close','volume']]
 
         return df
 
@@ -292,21 +281,16 @@ class MinerviniClaude:
     def _calibrate_margins_from_db(self):
 
         try:
-            hist = self.dolph.ds.getCandlesFromDB(
-                self.security_id,
-                period='1Min',
-                months=3
-            )
+
+            since = dt.datetime.now() - dt.timedelta(days=90)
+
+            df = self.dolph.ds.searchData(since)
+
+            hist = self._prepare_ohlcv(df)
 
             if hist is None or len(hist) < 1000:
+                log.info(f"{self.seccode}: calibration failed: less than 1000 items")
                 return
-
-            hist = hist.rename(columns={
-                'open': 'open',
-                'high': 'high',
-                'low': 'low',
-                'close': 'close'
-            })
 
             hist['ATR'] = self._atr(hist, 14)
             median_atr = hist['ATR'].median()
