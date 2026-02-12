@@ -219,7 +219,7 @@ class MinerviniClaude:
     # SIGNAL GENERATION
     # =====================================================
 
-    def _generate_signal(self, phase, df):
+    def _generate_signal(self, df, phase):
 
         latest = df.iloc[-1]
 
