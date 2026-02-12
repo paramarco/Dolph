@@ -384,7 +384,7 @@ class Dolph:
             
         elif takePosition == 'short':
             exitPrice = entryPrice  - margin
-        stoploss = entryPrice  + k * margin                
+            stoploss = entryPrice  + k * margin                
        
         position = tp.Position(
             takePosition, board, seccode, marketId,
@@ -475,21 +475,21 @@ if __name__== "__main__":
             logging.info(f"MAIN LOOP ITERATION {iteration} - START")
             logging.info(f"{'='*60}")
             
-            logging.info(f"[Iter {iteration}] Step 1/4: Data Acquisition")
+            logging.info(f"[Iter {iteration}] Step 1/3: Data Acquisition")
             dolph.dataAcquisition()
-            logging.info(f"[Iter {iteration}] Step 1/4: ✓ COMPLETED")
+            logging.info(f"[Iter {iteration}] Step 1/3: ✓ COMPLETED")
             
-            logging.info(f"[Iter {iteration}] Step 2/4: Predict")
+            logging.info(f"[Iter {iteration}] Step 2/3: Predict")
             dolph.predict()
-            logging.info(f"[Iter {iteration}] Step 2/4: ✓ COMPLETED")
+            logging.info(f"[Iter {iteration}] Step 2/3: ✓ COMPLETED")
             
-            logging.info(f"[Iter {iteration}] Step 3/4: Display Predictions")
-            dolph.displayPredictions()
-            logging.info(f"[Iter {iteration}] Step 3/4: ✓ COMPLETED")
+            # logging.info(f"[Iter {iteration}] Step 3/4: Display Predictions")
+            # dolph.displayPredictions()
+            # logging.info(f"[Iter {iteration}] Step 3/4: ✓ COMPLETED")
             
-            logging.info(f"[Iter {iteration}] Step 4/4: Take Position")
+            logging.info(f"[Iter {iteration}] Step 3/3: Take Position")
             dolph.takePosition()
-            logging.info(f"[Iter {iteration}] Step 4/4: ✓ COMPLETED")
+            logging.info(f"[Iter {iteration}] Step 3/3: ✓ COMPLETED")
             
             logging.info(f"\n{'='*60}")
             logging.info(f"MAIN LOOP ITERATION {iteration} - FINISHED")

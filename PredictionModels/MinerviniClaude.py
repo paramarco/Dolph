@@ -64,10 +64,9 @@ class MinerviniClaude:
                 for p in positions:
                     entryPrice = p.entryPrice
                     exitPrice = p.exitPrice 
-                    
-            m = f"{seccode} last: {lastClosePrice}, entry: {entryPrice}, exit: {exitPrice}"                
-            log.info(m)
-       
+                    m = f"{seccode} already in a position, last: {lastClosePrice}, entry: {entryPrice}, exit: {exitPrice}"                
+                    log.info(m)
+                           
             self.df = self._prepare_ohlcv(df)
             self.df = self._compute_indicators(self.df)
 
@@ -76,10 +75,15 @@ class MinerviniClaude:
 
             self._adapt_margin(sec, phase, self.df)
 
+            factorMargin_Position = sec['params']['positionMargin']
+            margin = lastClosePrice * factorMargin_Position
+            if takePosition == 'long':
+                exitPrice = lastClosePrice  + margin                     
+            elif takePosition == 'short':
+                exitPrice = lastClosePrice  - margin            
+
             log.info(
-                f"{self.seccode}: phase={phase}, "
-                f"signal={signal}, "
-                f"margin={sec['params']['positionMargin']} "
+                f"{self.seccode} phase={phase}, signal={signal}, margin={sec['params']['positionMargin']}, entryPrice={lastClosePrice}, exitPrice={exitPrice}"
             )
 
             return signal
