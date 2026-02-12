@@ -75,6 +75,7 @@ class MinerviniClaude:
 
             self._adapt_margin(sec, phase, self.df)
 
+            utc_now = dt.datetime.now(dt.timezone.utc)
             factorMargin_Position = sec['params']['positionMargin']
             margin = lastClosePrice * factorMargin_Position
             if takePosition == 'long':
@@ -83,7 +84,9 @@ class MinerviniClaude:
                 exitPrice = lastClosePrice  - margin            
 
             log.info(
-                f"{self.seccode} phase={phase}, signal={signal}, margin={sec['params']['positionMargin']}, entryPrice={lastClosePrice}, exitPrice={exitPrice}"
+                f"{self.seccode} phase={phase}, signal={signal},"
+                f" margin={sec['params']['positionMargin']}, entryPrice={lastClosePrice},"
+                f" exitPrice={exitPrice}, UTC-time={utc_now.isoformat()}"
             )
 
             return signal
