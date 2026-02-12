@@ -314,6 +314,8 @@ class Dolph:
         cash_balance = self.tp.get_cash_balance()
         net_balance = self.tp.get_net_balance()
         factorMargin_Position = params['positionMargin']
+        logging.info(f"{seccode} current calculated factor-margin: {factorMargin_Position} ")
+
 
         cash_4_position = net_balance * cm.factorPosition_Balance        
         quantity = round(cash_4_position / currentClose)

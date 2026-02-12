@@ -79,7 +79,7 @@ class MinerviniClaude:
             log.info(
                 f"{self.seccode}: phase={phase}, "
                 f"signal={signal}, "
-                f"longMargin={sec['params']['positionMargin']} "
+                f"margin={sec['params']['positionMargin']} "
             )
 
             return signal
