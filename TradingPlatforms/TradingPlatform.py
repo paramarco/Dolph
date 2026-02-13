@@ -1084,7 +1084,7 @@ class OrderStatusUpdateTask:
                 log.error(f"Failed to poll order updates: {e}")
             
             self.tp.cancelTimedoutEntries()
-            self.tp.cancelTimedoutExits()   
+            #self.tp.cancelTimedoutExits()   
             # Sleep for 5 seconds before the next poll
             time.sleep(5) 
 
@@ -1566,7 +1566,7 @@ class IB_OrderStatusTask:
                 log.error(f"Failed to poll order updates: {e}")
             
             self.tp.cancelTimedoutEntries()
-            self.tp.cancelTimedoutExits()           
+            #self.tp.cancelTimedoutExits()           
             
             # Sleep for 5 seconds before the next poll
             time.sleep(5)
