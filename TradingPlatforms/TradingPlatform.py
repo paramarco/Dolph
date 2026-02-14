@@ -179,10 +179,6 @@ class TradingPlatform(ABC):
         pass
 
     @abstractmethod
-    def cancel_stoploss(self, stop_order_id):
-        pass
-
-    @abstractmethod
     def cancelExitOrder(self, exitOrderId):
         pass
 
@@ -817,7 +813,8 @@ class FinamTradingPlatform(TradingPlatform):
         """Transaq"""
         return self.tc.newExitOrder(board, seccode, client, buysell, quantity, trigger_price_sl, trigger_price_tp, correction, spread, bymarket, is_market)
 
-    def cancel_stoploss(self, stop_order_id):
+    def cancelExitOrder(self, stop_order_id):
+        """Transaq"""
         return self.tc.cancel_stoploss(stop_order_id)
 
     def handle_txml_message(self, obj):
@@ -950,7 +947,7 @@ class FinamTradingPlatform(TradingPlatform):
         tradingPlatformTime = self.getTradingPlatformTime()
         list2cancel = []
         tid = None
-        res = self.cancel_stoploss(meo.id)
+        res = self.cancelExitOrder(meo.id)
         log.debug(repr(res))
         if res.success:
             list2cancel.append(meo)
@@ -1243,7 +1240,8 @@ class AlpacaTradingPlatform(TradingPlatform):
         )
 
 
-    def cancel_stoploss(self, stop_order_id):
+    def cancelExitOrder(self, stop_order_id):
+        """Alpaca"""
         return self.api.cancel_order(stop_order_id)
 
 
@@ -1385,7 +1383,7 @@ class AlpacaTradingPlatform(TradingPlatform):
         """ Alpaca """
 
         try: 
-            res = self.cancel_stoploss(meo.id)
+            res = self.cancelExitOrder(meo.id)
             log.debug(repr(res))
         
         except Exception as e:
