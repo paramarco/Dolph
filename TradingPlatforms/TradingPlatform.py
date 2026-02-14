@@ -435,37 +435,37 @@ class TradingPlatform(ABC):
             log.error(f"Failed to processEntryOrderStatus: {e}")
       
 
-    def processExitOrderStatus(self, stopOrder):
+    def processExitOrderStatus(self, exitOrder):
         """common"""        
-        logging.debug(str(stopOrder))       
-        s = stopOrder.status
+        logging.debug(str(exitOrder))       
+        s = exitOrder.status
         m = ''
         try:               
             if s in cm.statusOrderForwarding:
                 
-                if stopOrder not in self.monitoredExitOrders:
-                    self.monitoredExitOrders.append(stopOrder)
-                    m = f'stopOrder {stopOrder.id} with status: {s} added to monitoredExitOrders'
+                if exitOrder not in self.monitoredExitOrders:
+                    self.monitoredExitOrders.append(exitOrder)
+                    m = f'exitOrder {exitOrder.id} with status: {s} added to monitoredExitOrders'
                     
             elif s in cm.statusExitOrderExecuted :  
                 
-                self.set_exit_order_no_to_MonitoredPosition(stopOrder)                      
-                if stopOrder in self.monitoredExitOrders:
-                    self.monitoredExitOrders.remove(stopOrder)
-                    m = f'stopOrder: {stopOrder.id} in status: {s} deleted from monitoredExitOrders'
+                self.set_exit_order_no_to_MonitoredPosition(exitOrder)                      
+                if exitOrder in self.monitoredExitOrders:
+                    self.monitoredExitOrders.remove(exitOrder)
+                    m = f'exitOrder: {exitOrder.id} in status: {s} deleted from monitoredExitOrders'
                 
             elif s in cm.statusExitOrderFilled :
                 
-                self.removeMonitoredPositionByExit(stopOrder)
-                if stopOrder in self.monitoredExitOrders:
-                    self.monitoredExitOrders.remove(stopOrder)
-                    m = f'stopOrder: {stopOrder.id} in status: {s} deleted from monitoredExitOrders'                
+                self.removeMonitoredPositionByExit(exitOrder)
+                if exitOrder in self.monitoredExitOrders:
+                    self.monitoredExitOrders.remove(exitOrder)
+                    m = f'exitOrder: {exitOrder.id} in status: {s} deleted from monitoredExitOrders'                
             
             elif s in cm.statusOrderCanceled:
 
-                monitoredPosition = self.getPositionByOrder(stopOrder)  
+                monitoredPosition = self.getPositionByOrder(exitOrder)  
                 if monitoredPosition is not None:
-                    self.triggerExitByMarket(stopOrder, monitoredPosition)                    
+                    self.triggerExitByMarket(exitOrder, monitoredPosition)                    
                     m = f'Exit Order {monitoredPosition.exit_id} due to cancelling {monitoredPosition}'
                
             else:
