@@ -233,7 +233,7 @@ class TransaqConnector:
             
         return self.__send_command(et.tostring(root, encoding="utf-8"))
     
-    def new_stoporder(self, board, ticker, client, buysell, quantity, 
+    def newExitOrder(self, board, ticker, client, buysell, quantity, 
                       trigger_price_sl, trigger_price_tp, correction=0,spread=0, 
                       bymarket=True, usecredit=True, linked_order=None, 
                       valid_for=None):

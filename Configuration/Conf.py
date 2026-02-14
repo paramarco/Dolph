@@ -101,8 +101,8 @@ statusOrderForwarding = ['PendingSubmit', 'Submitted','PendingSubmit',  'watchin
 statusOrderExecuted = ['Filled','tp_executed', 'sl_executed','filled','matched']
 statusOrderCanceled = ['Cancelled','cancelled','Rejected','Stopped','denied', 'disabled', 'expired', 'failed', 'rejected', 'canceled', 'removed', 'done_for_day']
 statusOrderOthers = ['PartiallyFilled','Inactive','PendingCancel', "linkwait","tp_correction","tp_correction_guardtime","none","inactive","wait","disabled","failed","refused","pending_cancel", "pending_replace", "stopped", "suspended", "calculated" ]
-statusStopOrderExecuted = ['tp_executed', 'sl_executed','matched','triggered']
-statusStopOrderFilled = ['filled','Filled']
+statusExitOrderExecuted = ['tp_executed', 'sl_executed','matched','triggered']
+statusExitOrderFilled = ['filled','Filled']
 
 ########### default-fallback values ##########################################
 factorPosition_Balance = 0.3
