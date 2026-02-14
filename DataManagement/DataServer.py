@@ -483,7 +483,7 @@ class DataServer:
             iteration = 0
             dfs = None
             
-            log.info(f"Starting sync loop, max iterations: {max_iterations}")
+            log.debug(f"Starting sync loop, max iterations: {max_iterations}")
             
             while iteration < max_iterations:
                 iteration += 1
