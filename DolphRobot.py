@@ -250,7 +250,7 @@ class Dolph:
 
         position = self.tp.getMonitoredPositionBySeccode(seccode)
         if position is None :
-            logging.error(f'{seccode} has an open-position, but there is no MonitoredPosition')
+            logging.error(f'seccode={seccode} has an open-position, but there is no MonitoredPosition')
             return True
         
         lastClosePrice = self.getLastClosePrice(seccode)

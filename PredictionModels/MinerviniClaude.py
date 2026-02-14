@@ -327,7 +327,7 @@ class MinerviniClaude:
             }
 
             log.info(
-                f"{self.seccode}: calibration complete: "
+                f"calibration complete for seccode={self.seccode}, results:"
                 f"{MinerviniClaude._calibration_cache[self.seccode]}"
             )
 
