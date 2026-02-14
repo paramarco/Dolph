@@ -338,7 +338,7 @@ class Dolph:
         quantity = round(cash_4_position / priceClose)
         margin = priceClose * factorMargin_Position
 
-        m = f"cash_balance={cash_balance} net_balance={net_balance} seccode:{seccode} quantity={quantity} " 
+        m = f"seccode:{seccode} cash_balance={cash_balance} net_balance={net_balance} quantity={quantity} " 
         m += f"factor-margin={factorMargin_Position} UTC-Time={timeClose} priceClose={priceClose}" 
 
         if cash_balance == 0 or net_balance == 0: 
