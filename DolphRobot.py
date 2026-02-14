@@ -104,13 +104,11 @@ class Dolph:
         
     
     def getLastClosePrice(self, seccode):
-        # Get the 1-minute data
-        dataFrame_1min = self.data['1Min']
-        #logging.debug(dataFrame_1min.head)
+
+        dataFrame_1min = self.data['1Min']  # Get the 1-minute data
         
         # Filter the data for the specified security code
         df_1min = dataFrame_1min[dataFrame_1min['mnemonic'] == seccode]
-        #logging.debug(df_1min.head)
         
         # Check if df_1min is empty
         if df_1min.empty:
@@ -121,7 +119,7 @@ class Dolph:
         timelast1Min = df_1min.index[-1]
         timelast1Min = timelast1Min.to_pydatetime()
         LastClosePrice = df_1min['endprice'].iloc[-1]
-        logging.info(f'{seccode} {timelast1Min}, Close: {LastClosePrice}')
+        logging.debug(f'{seccode} {timelast1Min}, Close: {LastClosePrice}')
         
         # Check if the LastClosePrice is None
         if pd.isnull(LastClosePrice):
@@ -129,6 +127,27 @@ class Dolph:
             sys.exit(0)
         
         return LastClosePrice
+
+
+    def getLastClose(self, seccode):
+        
+        dataFrame_1min = self.data['1Min']
+        
+        # Filter the data for the specified security code
+        df_1min = dataFrame_1min[dataFrame_1min['mnemonic'] == seccode]
+        
+        # Check if df_1min is empty
+        if df_1min.empty:
+            logging.error(f"No data found for seccode: {seccode}")
+            return None  # Or handle this case differently depending on your requirements
+    
+        # Get the last close price
+        timelast1Min = df_1min.index[-1]
+        timelast1Min = timelast1Min.to_pydatetime()
+        LastClosePrice = df_1min['endprice'].iloc[-1]
+ 
+        
+        return timelast1Min , LastClosePrice
         
     
     def onCounterPosition(self, position2invert ):
@@ -281,7 +300,7 @@ class Dolph:
             takePosition = prediction
             security['lastPositionTaken'] = takePosition
        
-        logging.info(f'{takePosition}')
+        logging.debug(f'{takePosition}')
         return takePosition
   
     
@@ -310,24 +329,27 @@ class Dolph:
         seccode = security['seccode']
         params = security['params']
 
-        currentClose = self.getLastClosePrice( seccode)
+        timeClose, priceClose = self.getLastClose( seccode)
         cash_balance = self.tp.get_cash_balance()
         net_balance = self.tp.get_net_balance()
-        factorMargin_Position = params['positionMargin']
-        logging.info(f"{seccode} current calculated factor-margin: {factorMargin_Position} ")
-
-
+        factorMargin_Position = params['positionMargin']        
+        
         cash_4_position = net_balance * cm.factorPosition_Balance        
-        quantity = round(cash_4_position / currentClose)
-        margin = currentClose * factorMargin_Position
+        quantity = round(cash_4_position / priceClose)
+        margin = priceClose * factorMargin_Position
+
+        m = f"cash_balance={cash_balance} net_balance={net_balance} seccode:{seccode} quantity={quantity}" 
+        m += f"factor-margin={factorMargin_Position} UTC-Time={timeClose} priceClose={priceClose}" 
 
         if cash_balance == 0 or net_balance == 0: 
-            logging.error("cash_balance == 0 or net_balance == 0")
+            logging.warning(f"cash_balance == 0 or net_balance == 0 {m}")
             return 0 , 0 
         
         if cash_4_position > cash_balance:
-            logging.error("cash_4_position > cash_balance")            
+            logging.warning(f"cash_4_position > cash_balance {m}")            
             return 0 , 0 
+
+        logging.info(m)
 
         return quantity, margin
     
@@ -396,7 +418,7 @@ class Dolph:
             if self.positionExceedsBalance(position):
                 position.takePosition = 'no-go' 
         
-        logging.info( 'dolph decides: ' + str(position))    
+        logging.info(f'decision: {position}')    
             
         return position
     
@@ -411,7 +433,7 @@ class Dolph:
                 logging.info( action + ' position, nothing to do')
                 continue            
 
-            logging.info('sending a "' + action +'" to Trading platform ...')
+            logging.info(f'sending a {position} to the Trading platform ...')
             self.tp.processPosition(position)  
        
         

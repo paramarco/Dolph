@@ -30,7 +30,7 @@ class OrderIB:
         String representation for debugging.
         """
         msg = f"OrderIB(id={self.id}, symbol={self.symbol}, side={self.side}, "
-        msg += f"status={self.status}, time={self.time.isoformat()})"
+        msg += f"status={self.status}, UTC-time={self.time.isoformat()})"
         return msg
 
     def __getattr__(self, name):

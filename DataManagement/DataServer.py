@@ -498,7 +498,7 @@ class DataServer:
                         time.sleep(1.5)
                         continue
                     
-                    log.info(f"Data found in iteration {iteration}, checking sufficiency...")
+                    log.debug(f"Data found in iteration {iteration}, checking sufficiency...")
                     
                     # Verificar datos suficientes
                     if not self.isSufficientData(dfs):
@@ -506,7 +506,7 @@ class DataServer:
                         time.sleep(1.5)
                         continue
                     
-                    log.info(f"Sufficient data found, checking sync status...")
+                    log.debug(f"Sufficient data found, checking sync status...")
                     
                     # Verificar sincronización
                     if self.isPeriodSynced(dfs):

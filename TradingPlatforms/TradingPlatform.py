@@ -82,14 +82,12 @@ class Position:
         msg = ' takePosition='+ self.takePosition 
         msg += ' seccode=' + self.seccode
         msg += ' quantity=' + str(self.quantity)
-        msg += ' entryPrice=' + str(self.entryPrice)
-        msg += ' exitPrice=' + str(self.exitPrice)
-        msg += ' stoploss=' + str(self.stoploss)
-        msg += ' decimals=' + str(self.decimals)
+        msg += ' entryPrice=' + "{0:0.{prec}f}".format(self.entryPrice, prec=self.decimals)
+        msg += ' exitTakeProfit=' + "{0:0.{prec}f}".format(self.exitPrice, prec=self.decimals)
+        msg += ' exitStopLoss=' + "{0:0.{prec}f}".format(self.stoploss, prec=self.decimals)
         msg += ' entry_id=' + str(self.entry_id)
         msg += ' exit_id=' + str(self.exit_id)
         msg += ' exit_order_no=' + str(self.exit_order_no)
-        #msg += ' exitTime=' + str(self.exitTime.strftime(fmt))
         
         return msg
 
@@ -2089,7 +2087,7 @@ class IBTradingPlatform(TradingPlatform):
                 (float(item.value) for item in account_summary if item.tag == 'TotalCashValue'), 
                 0.0
             )
-            log.info(f"Cash balance: ${cash_balance}")
+            log.debug(f"Cash balance: ${cash_balance}")
             return cash_balance
 
         except Exception as e:
@@ -2120,7 +2118,7 @@ class IBTradingPlatform(TradingPlatform):
                 (float(item.value) for item in account_summary if item.tag == 'NetLiquidation'), 
                 0.0
             )
-            log.info(f"Net balance (NetLiquidation): ${net_balance}")
+            log.debug(f"Net balance (NetLiquidation): ${net_balance}")
             return net_balance
 
         except Exception as e:
