@@ -36,7 +36,7 @@ class Position:
                  quantity, entryPrice, exitPrice, stoploss, 
                  decimals, client, exitTime=None, correction=None, spread=None, bymarket = False, 
                  entry_id=None, exit_id=None, exit_order_no=None , union = None, 
-                 expdate = None, buysell = None , ExitOrderRequested = None, exitOrderAlreadyCancelled = None) :
+                 expdate = None, buysell = None , exitOrderRequested = None, exitOrderAlreadyCancelled = None) :
         
         # id:= transactionid of the first order, "your entry" of the Position
         # will be assigned once upon successful entry of the Position
@@ -57,7 +57,7 @@ class Position:
         self.decimals = decimals
         # stoploss := price you want to exit if your prediction was wrong        
         self.stoploss = stoploss
-        self.ExitOrderRequested = False if exit_id is None else True
+        self.exitOrderRequested = False if exit_id is None else True
         # to be assigned when position is being proccessed by Tradingplatform
         self.buysell = buysell if buysell else None
         # exitTime := time for a emergency exit, close current position at 
@@ -374,7 +374,7 @@ class TradingPlatform(ABC):
             return
         
         mp = monitoredPosition
-        mp.ExitOrderRequested = True
+        mp.exitOrderRequested = True
         logging.info(f"trigerring exit by Market {mp.exit_id} due to cancelling {mp}")  
 
         res = self.new_order(
@@ -407,8 +407,8 @@ class TradingPlatform(ABC):
                         self.monitoredOrders.remove(order)
                         logging.info(f'already processed before, deleting: {repr(order.id)}')
                     
-                elif not monitoredPosition.ExitOrderRequested:
-                    logging.info(f'Order is Filled-Monitored wo ExitOrderRequested: {repr(order.id)}')
+                elif not monitoredPosition.exitOrderRequested:
+                    logging.info(f'Order is Filled-Monitored wo exitOrderRequested: {repr(order.id)}')
                     self.triggerStopOrder(order, monitoredPosition)                
                 else:
                     self.removeMonitoredPositionByExit(order)
@@ -933,11 +933,11 @@ class FinamTradingPlatform(TradingPlatform):
         )
         log.info(repr(res))
         if res.success:
-            monitoredPosition.ExitOrderRequested = True
+            monitoredPosition.exitOrderRequested = True
             m = f"stopOrder of order {order.id} successfully requested"
             logging.info(m)
         else:
-            monitoredPosition.ExitOrderRequested = False
+            monitoredPosition.exitOrderRequested = False
             logging.error("takeprofit hasn't been processed by transaq")      
         
     
@@ -1368,7 +1368,7 @@ class AlpacaTradingPlatform(TradingPlatform):
            
         # Alpaca doesn't have a 'success' flag, so let's check the status
         if res.status in ['new', 'pending_new']:
-            monitoredPosition.ExitOrderRequested = True
+            monitoredPosition.exitOrderRequested = True
             monitoredPosition.exit_id = res.id                
             if order in self.monitoredOrders:
                 self.monitoredOrders.remove(order)
@@ -1560,7 +1560,7 @@ class IB_OrderStatusTask:
                     order = OrderIB(trade)
                     if order.type in ['MKT']:  # IB uses 'LMT' for limit and 'MKT' for market orders
                         self.tp.processEntryOrderStatus(order)
-                    elif order.type in ['STP', 'LMT']:
+                    elif order.type in ['STP', 'LMT', 'STP LMT']:
                         self.tp.processExitOrderStatus(order)
                     else:
                         log.error(f"Unknown Order type : {order}")
@@ -2191,7 +2191,7 @@ class IBTradingPlatform(TradingPlatform):
             
         elif res.orderStatus.status in cm.statusOrderForwarding or res.orderStatus.status in cm.statusOrderExecuted:
                         
-            monitoredPosition.ExitOrderRequested = True
+            monitoredPosition.exitOrderRequested = True
             monitoredPosition.exit_id = res.order.orderId  # Capture IB order ID
             if order in self.monitoredOrders:
                 self.monitoredOrders.remove(order)
