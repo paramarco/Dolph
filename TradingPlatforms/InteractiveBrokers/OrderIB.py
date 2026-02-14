@@ -29,7 +29,19 @@ class OrderIB:
         """
         String representation for debugging.
         """
+        # Extraer el precio según el tipo de orden
+        price = None
+        if hasattr(self._raw.order, 'lmtPrice') and self._raw.order.lmtPrice:
+            price = self._raw.order.lmtPrice
+        elif hasattr(self._raw.order, 'auxPrice') and self._raw.order.auxPrice:
+            price = self._raw.order.auxPrice
+        elif hasattr(self._raw.orderStatus, 'avgFillPrice') and self._raw.orderStatus.avgFillPrice:
+            price = self._raw.orderStatus.avgFillPrice
+        
         msg = f"OrderIB(id={self.id}, symbol={self.symbol}, side={self.side}, "
+        msg += f"type={self.type}, "
+        if price is not None:
+            msg += f"price={price}, "
         msg += f"status={self.status}, UTC-time={self.time.isoformat()})"
         return msg
 

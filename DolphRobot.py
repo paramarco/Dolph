@@ -338,15 +338,15 @@ class Dolph:
         quantity = round(cash_4_position / priceClose)
         margin = priceClose * factorMargin_Position
 
-        m = f"cash_balance={cash_balance} net_balance={net_balance} seccode:{seccode} quantity={quantity}" 
+        m = f"cash_balance={cash_balance} net_balance={net_balance} seccode:{seccode} quantity={quantity} " 
         m += f"factor-margin={factorMargin_Position} UTC-Time={timeClose} priceClose={priceClose}" 
 
         if cash_balance == 0 or net_balance == 0: 
-            logging.warning(f"cash_balance == 0 or net_balance == 0 {m}")
+            logging.warning(f"(cash_balance == 0 or net_balance == 0) {m}")
             return 0 , 0 
         
         if cash_4_position > cash_balance:
-            logging.warning(f"cash_4_position > cash_balance {m}")            
+            logging.warning(f"(cash_4_position > cash_balance) {m}")            
             return 0 , 0 
 
         logging.info(m)
@@ -418,7 +418,7 @@ class Dolph:
             if self.positionExceedsBalance(position):
                 position.takePosition = 'no-go' 
         
-        logging.info(f'decision: {position}')    
+        logging.debug(f'decision: {position}')    
             
         return position
     

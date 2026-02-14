@@ -83,9 +83,13 @@ class MinerviniClaude:
             elif signal == 'short':
                 exitPrice = lastClosePrice  - margin            
 
+
+            exitPrice = "{0:0.{prec}f}".format(exitPrice, prec=sec['decimals'])
+            margin = "{0:0.{prec}f}".format(sec['params']['positionMargin'], prec=5)
+
             log.info(
                 f"{self.seccode} phase={phase}, signal={signal},"
-                f" margin={sec['params']['positionMargin']}, entryPrice={lastClosePrice},"
+                f" margin={margin}, entryPrice={lastClosePrice},"
                 f" exitPrice={exitPrice}, UTC-time={utc_now.isoformat()}"
             )
 
