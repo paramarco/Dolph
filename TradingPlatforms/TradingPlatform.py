@@ -388,9 +388,9 @@ class TradingPlatform(ABC):
  
             self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_id != stopOrder.id] 
 
+
     def updateExistingExitOrder(self, exitOrder):
-         """ common """
-         
+        """ common """         
         for i, monitored_order in enumerate(self.monitoredExitOrders):
             if monitored_order.id == exitOrder.id:
                 # Update the existing order's attributes
