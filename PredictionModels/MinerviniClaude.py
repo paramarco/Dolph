@@ -34,7 +34,7 @@ class MinerviniClaude:
         self.dolph = dolph
 
         if self.seccode not in MinerviniClaude._calibration_cache:
-            log.info(f"seccode={self.seccode}: calibrating margins from historical DB...")
+            log.info(f"seccode={self.seccode} calibrating margins from historical DB...")
             self._calibrate_margins_from_db()
 
     # =====================================================
@@ -64,7 +64,7 @@ class MinerviniClaude:
                 for p in positions:
                     entryPrice = p.entryPrice
                     exitPrice = p.exitPrice 
-                    m = f"{seccode} already in a position, last: {lastClosePrice}, entry: {entryPrice}, exit: {exitPrice}"                
+                    m = f"seccode={seccode} already in a position, last close: {lastClosePrice}, entry: {entryPrice}, exit: {exitPrice}"                
                     log.info(m)
                            
             self.df = self._prepare_ohlcv(df)

@@ -388,7 +388,25 @@ class TradingPlatform(ABC):
  
             self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_id != stopOrder.id] 
 
+    def updateExistingExitOrder(self, exitOrder):
+         """ common """
+         
+        for i, monitored_order in enumerate(self.monitoredExitOrders):
+            if monitored_order.id == exitOrder.id:
+                # Update the existing order's attributes
+                monitored_order.status = exitOrder.status
+                monitored_order.type = exitOrder.type
+                monitored_order.side = exitOrder.side
+                monitored_order._raw = exitOrder._raw
+                monitored_order.order = exitOrder.order
+                monitored_order.time = exitOrder.time
+                
+                log.debug(f"Updated existing exitOrder {exitOrder.id} in monitoredExitOrders: {monitored_order}")
+                return True
         
+        return False
+
+
     def processEntryOrderStatus(self, order):
         """ common """
         log.debug(str(order))  
@@ -436,7 +454,8 @@ class TradingPlatform(ABC):
 
     def processExitOrderStatus(self, exitOrder):
         """common"""        
-        log.debug(str(exitOrder))       
+        log.debug(str(exitOrder))  
+        self.updateExistingExitOrder(exitOrder)     
         s = exitOrder.status
         m = ''
         try:               
