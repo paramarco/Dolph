@@ -100,7 +100,7 @@ class Dolph:
                 break
         
         if sec is None: 
-            logger.error('Security not found... ' + seccode);
+            self.logger.error('Security not found... ' + seccode);
             sys.exit(0)
         
         return sec
@@ -115,18 +115,18 @@ class Dolph:
         
         # Check if df_1min is empty
         if df_1min.empty:
-            logger.error(f"No data found for seccode: {seccode}")
+            self.logger.error(f"No data found for seccode: {seccode}")
             return None  # Or handle this case differently depending on your requirements
     
         # Get the last close price
         timelast1Min = df_1min.index[-1]
         timelast1Min = timelast1Min.to_pydatetime()
         LastClosePrice = df_1min['endprice'].iloc[-1]
-        logger.debug(f'{seccode} {timelast1Min}, Close: {LastClosePrice}')
+        self.logger.debug(f'{seccode} {timelast1Min}, Close: {LastClosePrice}')
         
         # Check if the LastClosePrice is None
         if pd.isnull(LastClosePrice):
-            logger.error(f'LastClosePrice is None for seccode: {seccode}')
+            self.logger.error(f'LastClosePrice is None for seccode: {seccode}')
             sys.exit(0)
         
         return LastClosePrice
@@ -141,7 +141,7 @@ class Dolph:
         
         # Check if df_1min is empty
         if df_1min.empty:
-            logger.error(f"No data found for seccode: {seccode}")
+            self.logger.error(f"No data found for seccode: {seccode}")
             return None  # Or handle this case differently depending on your requirements
     
         # Get the last close price
@@ -161,7 +161,7 @@ class Dolph:
         elif (position2invert.takePosition  == "short"):
             position.takePosition = "long"
         else:
-            logger.error( "takePosition must be either long or short")
+            self.logger.error( "takePosition must be either long or short")
             raise Exception( position.takePosition )
                 
         sec = self.getSecurityBySeccode( position.seccode )
@@ -182,9 +182,9 @@ class Dolph:
             position.exitPrice =position.entryPrice-deltaForExit
             position.stoploss = position.entryPrice + params['stopLossCoefficient'] * deltaForExit
         else:
-            logger.info('this shouldnt happen ' + position.takePosition )
+            self.logger.info('this shouldnt happen ' + position.takePosition )
         
-        logger.info('sending '+position.takePosition+' to Trading platform')
+        self.logger.info('sending '+position.takePosition+' to Trading platform')
         self.tp.processPosition(position)     
        
 
@@ -198,7 +198,7 @@ class Dolph:
         sec['params']['period'] = period 
         sec['models'][period] = pm.initPredictionModel( self.data, sec, self)
         msg = f"loading training & prediction params: {sec['params']}"
-        logger.info( msg )        
+        self.logger.info( msg )        
 
     
     def storePrediction(self, sec, prediction, period):
@@ -209,7 +209,7 @@ class Dolph:
     def loadModel(self, sec, period):        
    
         if period not in sec['models']:
-            logger.info('model loaded for the first time') 
+            self.logger.info('model loaded for the first time') 
             self._getPredictionModel(sec, period )            
 
 
@@ -253,7 +253,7 @@ class Dolph:
 
         position = self.tp.getMonitoredPositionBySeccode(seccode)
         if position is None :
-            logger.error(f'seccode={seccode} has an open-position, but there is no MonitoredPosition')
+            self.logger.error(f'seccode={seccode} has an open-position, but there is no MonitoredPosition')
             return True
         
         lastClosePrice = self.getLastClosePrice(seccode)
@@ -264,7 +264,7 @@ class Dolph:
         decision = False
         if ( abs( entryPrice - lastClosePrice ) > limitToAcceptFallingOfPrice):
             decision = True
-            logger.info(f'entryPrice: {entryPrice},lastClosePrice: {lastClosePrice}')
+            self.logger.info(f'entryPrice: {entryPrice},lastClosePrice: {lastClosePrice}')
         
         return decision
     
@@ -303,7 +303,7 @@ class Dolph:
             takePosition = prediction
             security['lastPositionTaken'] = takePosition
        
-        logger.debug(f'{takePosition}')
+        self.logger.debug(f'{takePosition}')
         return takePosition
   
     
@@ -322,7 +322,7 @@ class Dolph:
             
         if cash_positions > cash_balance : 
             exceeds = True    
-            logger.error("cash_positions > cash_balance")
+            self.logger.error("cash_positions > cash_balance")
         
         return exceeds 
     
@@ -347,14 +347,14 @@ class Dolph:
         m += f"factor-margin={printMargin} UTC-Time={timeClose} priceClose={priceClose}" 
 
         if cash_balance == 0 or net_balance == 0: 
-            logger.warning(f"seccode={seccode} condition=(cash_balance == 0 or net_balance == 0) {m}")
+            self.logger.warning(f"seccode={seccode} condition=(cash_balance == 0 or net_balance == 0) {m}")
             return 0 , 0 
         
         if cash_4_position > cash_balance:
-            logger.warning(f"seccode={seccode} condition=(cash_4_position > cash_balance) {m}")            
+            self.logger.warning(f"seccode={seccode} condition=(cash_4_position > cash_balance) {m}")            
             return 0 , 0 
 
-        logger.info(f"seccode:{seccode} {m}")
+        self.logger.info(f"seccode:{seccode} {m}")
 
         return quantity, margin
     
@@ -380,7 +380,7 @@ class Dolph:
                 quantity, k, decimals, marketId, spread, correction, margin, exitTime )
         
         except Exception as e:
-            logger.error("Failed to get_evaluation_parameters: %s", e)
+            self.logger.error("Failed to get_evaluation_parameters: %s", e)
             k = margin = quantity = correction = spread = decimals = marketId = ct = exitTime = 0            
             
             return (longestPeriod, board, seccode, exitTimeSeconds, 
@@ -423,7 +423,7 @@ class Dolph:
             if self.positionExceedsBalance(position):
                 position.takePosition = 'no-go' 
         
-        logger.debug(f'decision: {position}')    
+        self.logger.debug(f'decision: {position}')    
             
         return position
     
@@ -435,10 +435,10 @@ class Dolph:
             position = self.evaluatePosition(sec)            
             action = position.takePosition            
             if action not in ['long','short','close','close-counterPosition']:
-                logger.info(f"seccode:{position.seccode} action={action}, nothing to do ...")
+                self.logger.info(f"seccode:{position.seccode} action={action}, nothing to do ...")
                 continue            
 
-            logger.info(f'seccode:{position.seccode} sending a {position} to the Trading platform ...')
+            self.logger.info(f'seccode:{position.seccode} sending a {position} to the Trading platform ...')
             self.tp.processPosition(position)  
        
         
@@ -490,11 +490,7 @@ class Dolph:
 
 def main():
 
-    dolph = Dolph()
-
-    logger = logging.getLogger("Dolph")
-
-    dolph.logger = logger
+    dolph = Dolph()  
 
     iteration = 0
 
@@ -502,40 +498,40 @@ def main():
         iteration += 1
         
         try:
-            logger.info(f"{'='*60}")
-            logger.info(f"MAIN LOOP ITERATION {iteration} - START")
-            logger.info(f"{'='*60}")
+            self.logger.info(f"{'='*60}")
+            self.logger.info(f"MAIN LOOP ITERATION {iteration} - START")
+            self.logger.info(f"{'='*60}")
             
-            logger.info(f"[Iter {iteration}] Step 1/3: Data Acquisition")
+            self.logger.info(f"[Iter {iteration}] Step 1/3: Data Acquisition")
             dolph.dataAcquisition()
-            logger.info(f"[Iter {iteration}] Step 1/3: ✓ COMPLETED")
+            self.logger.info(f"[Iter {iteration}] Step 1/3: ✓ COMPLETED")
             
-            logger.info(f"[Iter {iteration}] Step 2/3: Predict")
+            self.logger.info(f"[Iter {iteration}] Step 2/3: Predict")
             dolph.predict()
-            logger.info(f"[Iter {iteration}] Step 2/3: ✓ COMPLETED")
+            self.logger.info(f"[Iter {iteration}] Step 2/3: ✓ COMPLETED")
                         
-            logger.info(f"[Iter {iteration}] Step 3/3: Take Position")
+            self.logger.info(f"[Iter {iteration}] Step 3/3: Take Position")
             dolph.takePosition()
-            logger.info(f"[Iter {iteration}] Step 3/3: ✓ COMPLETED")
+            self.logger.info(f"[Iter {iteration}] Step 3/3: ✓ COMPLETED")
             
-            logger.info(f"{'='*60}")
-            logger.info(f"MAIN LOOP ITERATION {iteration} - FINISHED")
-            logger.info(f"{'='*60}\n")
+            self.logger.info(f"{'='*60}")
+            self.logger.info(f"MAIN LOOP ITERATION {iteration} - FINISHED")
+            self.logger.info(f"{'='*60}\n")
             
         except KeyboardInterrupt:
-            logger.info("Keyboard interrupt received, shutting down...")
+            self.logger.info("Keyboard interrupt received, shutting down...")
             break
             
         except Exception as e:
-            logger.error(f"\n{'!'*60}")
-            logger.error(f"ERROR IN MAIN LOOP ITERATION {iteration}")
-            logger.error(f"{'!'*60}")
-            logger.error(f"Error: {e}")
+            self.logger.error(f"\n{'!'*60}")
+            self.logger.error(f"ERROR IN MAIN LOOP ITERATION {iteration}")
+            self.logger.error(f"{'!'*60}")
+            self.logger.error(f"Error: {e}")
             import traceback
-            logger.error(traceback.format_exc())
-            logger.error(f"{'!'*60}\n")
+            self.logger.error(traceback.format_exc())
+            self.logger.error(f"{'!'*60}\n")
             
-            logger.info("Waiting 10 seconds before retrying...")
+            self.logger.info("Waiting 10 seconds before retrying...")
             time.sleep(10)
 
    
