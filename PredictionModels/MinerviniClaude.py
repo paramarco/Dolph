@@ -34,7 +34,7 @@ class MinerviniClaude:
         self.dolph = dolph
 
         if self.seccode not in MinerviniClaude._calibration_cache:
-            log.info(f"{self.seccode}: calibrating margins from historical DB...")
+            log.info(f"seccode={self.seccode}: calibrating margins from historical DB...")
             self._calibrate_margins_from_db()
 
     # =====================================================
@@ -88,7 +88,7 @@ class MinerviniClaude:
             margin = "{0:0.{prec}f}".format(sec['params']['positionMargin'], prec=5)
 
             log.info(
-                f"{self.seccode} phase={phase}, signal={signal},"
+                f"seccode={self.seccode} phase={phase}, signal={signal},"
                 f" margin={margin}, entryPrice={lastClosePrice},"
                 f" exitPrice={exitPrice}, UTC-time={utc_now.isoformat()}"
             )

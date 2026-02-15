@@ -338,18 +338,20 @@ class Dolph:
         quantity = round(cash_4_position / priceClose)
         margin = priceClose * factorMargin_Position
 
-        m = f"seccode:{seccode} cash_balance={cash_balance} net_balance={net_balance} quantity={quantity} " 
-        m += f"factor-margin={factorMargin_Position} UTC-Time={timeClose} priceClose={priceClose}" 
+        printMargin = "{0:0.{prec}f}".format(factorMargin_Position, prec=5)
+
+        m = f"cash_balance={cash_balance} net_balance={net_balance} quantity={quantity} " 
+        m += f"factor-margin={printMargin} UTC-Time={timeClose} priceClose={priceClose}" 
 
         if cash_balance == 0 or net_balance == 0: 
-            logging.warning(f"(cash_balance == 0 or net_balance == 0) {m}")
+            logging.warning(f"seccode:{seccode} (cash_balance == 0 or net_balance == 0) {m}")
             return 0 , 0 
         
         if cash_4_position > cash_balance:
-            logging.warning(f"(cash_4_position > cash_balance) {m}")            
+            logging.warning(f"seccode:{seccode} (cash_4_position > cash_balance) {m}")            
             return 0 , 0 
 
-        logging.info(m)
+        logging.info(f"seccode:{seccode} {m}")
 
         return quantity, margin
     
@@ -493,7 +495,7 @@ if __name__== "__main__":
         iteration += 1
         
         try:
-            logging.info(f"\n{'='*60}")
+            logging.info(f"{'='*60}")
             logging.info(f"MAIN LOOP ITERATION {iteration} - START")
             logging.info(f"{'='*60}")
             
@@ -513,7 +515,7 @@ if __name__== "__main__":
             dolph.takePosition()
             logging.info(f"[Iter {iteration}] Step 3/3: ✓ COMPLETED")
             
-            logging.info(f"\n{'='*60}")
+            logging.info(f"{'='*60}")
             logging.info(f"MAIN LOOP ITERATION {iteration} - FINISHED")
             logging.info(f"{'='*60}\n")
             
