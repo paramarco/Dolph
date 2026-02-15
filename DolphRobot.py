@@ -68,7 +68,7 @@ class Dolph:
         
         logging.basicConfig(            
             level = cm.logLevel ,
-            format = '%(asctime)s | %(levelname)s | %(funcName)s |%(message)s',
+            format = '%(asctime)s | %(levelname)s | %(name)s.%(funcName)s |%(message)s',
             handlers=[  
                 logging.FileHandler("./log/Dolph.log"),
                 logging.StreamHandler(sys.stdout)
@@ -344,11 +344,11 @@ class Dolph:
         m += f"factor-margin={printMargin} UTC-Time={timeClose} priceClose={priceClose}" 
 
         if cash_balance == 0 or net_balance == 0: 
-            logging.warning(f"seccode:{seccode} (cash_balance == 0 or net_balance == 0) {m}")
+            logging.warning(f"seccode={seccode} condition=(cash_balance == 0 or net_balance == 0) {m}")
             return 0 , 0 
         
         if cash_4_position > cash_balance:
-            logging.warning(f"seccode:{seccode} (cash_4_position > cash_balance) {m}")            
+            logging.warning(f"seccode={seccode} condition=(cash_4_position > cash_balance) {m}")            
             return 0 , 0 
 
         logging.info(f"seccode:{seccode} {m}")
