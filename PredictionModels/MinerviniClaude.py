@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import logging
 import datetime as dt
+from Configuration import Conf as cm
 
 log = logging.getLogger("PredictionModel")
 
@@ -205,17 +206,39 @@ class MinerviniClaude:
     # =====================================================
 
     def _detect_phase(self, df):
+        """ 
+        This method determines the current market regime using volatility and trend metrics.
+        It classifies the security into one of three VCP phases:
+        Expansion
+            Volatility is increasing strongly.
+            Bollinger width percentile indicates widening range.
+            Early breakout regime.
+        Trend
+            Strong directional movement.
+            ADX confirms trend strength.
+            EMA alignment confirms direction.
+        Contraction
+            Default fallback.
+            Low volatility compression phase.
+        """"
+        latest = df.iloc[-1]  # Get the latest row of indicators
 
-        latest = df.iloc[-1]
-
+        # ---------------------------------------------------------
+        # Expansion is detected when volatility increases rapidly
+        # ATR_slope > threshold AND Bollinger width percentile high
+        # ---------------------------------------------------------
         if (
-            latest['ATR_slope'] > 0.15 and
-            (latest['BB_width_pctile'] > 0.5)
+            latest['ATR_slope'] > cm.VCP_ATR_SLOPE_EXPANSION  and  # VCP_ATR_SLOPE_EXPANSION = 0.15
+            latest['BB_width_pctile'] > cm.VCP_BB_WIDTH_PERCENTILE_EXPANSION  # VCP_BB_WIDTH_PERCENTILE_EXPANSION = 0.5
         ):
             return 'expansion'
-
+        # ---------------------------------------------------------
+        # Trend requires:
+        # 1) ADX above threshold (strong directional movement)
+        # 2) EMA alignment either bullish or bearish
+        # ---------------------------------------------------------
         if (
-            latest['ADX'] > 25 and
+            latest['ADX'] > cm.VCP_ADX_TREND_THRESHOLD and  # VCP_ADX_TREND_THRESHOLD = 25
             (
                 latest['EMA9'] > latest['EMA21'] > latest['EMA50']
                 or
@@ -223,7 +246,9 @@ class MinerviniClaude:
             )
         ):
             return 'trend'
-
+        # ---------------------------------------------------------
+        # Default = Contraction Phase, Low volatility compression regime
+        # ---------------------------------------------------------
         return 'contraction'
 
     # =====================================================

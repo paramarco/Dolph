@@ -24,6 +24,7 @@ securities = [
             ,"stopLossCoefficient": 20 
             ,"acceptableTrainingError": 0.000192
             ,'period': '1Min'
+            ,'rsiCoeff': '14'
         }
     }
     ,{
@@ -42,6 +43,7 @@ securities = [
             ,"stopLossCoefficient": 20 
             ,"acceptableTrainingError": 0.000192
             ,'period': '1Min'
+            ,'rsiCoeff': '14'
         }
     }
     ,{
@@ -60,6 +62,7 @@ securities = [
             ,"stopLossCoefficient": 20 
             ,"acceptableTrainingError": 0.000192
             ,'period': '1Min'
+            ,'rsiCoeff': '14'
         }
     }
 ]
@@ -114,3 +117,7 @@ correction = 0.0
 spread = 0.0
 
 openaikey = platform['secrets']['openaikey']
+
+VCP_ATR_SLOPE_EXPANSION = 0.15
+VCP_BB_WIDTH_PERCENTILE_EXPANSION = 0.5
+VCP_ADX_TREND_THRESHOLD = 25

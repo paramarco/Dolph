@@ -24,6 +24,7 @@ securities = [
             ,"stopLossCoefficient": 2 
             ,"acceptableTrainingError": 0.000192
             ,'period': '1Min'
+            ,'rsiCoeff': '14'
         }
     }
     ,{
@@ -43,6 +44,7 @@ securities = [
             ,"stopLossCoefficient": 2 
             ,"acceptableTrainingError": 0.000192
             ,'period': '1Min'
+            ,'rsiCoeff': '14'
         }
     }
     ,{
@@ -62,6 +64,7 @@ securities = [
             ,"stopLossCoefficient": 2 
             ,"acceptableTrainingError": 0.000192
             ,'period': '1Min'
+            ,'rsiCoeff': '14'
         }
     }
 ]
