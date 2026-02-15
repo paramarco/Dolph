@@ -327,7 +327,7 @@ class Dolph:
         return exceeds 
     
     
-    def calculateMarginQuatityOfPosition (self, security):
+    def positionAssessment (self, security):
         
         seccode = security['seccode']
         params = security['params']
@@ -363,7 +363,7 @@ class Dolph:
         try:
             longestPeriod = self.periods[-1]
             board, seccode, params = security['board'], security['seccode'], security['params']
-            quantity, margin = self.calculateMarginQuatityOfPosition(security)
+            quantity, margin = self.positionAssessment(security)
             # FIXME: Can the decimals be automatically calculated?            
             decimals, marketId = security['decimals'], security['market']
             # FIXME: Are these parameters automatically calculated?
