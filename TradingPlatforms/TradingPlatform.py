@@ -495,10 +495,10 @@ class TradingPlatform(ABC):
         numMonExitOrder = len(self.monitoredExitOrders)
         
         msg = "\n"
-        msg += f'monitored Positions : {numMonPosition}\n'
+        msg += f'monitored Positions: {numMonPosition}\n'
         for mp in self.monitoredPositions:
             msg += str(mp) + '\n'
-        msg += f'monitored Entry Orders    : {numMonOrder}\n'
+        msg += f'monitored Entry Orders: {numMonOrder}\n'
         for mo in self.monitoredOrders:
             msg += str(mo) + '\n'
         msg += f'monitored Exit Orders: {numMonExitOrder}\n'

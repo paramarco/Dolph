@@ -432,10 +432,10 @@ class Dolph:
             position = self.evaluatePosition(sec)            
             action = position.takePosition            
             if action not in ['long','short','close','close-counterPosition']:
-                logging.info( action + ' position, nothing to do')
+                logging.info(f"seccode:{position.seccode} action={action}, nothing to do ...")
                 continue            
 
-            logging.info(f'sending a {position} to the Trading platform ...')
+            logging.info(f'seccode:{position.seccode} sending a {position} to the Trading platform ...')
             self.tp.processPosition(position)  
        
         
