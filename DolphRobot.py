@@ -122,7 +122,7 @@ class Dolph:
         timelast1Min = df_1min.index[-1]
         timelast1Min = timelast1Min.to_pydatetime()
         LastClosePrice = df_1min['endprice'].iloc[-1]
-        self.logger.debug(f'{seccode} {timelast1Min}, Close: {LastClosePrice}')
+        self.logger.debug(f'seccode={seccode} last sample at  UTC-time={timelast1Min}, Close={LastClosePrice}')
         
         # Check if the LastClosePrice is None
         if pd.isnull(LastClosePrice):
