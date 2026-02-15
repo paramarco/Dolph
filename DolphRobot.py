@@ -498,40 +498,40 @@ def main():
         iteration += 1
         
         try:
-            self.logger.info(f"{'='*60}")
-            self.logger.info(f"MAIN LOOP ITERATION {iteration} - START")
-            self.logger.info(f"{'='*60}")
+            dolph.logger.info(f"{'='*60}")
+            dolph.logger.info(f"MAIN LOOP ITERATION {iteration} - START")
+            dolph.logger.info(f"{'='*60}")
             
-            self.logger.info(f"[Iter {iteration}] Step 1/3: Data Acquisition")
+            dolph.logger.info(f"[Iter {iteration}] Step 1/3: Data Acquisition")
             dolph.dataAcquisition()
-            self.logger.info(f"[Iter {iteration}] Step 1/3: ✓ COMPLETED")
+            dolph.logger.info(f"[Iter {iteration}] Step 1/3: ✓ COMPLETED")
             
-            self.logger.info(f"[Iter {iteration}] Step 2/3: Predict")
+            dolph.logger.info(f"[Iter {iteration}] Step 2/3: Predict")
             dolph.predict()
-            self.logger.info(f"[Iter {iteration}] Step 2/3: ✓ COMPLETED")
+            dolph.logger.info(f"[Iter {iteration}] Step 2/3: ✓ COMPLETED")
                         
-            self.logger.info(f"[Iter {iteration}] Step 3/3: Take Position")
+            dolph.logger.info(f"[Iter {iteration}] Step 3/3: Take Position")
             dolph.takePosition()
-            self.logger.info(f"[Iter {iteration}] Step 3/3: ✓ COMPLETED")
+            dolph.logger.info(f"[Iter {iteration}] Step 3/3: ✓ COMPLETED")
             
-            self.logger.info(f"{'='*60}")
-            self.logger.info(f"MAIN LOOP ITERATION {iteration} - FINISHED")
-            self.logger.info(f"{'='*60}\n")
+            dolph.logger.info(f"{'='*60}")
+            dolph.logger.info(f"MAIN LOOP ITERATION {iteration} - FINISHED")
+            dolph.logger.info(f"{'='*60}\n")
             
         except KeyboardInterrupt:
-            self.logger.info("Keyboard interrupt received, shutting down...")
+            dolph.logger.info("Keyboard interrupt received, shutting down...")
             break
             
         except Exception as e:
-            self.logger.error(f"\n{'!'*60}")
-            self.logger.error(f"ERROR IN MAIN LOOP ITERATION {iteration}")
-            self.logger.error(f"{'!'*60}")
-            self.logger.error(f"Error: {e}")
+            dolph.logger.error(f"\n{'!'*60}")
+            dolph.logger.error(f"ERROR IN MAIN LOOP ITERATION {iteration}")
+            dolph.logger.error(f"{'!'*60}")
+            dolph.logger.error(f"Error: {e}")
             import traceback
-            self.logger.error(traceback.format_exc())
-            self.logger.error(f"{'!'*60}\n")
+            dolph.logger.error(traceback.format_exc())
+            dolph.logger.error(f"{'!'*60}\n")
             
-            self.logger.info("Waiting 10 seconds before retrying...")
+            dolph.logger.info("Waiting 10 seconds before retrying...")
             time.sleep(10)
 
    
