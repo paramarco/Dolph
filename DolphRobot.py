@@ -74,7 +74,7 @@ class Dolph:
                 logging.StreamHandler(sys.stdout)
             ]
         )
-        logger.info('running on mode: ' + self.MODE)
+        logging.info('running on mode: ' + self.MODE)
         
 
     def _init_signaling(self):
@@ -82,7 +82,7 @@ class Dolph:
         def signalHandler( signum, frame):
             self.tp.disconnect()
             time.sleep(2.5) 
-            logger.info('hasta la vista!')
+            logging.info('hasta la vista!')
             sys.exit()
         
         signal.signal(signal.SIGINT, signalHandler)     
