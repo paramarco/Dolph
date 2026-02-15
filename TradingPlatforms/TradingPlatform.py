@@ -96,7 +96,7 @@ def initTradingPlatform( onCounterPosition ):
            
     #platform  = ds.DataServer().getPlatformDetails(cm.securities)
     platform = cm.platform
-    logging.debug(str(platform))
+    log.debug(str(platform))
 
     if platform is None :
         return None
@@ -349,7 +349,7 @@ class TradingPlatform(ABC):
         transactionId = None
         position = None
         
-        logging.debug(repr(order))
+        log.debug(repr(order))
         
         for cp in self.counterPositions:
             transactionId, position = cp
@@ -359,7 +359,7 @@ class TradingPlatform(ABC):
 
         if trigger:
             m = f"triggering onCounterPosition for {str(position)}"
-            logging.info(m)
+            log.info(m)
             position2invert = copy.deepcopy(position)
             self.counterPositions = list(filter(lambda x: x[0] != transactionId, self.counterPositions))            
             self.onCounterPosition(position2invert)
@@ -373,14 +373,14 @@ class TradingPlatform(ABC):
         
         mp = monitoredPosition
         mp.exitOrderRequested = True
-        logging.info(f"trigerring exit by Market {mp.exit_id} due to cancelling {mp}")  
+        log.info(f"trigerring exit by Market {mp.exit_id} due to cancelling {mp}")  
 
         res = self.new_order(
             mp.board, mp.seccode, mp.client, mp.union, stopOrder.buysell, mp.expdate, 
             mp.quantity, price=mp.entryPrice, bymarket=True, usecredit=False
         )
         if res is None:
-            logging.info("Failed to create order by Market for the exit")  
+            log.info("Failed to create order by Market for the exit")  
             
         if res.status in cm.statusOrderForwarding or res.status in cm.statusOrderExecuted:
     
@@ -392,7 +392,7 @@ class TradingPlatform(ABC):
         
     def processEntryOrderStatus(self, order):
         """ common """
-        logging.debug(str(order))  
+        log.debug(str(order))  
         # clone = {'id': order.id, 'status': order.status} ;  self.triggerWhenMatched(clone) if s in cm.statusOrderExecuted   
         s = order.status
         try:                
@@ -403,22 +403,22 @@ class TradingPlatform(ABC):
                 if monitoredPosition is None:                    
                     if order in self.monitoredOrders:
                         self.monitoredOrders.remove(order)
-                        logging.info(f'already processed before, deleting: {repr(order.id)}')
+                        log.info(f'already processed before, deleting: {repr(order.id)}')
                     
                 elif not monitoredPosition.exitOrderRequested:
-                    logging.info(f'Order is Filled-Monitored wo exitOrderRequested: {repr(order.id)}')
+                    log.info(f'Order is Filled-Monitored wo exitOrderRequested: {repr(order.id)}')
                     self.triggerStopOrder(order, monitoredPosition)                
                 else:
                     self.removeMonitoredPositionByExit(order)
                     if order in self.monitoredOrders:
                         self.monitoredOrders.remove(order)
-                        logging.info(f"exit complete: {str(monitoredPosition)}")                                   
+                        log.info(f"exit complete: {str(monitoredPosition)}")                                   
                 
             elif s in cm.statusOrderForwarding :
                
                 if order not in self.monitoredOrders:
                     self.monitoredOrders.append(order)
-                    logging.info(f'order {order.id} in status:{s} added to monitoredOrders')   
+                    log.info(f'order {order.id} in status:{s} added to monitoredOrders')   
                     
             elif s in cm.statusOrderCanceled :
 
@@ -426,10 +426,10 @@ class TradingPlatform(ABC):
                 if order in self.monitoredOrders:
                     self.monitoredOrders.remove(order)
                     self.cancel_order(order.id)                
-                    logging.info(f'order {order.id} with status: {s} deleted from monitoredOrders')
+                    log.info(f'order {order.id} with status: {s} deleted from monitoredOrders')
                 
             else:                
-                logging.debug(f'order {order.id} in status: {s} ')
+                log.debug(f'order {order.id} in status: {s} ')
            
         except Exception as e:
             log.error(f"Failed to processEntryOrderStatus: {e}")
@@ -437,7 +437,7 @@ class TradingPlatform(ABC):
 
     def processExitOrderStatus(self, exitOrder):
         """common"""        
-        logging.debug(str(exitOrder))       
+        log.debug(str(exitOrder))       
         s = exitOrder.status
         m = ''
         try:               
@@ -469,10 +469,10 @@ class TradingPlatform(ABC):
                     m = f'Exit Order {monitoredPosition.exit_id} due to cancelling {monitoredPosition}'
                
             else:
-                logging.debug(f'status: {s} skipped, belongs to: {cm.statusOrderOthers}')
+                log.debug(f'status: {s} skipped, belongs to: {cm.statusOrderOthers}')
             
             if m != "":
-                logging.info(m)
+                log.info(m)
                     
         except Exception as e:
             log.error(f"Failed to processExitOrderStatus: {e}")
@@ -505,7 +505,7 @@ class TradingPlatform(ABC):
         for meo in self.monitoredExitOrders:
             msg += str(meo) + '\n'
         
-        logging.info(msg)
+        log.info(msg)
         total = numMonOrder + numMonExitOrder
         return total
     
@@ -526,7 +526,7 @@ class TradingPlatform(ABC):
         monitoredExitOrder = self.getmonitoredExitOrderBySeccode(code)
         
         if monitoredPosition is None or monitoredExitOrder is None:
-            logging.error("position Not found, recheck this case")            
+            log.error("position Not found, recheck this case")            
         else:
             log.info('close action received, closing position...')
             self.closeExit(monitoredPosition, monitoredExitOrder)
@@ -540,7 +540,7 @@ class TradingPlatform(ABC):
         try:
             if self.MODE != 'OPERATIONAL' :
                 m = f'not performing {position.takePosition} because of mode {self.MODE}'
-                logging.info(m)
+                log.info(m)
                 return False
             
             # if not self.isMarketOpen(position.seccode):
@@ -550,12 +550,12 @@ class TradingPlatform(ABC):
             
             ct = self.getTradingPlatformTime().time()  
             if not (cm.tradingTimes[0] <= ct <= cm.tradingTimes[1]):
-                logging.info(f'We are outside trading hours: {ct}...')  
+                log.info(f'We are outside trading hours: {ct}...')  
                 return False
             
             ct = self.getTradingPlatformTime()
             if ct.weekday() in [calendar.SATURDAY, calendar.SUNDAY]:
-                logging.info('we are on Saturday or Sunday ...')  
+                log.info('we are on Saturday or Sunday ...')  
                 return False
     
             # Only check self.tc if it's relevant, e.g., for platforms that use tc
@@ -566,15 +566,15 @@ class TradingPlatform(ABC):
             
             if self.isPositionOpen(position.seccode) and position.takePosition not in ['close', 'close-counterPosition']:
                 msg = f'there is a position opened for {position.seccode}'            
-                logging.warning(msg)
+                log.warning(msg)
                 return False
             
             if not self.connected:
                 msg = 'Trading platform not connected yet ...'            
-                logging.warning(msg)            
+                log.warning(msg)            
                 return False
             
-            logging.info('processing "'+ position.takePosition +'" at Trading platform ...')
+            log.info('processing "'+ position.takePosition +'" at Trading platform ...')
             return True
         
         except Exception as e:
@@ -626,8 +626,8 @@ class TradingPlatform(ABC):
             self.profitBalance -= 1
         else:
             m = f'status: {status} does not update the portfolio performance'
-            logging.info(m)
-        logging.info(f'portforlio balance: {self.profitBalance}')       
+            log.info(m)
+        log.info(f'portforlio balance: {self.profitBalance}')       
 
 
     def updateTradingHour(self):
@@ -637,7 +637,7 @@ class TradingPlatform(ABC):
         if self.currentTradingHour != currentHour:
             self.currentTradingHour = currentHour
             self.profitBalance = 0
-            logging.debug('hour changed ... profitBalance has been reset ')
+            log.debug('hour changed ... profitBalance has been reset ')
 
 
     def getProfitBalance(self):
@@ -686,7 +686,7 @@ class TradingPlatform(ABC):
                 monitoredPosition = mp
                 break
         if monitoredPosition is None:
-            logging.debug( "monitoredPosition Not found, recheck this case")
+            log.debug( "monitoredPosition Not found, recheck this case")
             
         return monitoredPosition
     
@@ -700,7 +700,7 @@ class TradingPlatform(ABC):
                 break
             
         if monitoredExitOrder is None:
-            logging.error( "monitoredExitOrder Not found, recheck this case")
+            log.error( "monitoredExitOrder Not found, recheck this case")
         
         return monitoredExitOrder
 
@@ -752,7 +752,7 @@ class FinamTradingPlatform(TradingPlatform):
 
     def setConnected2Transaq(self):
         
-        logging.info('connected to TRANSAQ' )
+        log.info('connected to TRANSAQ' )
         
         if self.candlesUpdateTask is not None:
             log.info('candlesUpdateTask was running before ...')
@@ -817,7 +817,7 @@ class FinamTradingPlatform(TradingPlatform):
 
     def handle_txml_message(self, obj):
         if isinstance(obj, ts.CmdResult):
-            logging.info(repr(obj))
+            log.info(repr(obj))
         elif isinstance(obj, ts.ClientOrderPacket):
             self.onClientOrderPacketRes(obj)
         elif isinstance(obj, ts.ClientAccount):
@@ -835,7 +835,7 @@ class FinamTradingPlatform(TradingPlatform):
                     self.connect()
         elif isinstance(obj, ts.HistoryCandlePacket):
         
-            logging.debug( repr(obj) )            
+            log.debug( repr(obj) )            
             self.ds.storeCandles(obj)            
             self.cancelTimedoutEntries()
             self.cancelTimedoutExits()
@@ -860,12 +860,12 @@ class FinamTradingPlatform(TradingPlatform):
     
     
     def onClientAccountRes(self, obj):
-        logging.info( repr(obj) )            
+        log.info( repr(obj) )            
         self.addClientAccount(obj)
         
         
     def onClientOrderPacketRes(self, obj):
-        logging.debug( repr(obj) )            
+        log.debug( repr(obj) )            
         for o in obj.items:
             if isinstance(o, ts.Order):
                 self.processEntryOrderStatus(o)
@@ -1335,9 +1335,9 @@ class AlpacaTradingPlatform(TradingPlatform):
             if res.status in cm.statusOrderForwarding :
                 position.entry_id = res.id  # Capture the order ID from Alpaca
                 self.monitoredPositions.append(position)
-                logging.info(f"entry Order placed successfully. Order ID: {res.id}")
+                log.info(f"entry Order placed successfully. Order ID: {res.id}")
             else:
-                logging.error(f"Order failed or in invalid state: {res.status}")
+                log.error(f"Order failed or in invalid state: {res.status}")
                 
         
         except Exception as e:
@@ -1347,7 +1347,7 @@ class AlpacaTradingPlatform(TradingPlatform):
 
     def triggerStopOrder(self, order, monitoredPosition):
         """ Alpaca """
-        logging.info('triggering stopOrder...')
+        log.info('triggering stopOrder...')
         buysell = "sell" if monitoredPosition.takePosition == "long" else "buy"
         
         trigger_price_tp = "{0:0.{prec}f}".format(
@@ -1371,9 +1371,9 @@ class AlpacaTradingPlatform(TradingPlatform):
             if order in self.monitoredOrders:
                 self.monitoredOrders.remove(order)
             
-            logging.info(f"stopOrder {order.id} successfully requested in Alpaca")
+            log.info(f"stopOrder {order.id} successfully requested in Alpaca")
         else:
-            logging.error(f"stopOrder {order.id} failed in status: {res.status}")
+            log.error(f"stopOrder {order.id} failed in status: {res.status}")
        
         
     
@@ -1385,7 +1385,7 @@ class AlpacaTradingPlatform(TradingPlatform):
             log.debug(repr(res))
         
         except Exception as e:
-            logging.error(f"Error placing closeExit {mp} , {meo}: {e}")
+            log.error(f"Error placing closeExit {mp} , {meo}: {e}")
             mp.exitOrderAlreadyCancelled = False
         
         mp.exitOrderAlreadyCancelled = True        
@@ -1944,7 +1944,7 @@ class IBTradingPlatform(TradingPlatform):
             # Check if the asset is shortable if this is a 'sell' order
             if buysell.lower() == 'sell':
                 if not market_details.shortableShares:
-                    logging.error(f"Asset {seccode} is not shortable.")
+                    log.error(f"Asset {seccode} is not shortable.")
                     return None
     
             # Determine order type: market or limit
@@ -1996,7 +1996,7 @@ class IBTradingPlatform(TradingPlatform):
             return trade
     
         except Exception as e:
-            logging.error(f"Error placing stop-limit order for {seccode}: {e}")
+            log.error(f"Error placing stop-limit order for {seccode}: {e}")
             return None
 
 
@@ -2006,7 +2006,7 @@ class IBTradingPlatform(TradingPlatform):
             self.ib.cancelOrder(exitOrderId, '')
 
         except Exception as e:
-            logging.error(f"Error placing cancelExitOrder {exitOrderId}: {e}")
+            log.error(f"Error placing cancelExitOrder {exitOrderId}: {e}")
             return None
 
 
@@ -2027,7 +2027,7 @@ class IBTradingPlatform(TradingPlatform):
             self.cancelExitOrder(meo.order)
         
         except Exception as e:
-            logging.error(f"Error placing closeExit {mp} , {meo}: {e}")
+            log.error(f"Error placing closeExit {mp} , {meo}: {e}")
             mp.exitOrderAlreadyCancelled = False
         
         mp.exitOrderAlreadyCancelled = True
@@ -2167,7 +2167,7 @@ class IBTradingPlatform(TradingPlatform):
     def triggerStopOrder(self, order, monitoredPosition):
         """ Interactive Brokers """    
         
-        logging.info('Triggering stop order...')        
+        log.info('Triggering stop order...')        
         # Determine buy/sell action based on position type
         buysell = "SELL" if monitoredPosition.takePosition == "long" else "BUY"
         # Format trigger prices
