@@ -484,8 +484,8 @@ class Dolph:
                 return
         logging.error(f"Security with seccode '{seccode}' not found")
     
-    
-if __name__== "__main__":
+
+def main():
 
     dolph = Dolph()
 
@@ -533,5 +533,6 @@ if __name__== "__main__":
             logger.info("Waiting 10 seconds before retrying...")
             time.sleep(10)
 
-    
-    
+   
+if __name__ == "__main__":
+    main()
