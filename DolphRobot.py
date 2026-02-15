@@ -61,7 +61,7 @@ class Dolph:
             for p in self.periods:
                 sec['predictions'][p] = []   
             
-            logger.info(str(sec))
+            logging.info(str(sec))
 
     
     def _init_logging(self):
