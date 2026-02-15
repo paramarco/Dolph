@@ -21,7 +21,7 @@ securities = [
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51
             ,"positionMargin": 0.0035 
-            ,"stopLossCoefficient": 3 
+            ,"stopLossCoefficient": 20 
             ,"acceptableTrainingError": 0.000192
             ,'period': '1Min'
         }
@@ -39,7 +39,7 @@ securities = [
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51
             ,"positionMargin": 0.0035
-            ,"stopLossCoefficient": 3 
+            ,"stopLossCoefficient": 20 
             ,"acceptableTrainingError": 0.000192
             ,'period': '1Min'
         }
@@ -57,7 +57,7 @@ securities = [
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51
             ,"positionMargin": 0.0035
-            ,"stopLossCoefficient": 3 
+            ,"stopLossCoefficient": 20 
             ,"acceptableTrainingError": 0.000192
             ,'period': '1Min'
         }
@@ -78,7 +78,7 @@ between_time = (
     current_tz.localize(dt.datetime.strptime('07:00', '%H:%M')).time(),
     current_tz.localize(dt.datetime.strptime('23:40', '%H:%M')).time()
 )
-tradingTimes = (dt.time(9, 00), dt.time(15, 45))
+tradingTimes = (dt.time(9, 34), dt.time(15, 45))
 
 
 numTestSample = 500
@@ -105,11 +105,11 @@ statusExitOrderExecuted = ['tp_executed', 'sl_executed','matched','triggered']
 statusExitOrderFilled = ['filled','Filled']
 
 ########### default-fallback values ##########################################
-factorPosition_Balance = 0.3
+factorPosition_Balance = 0.31
 factorMargin_Position  = 0.0035
 entryTimeSeconds = 3600
 exitTimeSeconds = 36000
-stopLossCoefficient = 3
+stopLossCoefficient = 20
 correction = 0.0
 spread = 0.0
 
