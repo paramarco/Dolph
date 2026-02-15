@@ -441,7 +441,7 @@ class Dolph:
         
     def initDB (self):
 
-        logger.info('initDB, getting Securities ids...')
+        logging.info('initDB, getting Securities ids...')
 
         for sec in self.securities:
             board, seccode = sec['board'], sec['seccode']
@@ -451,13 +451,13 @@ class Dolph:
         if self.MODE != 'INIT_DB' : 
             return
         
-        logger.info('init database according to Trading platform ...')
+        logging.info('init database according to Trading platform ...')
           
         for sec in self.securities:
             
-            logger.debug("getting candles ... ")
+            logging.debug("getting candles ... ")
             candles = self.tp.get_candles(sec, self.since, self.until, period = '1Min')
-            logger.debug("storing candles ... ")
+            logging.debug("storing candles ... ")
             self.ds.store_candles(candles,sec) 
     
         sys.exit(0)           

@@ -79,7 +79,7 @@ class Position:
     def __str__(self):
         
         #fmt = "%d.%m.%Y %H:%M:%S"
-        msg = ' takePosition='+ self.takePosition 
+        msg = ' position='+ self.takePosition 
         msg += ' seccode=' + self.seccode
         msg += ' quantity=' + str(self.quantity)
         msg += ' entryPrice=' + "{0:0.{prec}f}".format(self.entryPrice, prec=self.decimals)
@@ -87,7 +87,6 @@ class Position:
         msg += ' exitStopLoss=' + "{0:0.{prec}f}".format(self.stoploss, prec=self.decimals)
         msg += ' entry_id=' + str(self.entry_id)
         msg += ' exit_id=' + str(self.exit_id)
-        msg += ' exit_order_no=' + str(self.exit_order_no)
         
         return msg
 
