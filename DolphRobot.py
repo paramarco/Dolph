@@ -20,7 +20,8 @@ class Dolph:
 
     def __init__(self):
         
-        self._init_configuration()        
+        self._init_configuration()
+        self.logger = None      
         self._init_logging()
         self.ds = ds.DataServer()
         self.tp = tp.initTradingPlatform( self.onCounterPosition )   
@@ -29,6 +30,7 @@ class Dolph:
         self.tv = tv.TrendViewer( self.evaluatePosition )
         self.data = {}
         self._init_signaling()
+        
         
 
     def _init_configuration(self):
@@ -75,7 +77,8 @@ class Dolph:
             ]
         )
         logging.info('running on mode: ' + self.MODE)
-        
+        self.logger = logging.getLogger("Dolph")
+
 
     def _init_signaling(self):
         
@@ -490,6 +493,8 @@ def main():
     dolph = Dolph()
 
     logger = logging.getLogger("Dolph")
+
+    dolph.logger = logger
 
     iteration = 0
 
