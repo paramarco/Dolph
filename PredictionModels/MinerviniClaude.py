@@ -220,7 +220,7 @@ class MinerviniClaude:
         Contraction
             Default fallback.
             Low volatility compression phase.
-        """"
+        """
         latest = df.iloc[-1]  # Get the latest row of indicators
 
         # ---------------------------------------------------------
