@@ -75,6 +75,10 @@ class MinerviniClaude:
 
             signal = self._generate_signal(self.df, phase)
 
+            if signal not in ['long', 'short', 'no-go']:
+                log.error(f"{self.seccode}: invalid signal {signal}, forcing no-go")
+                signal = 'no-go'
+
             self._adapt_margin(sec, phase, self.df)
 
             utc_now = dt.datetime.now(dt.timezone.utc)
@@ -357,15 +361,32 @@ class MinerviniClaude:
         # FINAL DECISION
         # =============================
         score_diff = long_score - short_score
+        total_score = long_score + short_score
 
-        if score_diff > 1.0:
-            signal = 'long'
-        elif score_diff < -1.0:
-            signal = 'short'
+        if total_score == 0:
+            return 'no-go'
+
+        confidence = abs(score_diff) / total_score
+
+        # ---- Low energy filter ---- cm.MIN_TOTAL_SCORE = 1.5
+        # Minimum intensity filter. Avoid trades when there is very little total energy.
+        if total_score < cm.MIN_TOTAL_SCORE:
+            return 'no-go'
+
+        # ---- Conflict filter ----  cm.MIN_CONFIDENCE = 0.6
+        # Minimum conviction filter. Avoid trades when there is internal conflict.
+        if confidence < cm.MIN_CONFIDENCE:
+            return 'no-go'
+
+        # ---- Direction ----
+        if score_diff > 0:
+            return 'long'
         else:
-            signal = 'no-go'
+            return 'short'
 
-        return signal
+        log.error("returning no-go out of logic")
+        return 'no-go'
+
 
     # =====================================================
     # MARGIN ADAPTATION
