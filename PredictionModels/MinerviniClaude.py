@@ -72,7 +72,34 @@ class MinerviniClaude:
             self.df = self._compute_indicators(self.df)
 
             phase = self._detect_phase(self.df)
+            
             signal = self._generate_signal(self.df, phase)
+
+            context = self._volume_context(df)
+
+            # Divergence cancels longs
+            if signal == 'long' and context['divergence']:
+                log.info(f"{self.seccode}: volume divergence detected → cancelling long")
+                signal = 'no-go'
+
+            # Trust strengthens breakout
+            if signal == 'long' and context['trust']:
+                log.info(f"{self.seccode}: TRUST breakout confirmed")
+
+            # Absorption at highs biases short
+            if context['absorption']:
+                log.info(f"{self.seccode}: ABSORPTION detected")
+                signal = 'short'
+
+            # Buying climax warns
+            if context['buying_climax']:
+                log.info(f"{self.seccode}: BUYING CLIMAX warning")
+                signal = 'short'
+
+            # No supply encourages long
+            if context['no_supply']:
+                log.info(f"{self.seccode}: NO SUPPLY test → long bias")
+                signal = 'long'
 
             self._adapt_margin(sec, phase, self.df)
 
@@ -494,3 +521,61 @@ class MinerviniClaude:
                     best_margin = m
 
         return float(best_margin)
+
+
+    def _volume_context(self, df):
+
+        latest = df.iloc[-1]
+
+        # Compute relative metrics
+        volume_avg = df['volume'].rolling(cm.VOLUME_AVG_WINDOW).mean().iloc[-1]
+        relative_volume = latest['volume'] / volume_avg
+
+        candle_body = abs(latest['close'] - latest['open'])
+        candle_range = latest['high'] - latest['low']
+        relative_body = candle_body / latest['ATR']
+
+        price_slope = df['close'].diff(cm.VOLUME_SLOPE_WINDOW).iloc[-1]
+        volume_slope = df['volume'].diff(cm.VOLUME_SLOPE_WINDOW).iloc[-1]
+
+        context = {}
+
+        context['healthy'] = (
+            (price_slope > 0 and volume_slope > 0)
+            or
+            (price_slope < 0 and volume_slope < 0)
+        )
+
+        context['absorption'] = (
+            relative_volume > cm.BIG_VOLUME_THRESHOLD
+            and relative_body < 0.5
+        )
+
+        context['trust'] = (
+            relative_body > cm.BIG_BODY_ATR_THRESHOLD
+            and relative_volume > cm.BIG_VOLUME_THRESHOLD
+        )
+
+        context['divergence'] = (
+            df['close'].iloc[-1] > df['close'].iloc[-cm.DIVERGENCE_LOOKBACK]
+            and df['volume'].iloc[-1] < df['volume'].iloc[-cm.DIVERGENCE_LOOKBACK]
+        )
+
+        context['stopping_volume'] = (
+            relative_volume > cm.EXTREME_VOLUME_THRESHOLD
+            and latest['close'] < latest['open']
+            and latest['close'] > latest['low'] + (candle_range * 0.3)
+        )
+
+        context['buying_climax'] = (
+            relative_volume > cm.EXTREME_VOLUME_THRESHOLD
+            and relative_body > cm.EXTREME_BODY_ATR_THRESHOLD
+            and latest['close'] > latest['open']
+        )
+
+        context['no_supply'] = (
+            price_slope < 0
+            and relative_volume < 0.7
+        )
+
+        return context   
