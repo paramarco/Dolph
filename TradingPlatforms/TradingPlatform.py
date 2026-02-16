@@ -79,7 +79,7 @@ class Position:
     def __str__(self):
         
         #fmt = "%d.%m.%Y %H:%M:%S"
-        msg = ' position='+ self.takePosition 
+        msg = ' position='+ str(self.takePosition)  
         msg += ' seccode=' + self.seccode
         msg += ' quantity=' + str(self.quantity)
         msg += ' entryPrice=' + "{0:0.{prec}f}".format(self.entryPrice, prec=self.decimals)
