@@ -118,6 +118,80 @@ spread = 0.0
 
 openaikey = platform['secrets']['openaikey']
 
+# ===== Phase Detection Parameters =====
+# Expansion:  (ATR_slope > threshold AND Bollinger width percentile high)
+# Trend: ( ADX above threshold, strong directional movement) and (EMA alignment either bullish or bearish)
 VCP_ATR_SLOPE_EXPANSION = 0.15
 VCP_BB_WIDTH_PERCENTILE_EXPANSION = 0.5
 VCP_ADX_TREND_THRESHOLD = 25
+
+# Indicator Periods
+EMA_FAST = 9
+EMA_MID = 21
+EMA_SLOW = 50
+
+RSI_PERIOD = 14             # RSI (Momentum Filter). to Confirm directional entries, Filter false breakouts  
+
+ATR_PERIOD = 14             # ATR CALCULATION. to measure volatility level
+ATR_SLOPE_WINDOW = 5        # ATR SLOPE. Measures volatility expansion / contraction speed
+
+ADX_PERIOD = 14             # ADX + DI (Trend Strength). to confirm directional strength, to filter ranging markets
+
+BB_WINDOW = 20              # BOLLINGER BAND WIDTH. Measures compression vs expansion of volatility
+BB_STD = 2
+BB_PERCENTILE_WINDOW = 100
+
+FVP_WINDOW = 30             # FAIR VALUE PRICE (FVP). Rolling mean of close. Used for mean-reversion during expansion
+
+# ===============================
+# Expansion Phase Thresholds
+# ===============================
+EXPANSION_DEVIATION_THRESHOLD = 0.0005
+EXPANSION_RSI_SHORT_MIN = 40
+EXPANSION_RSI_LONG_MAX = 60
+
+# ===============================
+# Trend Phase Thresholds
+# ===============================
+TREND_RSI_LONG_MIN = 40
+TREND_RSI_LONG_MAX = 70
+
+TREND_RSI_SHORT_MIN = 30
+TREND_RSI_SHORT_MAX = 60
+
+# ===================================
+# Margin Adaptation Parameters
+# ===================================
+
+# Contraction Phase
+MARGIN_CONTRACTION_FIXED = 0.0015
+
+# Expansion Phase
+MARGIN_EXPANSION_MULTIPLIER = 1.5
+MARGIN_EXPANSION_MIN = 0.002
+MARGIN_EXPANSION_MAX = 0.008
+
+# Trend Phase
+MARGIN_TREND_ATR_MULTIPLIER = 2.0
+MARGIN_TREND_MIN = 0.002
+MARGIN_TREND_MAX = 0.006
+
+# ===================================
+# Calibration Parameters
+# ===================================
+
+CALIBRATION_LOOKBACK_DAYS = 90
+CALIBRATION_LIMIT_RESULTS = 5000
+CALIBRATION_MIN_ROWS = 1000
+
+CALIBRATION_MARGIN_MIN = 0.001
+CALIBRATION_MARGIN_MAX = 0.006
+CALIBRATION_MARGIN_STEPS = 10
+
+# ===================================
+# Calibration Simulation Parameters
+# ===================================
+
+CALIBRATION_LOOKAHEAD_BARS = 60
+CALIBRATION_STOPLOSS_MULTIPLIER = 3.0
+CALIBRATION_DEFAULT_MARGIN = 0.003

@@ -140,28 +140,59 @@ class MinerviniClaude:
     # =====================================================
 
     def _compute_indicators(self, df):
-
-        df['EMA9'] = df['close'].ewm(span=9).mean()
-        df['EMA21'] = df['close'].ewm(span=21).mean()
-        df['EMA50'] = df['close'].ewm(span=50).mean()
-
-        df['RSI'] = self._rsi_series(df['close'], 14)
-
-        df['ATR'] = self._atr(df, 14)
-        df['ATR_slope'] = df['ATR'].diff(5)
-
-        df['ADX'], df['+DI'], df['-DI'] = self._adx(df, 14)
-
-        # Bollinger width
-        ma = df['close'].rolling(20).mean()
-        std = df['close'].rolling(20).std()
-        df['BB_width'] = (2 * std) / ma
-        df['BB_width_pctile'] = df['BB_width'].rolling(100).apply(
+        """ This method computes all technical indicators required for:
+            Phase detection (Contraction / Expansion / Trend)
+            Signal generation (long / short / no-go)
+            Volatility-based margin adaptation
+        """
+        # ---------------------------------------------------------
+        # Exponential moving averages used for trend alignment. Used for:
+        #   EMA alignment (trend detection)
+        #   Short-term vs mid-term structure
+        #   Pullback detection    
+        # ---------------------------------------------------------
+        df['EMA_FAST'] = df['close'].ewm(span=cm.EMA_FAST).mean()   # cm.EMA_FAST = 9
+        df['EMA_MID'] = df['close'].ewm(span=cm.EMA_MID).mean()     # cm.EMA_MID = 21
+        df['EMA_SLOW'] = df['close'].ewm(span=cm.EMA_SLOW).mean()   # cm.EMA_SLOW = 50
+        # ---------------------------------------------------------
+        # RSI (Momentum Filter). Used for:
+        #   Avoid overbought/oversold extremes
+        #   Confirm directional entries
+        #   Filter false breakouts
+        # ---------------------------------------------------------
+        df['RSI'] = self._rsi_series(df['close'], cm.RSI_PERIOD) # cm.RSI_PERIOD = 14
+        # ---------------------------------------------------------
+        # ATR + ATR Slope (Volatility Regime). Measures volatility level, Used to:
+        #   Detect expansion (volatility rising)
+        #   Detect contraction (volatility compressing)
+        # ---------------------------------------------------------
+        df['ATR'] = self._atr(df, cm.ATR_PERIOD)                # cm.ATR_PERIOD = 14 
+        df['ATR_slope'] = df['ATR'].diff(cm.ATR_SLOPE_WINDOW)   # cm.ATR_SLOPE_WINDOW = 5
+        # ---------------------------------------------------------
+        # ADX + DI (Trend Strength). Measures trend strength and direction, Used to:
+        #   Confirm directional strength
+        #   Filter ranging markets
+        # ---------------------------------------------------------
+        df['ADX'], df['+DI'], df['-DI'] = self._adx(df, cm.ADX_PERIOD) # cm.ADX_PERIOD = 14
+        # ---------------------------------------------------------
+        # BOLLINGER BAND + Percentile. Measures compression vs expansion of volatility, Used to:
+        #   Detect volatility compression
+        #   Detect breakout expansion
+        # ---------------------------------------------------------        
+        ma = df['close'].rolling(cm.BB_WINDOW).mean()           # cm.BB_WINDOW = 20
+        std = df['close'].rolling(cm.BB_WINDOW).std()           # cm.BB_WINDOW = 20
+        # Normalized width (volatility relative to price level)
+        df['BB_width'] = (cm.BB_STD * std) / ma                 # cm.BB_STD = 2
+        # Percentile of BB width over rolling window            # cm.BB_PERCENTILE_WINDOW = 100
+        df['BB_width_pctile'] = df['BB_width'].rolling(cm.BB_PERCENTILE_WINDOW).apply(
             lambda x: pd.Series(x).rank(pct=True).iloc[-1]
         )
-
-        # Fair Value Price
-        df['FVP'] = df['close'].rolling(30).mean()
+        # ---------------------------------------------------------
+        # FAIR VALUE PRICE (FVP). Rolling mean of close. Used for:
+        # Statistical center of recent price movement
+        # Used for mean-reversion during expansion
+        # ---------------------------------------------------------
+        df['FVP'] = df['close'].rolling(cm.FVP_WINDOW).mean()   # cm.FVP_WINDOW = 30
 
         df.dropna(inplace=True)
 
@@ -222,7 +253,6 @@ class MinerviniClaude:
             Low volatility compression phase.
         """
         latest = df.iloc[-1]  # Get the latest row of indicators
-
         # ---------------------------------------------------------
         # Expansion is detected when volatility increases rapidly
         # ATR_slope > threshold AND Bollinger width percentile high
@@ -233,16 +263,16 @@ class MinerviniClaude:
         ):
             return 'expansion'
         # ---------------------------------------------------------
-        # Trend requires:
-        # 1) ADX above threshold (strong directional movement)
-        # 2) EMA alignment either bullish or bearish
+        # Trend is detected when both:
+        #   1) ADX above threshold (strong directional movement)
+        #   2) EMA alignment either bullish or bearish
         # ---------------------------------------------------------
         if (
             latest['ADX'] > cm.VCP_ADX_TREND_THRESHOLD and  # VCP_ADX_TREND_THRESHOLD = 25
             (
-                latest['EMA9'] > latest['EMA21'] > latest['EMA50']
-                or
-                latest['EMA9'] < latest['EMA21'] < latest['EMA50']
+                latest['EMA_FAST'] > latest['EMA_MID'] > latest['EMA_SLOW']                
+                or                
+                latest['EMA_FAST'] < latest['EMA_MID'] < latest['EMA_SLOW']
             )
         ):
             return 'trend'
@@ -257,36 +287,59 @@ class MinerviniClaude:
 
     def _generate_signal(self, df, phase):
 
-        latest = df.iloc[-1]
-
+        latest = df.iloc[-1]        # Get latest indicator values
+        # ---------------------------------------------------------
+        # CONTRACTION PHASE No trades allowed in volatility compression regime
+        # ---------------------------------------------------------
         if phase == 'contraction':
             return 'no-go'
-
+        # ---------------------------------------------------------
+        # EXPANSION PHASE
+        #   Mean-reversion relative to Fair Value Price (FVP)
+        #   Entry when price deviates significantly from center
+        # ---------------------------------------------------------
         if phase == 'expansion':
-            deviation = (latest['close'] - latest['FVP']) / latest['FVP']
-
-            if deviation > 0.0005 and latest['RSI'] > 40:
+            # Relative deviation from statistical center
+            deviation = (latest['close'] - latest['FVP']) / latest['FVP'] 
+            # Short signal:  Price above fair value AND RSI not weak
+            if (
+                deviation > cm.EXPANSION_DEVIATION_THRESHOLD and    # cm.EXPANSION_DEVIATION_THRESHOLD = 0.0005
+                latest['RSI'] > cm.EXPANSION_RSI_SHORT_MIN          # cm.EXPANSION_RSI_SHORT_MIN = 40
+            ):                
                 return 'short'
-            if deviation < -0.0005 and latest['RSI'] < 60:
+            # Long signal: Price below fair value AND RSI not overheated
+            if (
+                deviation < -cm.EXPANSION_DEVIATION_THRESHOLD and   # cm.EXPANSION_DEVIATION_THRESHOLD = 0.0005
+                latest['RSI'] < cm.EXPANSION_RSI_LONG_MAX           # cm.EXPANSION_RSI_LONG_MAX = 60
+            ):
                 return 'long'
             return 'no-go'
 
+        # ---------------------------------------------------------
+        # TREND PHASE Trend-following continuation entries
+        #   Requires EMA alignment + DI confirmation + RSI filter
+        # ---------------------------------------------------------
         if phase == 'trend':
-
+            # Bullish Trend Continuation
+            #   cm.TREND_RSI_LONG_MIN = 40
+            #   cm.TREND_RSI_LONG_MAX = 70
             if (
-                latest['EMA9'] > latest['EMA21'] > latest['EMA50']
+                latest['EMA_FAST'] > latest['EMA_MID'] > latest['EMA_SLOW']
                 and latest['+DI'] > latest['-DI']
-                and 40 < latest['RSI'] < 70
+                and cm.TREND_RSI_LONG_MIN < latest['RSI'] < cm.TREND_RSI_LONG_MAX
             ):
                 return 'long'
-
+            # Bearish Trend Continuation
+            #   cm.TREND_RSI_SHORT_MIN = 30
+            #   cm.TREND_RSI_SHORT_MAX = 60
             if (
-                latest['EMA9'] < latest['EMA21'] < latest['EMA50']
+                latest['EMA_FAST'] < latest['EMA_MID'] < latest['EMA_SLOW']
                 and latest['-DI'] > latest['+DI']
-                and 30 < latest['RSI'] < 60
+                and cm.TREND_RSI_SHORT_MIN < latest['RSI'] < cm.TREND_RSI_SHORT_MAX                
             ):
                 return 'short'
-
+        
+        # Default Fallback
         return 'no-go'
 
     # =====================================================
@@ -295,25 +348,50 @@ class MinerviniClaude:
 
     def _adapt_margin(self, sec, phase, df):
 
-        latest = df.iloc[-1]
-        close = latest['close']
+        latest = df.iloc[-1]        # Get latest indicator values
+        close = latest['close']     # Current price (used to normalize ATR)
 
-        if self.seccode in MinerviniClaude._calibration_cache:
+        # If calibration exists, use pre-optimized margins
+        if self.seccode in MinerviniClaude._calibration_cache:          
             margins = MinerviniClaude._calibration_cache[self.seccode]
             if phase in margins:
                 m = margins[phase]
+                msg = f"seccode {self.seccode} calibration exists, using pre-optimized margins {m}"
+                log.debug(msg)
                 sec['params']['positionMargin'] = m                
                 return
-
+        # Contraction Phase. Very tight margin because volatility is low
         if phase == 'contraction':
-            m = 0.0015
-
+            m = cm.MARGIN_CONTRACTION_FIXED                 # cm.MARGIN_CONTRACTION_FIXED = 0.0015
+        
+        # Expansion Phase. Reflects volatility breakout amplitude
         elif phase == 'expansion':
-            m = min(max(latest['BB_width'] * 1.5, 0.002), 0.008)
-
+           # cm.MARGIN_EXPANSION_MULTIPLIER = 1.5
+            raw_margin = latest['BB_width'] * cm.MARGIN_EXPANSION_MULTIPLIER 
+            # Clamp margin inside configured bounds
+            m = min(
+                max(raw_margin, cm.MARGIN_EXPANSION_MIN),   # cm.MARGIN_EXPANSION_MIN = 0.002
+                cm.MARGIN_EXPANSION_MAX                     # cm.MARGIN_EXPANSION_MAX = 0.008
+            )
+        # Trend Phase. Reflects sustained directional volatility. Margin proportional to ATR normalized
         elif phase == 'trend':
             m = min(max(2.0 * latest['ATR'] / close, 0.002), 0.006)
+            # cm.MARGIN_TREND_ATR_MULTIPLIER = 2.0
+            raw_margin = (
+                cm.MARGIN_TREND_ATR_MULTIPLIER *
+                latest['ATR'] / close
+            )
+            # Clamp margin inside configured bounds
+            m = min(
+                max(raw_margin, cm.MARGIN_TREND_MIN),       # cm.MARGIN_TREND_MIN = 0.002
+                cm.MARGIN_TREND_MAX                         # cm.MARGIN_TREND_MAX = 0.006
+            )
 
+        # Fallback (safety)    
+        else:
+            m = cm.MARGIN_CONTRACTION_FIXED                 # cm.MARGIN_CONTRACTION_FIXED = 0.0015
+        
+        # Apply computed margin to security parameters
         sec['params']['positionMargin'] = float(m)
         
 
@@ -324,28 +402,38 @@ class MinerviniClaude:
     def _calibrate_margins_from_db(self):
 
         try:
-
-            since = dt.datetime.now() - dt.timedelta(days=90)
+            # Define historical lookback period,  cm.CALIBRATION_LOOKBACK_DAYS = 90
+            since = dt.datetime.now() - dt.timedelta(days=cm.CALIBRATION_LOOKBACK_DAYS)
+            # Fetch historical 1-minute data from database, cm.CALIBRATION_LIMIT_RESULTS = 5000
             df = self.dolph.ds.searchData(since, limitResult=5000)
             df = df['1Min'].copy()
-
+            # Prepare OHLCV format
             hist = self._prepare_ohlcv(df)
-
-            if hist is None or len(hist) < 1000:
+            # Ensure sufficient data for statistical validity, cm.CALIBRATION_MIN_ROWS = 1000
+            if hist is None or len(hist) < cm.CALIBRATION_MIN_ROWS:
                 log.info(f"{self.seccode}: calibration failed: less than 1000 items")
                 return
-
-            hist['ATR'] = self._atr(hist, 14)
+            # Compute ATR for volatility regime split, cm.ATR_PERIOD = 14
+            hist['ATR'] = self._atr(hist, cm.ATR_PERIOD)
             median_atr = hist['ATR'].median()
-
+            # Split dataset into low and high volatility halves
+            # It’s a statistical proxy for phase without running full phase detection historically (faster).
+            # This approximates:
+            #   Regime	            Proxy
+            #   Low volatility	    Expansion
+            #   High volatility	    Trend
             low_vol = hist[hist['ATR'] < median_atr]
             high_vol = hist[hist['ATR'] >= median_atr]
-
-            margins = np.linspace(0.001, 0.006, 10)
-
+            # Generate candidate margin values, (MIN=0.001, MAX=0.006, STEPS=10)
+            margins = np.linspace(
+                cm.CALIBRATION_MARGIN_MIN,
+                cm.CALIBRATION_MARGIN_MAX,
+                cm.CALIBRATION_MARGIN_STEPS
+            )
+            # Run calibration simulation for each regime
             best_low = self._run_calibration(low_vol, margins)
             best_high = self._run_calibration(high_vol, margins)
-
+            # Store optimized results
             MinerviniClaude._calibration_cache[self.seccode] = {
                 'expansion': best_low,
                 'trend': best_high
@@ -359,32 +447,48 @@ class MinerviniClaude:
         except Exception as e:
             log.error(f"{self.seccode}: calibration failed {e}")
 
+
     def _run_calibration(self, df, margins):
-
-        best_score = 0
+        """This is a simplified Monte Carlo forward simulation
+            • Iterates over candidate margin values.
+            • Simulates a trade at every historical bar:
+                • Entry at close
+                • TP = entry x (1 + margin)
+                • SL = entry x (1 - k x margin)
+            • Looks forward N bars.
+            • Checks which is hit first: TP or SL.
+            • Computes win rate, score = wins / total That maximizes probability of TP hit.
+            • Selects margin with best score.
+        """
+        # Initialize best score and margin
+        best_score = 0  
         best_margin = 0.003
-
+        # Loop over candidate margin values
         for m in margins:
             wins = 0
             total = 0
-
-            for i in range(len(df) - 60):
+            # Slide through historical dataset cm.CALIBRATION_LOOKAHEAD_BARS = 60
+            for i in range(len(df) - cm.CALIBRATION_LOOKAHEAD_BARS):    
                 entry = df['close'].iloc[i]
-                tp = entry * (1 + m)
-                sl = entry * (1 - 3*m)
-
-                window = df.iloc[i:i+60]
-
+                # Takeprofit level
+                tp = entry * (1 + m)        
+                # Stoploss level cm.CALIBRATION_STOPLOSS_MULTIPLIER = 3.0
+                sl = entry * ( 1 - cm.CALIBRATION_STOPLOSS_MULTIPLIER * m ) 
+                # Lookahead window, cm.CALIBRATION_LOOKAHEAD_BARS = = 60
+                window = df.iloc[i:i+cm.CALIBRATION_LOOKAHEAD_BARS]
+                # Check if TP is reached within window
                 hit_tp = (window['high'] >= tp).any()
+                # Check if SL is reached within window
                 hit_sl = (window['low'] <= sl).any()
-
+                # Count win only if TP hit and SL not hit first
                 if hit_tp and not hit_sl:
                     wins += 1
 
                 total += 1
-
+            # Compute score (TP hit probability)
             if total > 0:
                 score = wins / total
+                # Update best margin if better score found
                 if score > best_score:
                     best_score = score
                     best_margin = m
