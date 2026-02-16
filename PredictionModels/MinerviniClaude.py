@@ -356,7 +356,6 @@ class MinerviniClaude:
         # =============================
         # FINAL DECISION
         # =============================
-
         score_diff = long_score - short_score
 
         if score_diff > 1.0:
@@ -365,8 +364,8 @@ class MinerviniClaude:
             signal = 'short'
         else:
             signal = 'no-go'
-       
 
+        return signal
 
     # =====================================================
     # MARGIN ADAPTATION
