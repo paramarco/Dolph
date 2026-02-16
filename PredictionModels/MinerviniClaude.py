@@ -133,31 +133,15 @@ class MinerviniClaude:
 
     def _prepare_ohlcv(self, df):
 
-        # Ensure df has a mnemonic column, and filter by seccode
+        log.debug(f"{self.seccode} columns BEFORE rename: {df.columns.tolist()}")
+
+        # Filter by mnemonic
         if 'mnemonic' in df.columns:
-            df = df[df['mnemonic'] == self.seccode]
+            df = df[df['mnemonic'] == self.seccode].copy()
         else:
-            log.error(f"DataFrame does not have a 'mnemonic' column.")
-            raise KeyError("DataFrame is missing 'mnemonic' column.")
+            raise KeyError("DataFrame missing 'mnemonic' column")
 
-        df = df[df['mnemonic'] == self.seccode].copy()
-
-        # Exclude non-price columns ('hastrade', 'numberoftrades')
-        df = df.drop(columns=['hastrade', 'numberoftrades'], errors='ignore')
-            
-        # Ensure df has a datetime index
-        if not isinstance(df.index, pd.DatetimeIndex):
-            raise ValueError("DataFrame must have a datetime index.")
-            
-        # Standardize volume column
-        if 'volume' not in df.columns:
-            if 'addedvolume' in df.columns:
-                df.rename(columns={'addedvolume': 'volume'}, inplace=True)
-            else:
-                raise KeyError("No volume column found")
-
-
-        # Now proceed with renaming the columns as before
+        # Rename OHLC
         df = df.rename(columns={
             'startprice': 'open',
             'maxprice': 'high',
@@ -165,7 +149,22 @@ class MinerviniClaude:
             'endprice': 'close'
         })
 
-        df = df[['open', 'high', 'low', 'close','volume']]
+        log.debug(f"{self.seccode} columns AFTER rename 1 : {df.columns.tolist()}")
+        # ---- ROBUST VOLUME STANDARDIZATION ----
+        if 'volume' in df.columns:
+            pass
+        elif 'addedvolume' in df.columns:
+            df.rename(columns={'addedvolume': 'volume'}, inplace=True)
+        elif 'numberoftrades' in df.columns:
+            df.rename(columns={'numberoftrades': 'volume'}, inplace=True)
+        else:
+            log.error(f"{self.seccode}: No volume column found. Columns={df.columns}")
+            raise KeyError("No volume column found")
+
+        log.debug(f"{self.seccode} columns AFTER rename 2: {df.columns.tolist()}")
+
+        # Keep only required columns
+        df = df[['open', 'high', 'low', 'close', 'volume']]
 
         return df
 
