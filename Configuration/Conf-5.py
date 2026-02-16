@@ -196,7 +196,7 @@ CALIBRATION_LOOKAHEAD_BARS = 60
 CALIBRATION_STOPLOSS_MULTIPLIER = 3.0
 CALIBRATION_DEFAULT_MARGIN = 0.003
 
-# ==========================================vi
+# ==========================================
 # Volume Analysis Parameters
 # ==========================================
 
@@ -210,3 +210,12 @@ BIG_BODY_ATR_THRESHOLD = 1.2
 EXTREME_BODY_ATR_THRESHOLD = 2.0
 
 DIVERGENCE_LOOKBACK = 10
+
+# ==========================================
+# BUYING_CLIMAX
+# ==========================================
+
+BUYING_CLIMAX_LOOKBACK = 20
+BUYING_CLIMAX_TREND_LOOKBACK = 15
+BUYING_CLIMAX_EXTENSION = 0.004   # 0.4%
+BUYING_CLIMAX_COOLDOWN_SECONDS = 900  # 15 minutos

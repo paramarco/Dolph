@@ -303,12 +303,12 @@ class MinerviniClaude:
 
     def _generate_signal(self, df, phase):
 
+        long_score = 0.0
+        short_score = 0.0
         latest = df.iloc[-1]        # Get latest indicator values
-        # ---------------------------------------------------------
-        # CONTRACTION PHASE No trades allowed in volatility compression regime
-        # ---------------------------------------------------------
-        if phase == 'contraction':
-            return 'no-go'
+        bullish = latest['EMA_FAST'] > latest['EMA_MID'] > latest['EMA_SLOW']
+        bearish = latest['EMA_FAST'] < latest['EMA_MID'] < latest['EMA_SLOW']
+ 
         # ---------------------------------------------------------
         # EXPANSION PHASE
         #   Mean-reversion relative to Fair Value Price (FVP)
@@ -322,14 +322,13 @@ class MinerviniClaude:
                 deviation > cm.EXPANSION_DEVIATION_THRESHOLD and    # cm.EXPANSION_DEVIATION_THRESHOLD = 0.0005
                 latest['RSI'] > cm.EXPANSION_RSI_SHORT_MIN          # cm.EXPANSION_RSI_SHORT_MIN = 40
             ):                
-                return 'short'
+                short_score += 1.0
             # Long signal: Price below fair value AND RSI not overheated
             if (
                 deviation < -cm.EXPANSION_DEVIATION_THRESHOLD and   # cm.EXPANSION_DEVIATION_THRESHOLD = 0.0005
                 latest['RSI'] < cm.EXPANSION_RSI_LONG_MAX           # cm.EXPANSION_RSI_LONG_MAX = 60
             ):
-                return 'long'
-            return 'no-go'
+                long_score += 1.0
 
         # ---------------------------------------------------------
         # TREND PHASE Trend-following continuation entries
@@ -340,23 +339,57 @@ class MinerviniClaude:
             #   cm.TREND_RSI_LONG_MIN = 40
             #   cm.TREND_RSI_LONG_MAX = 70
             if (
-                latest['EMA_FAST'] > latest['EMA_MID'] > latest['EMA_SLOW']
-                and latest['+DI'] > latest['-DI']
+                bullish and latest['+DI'] > latest['-DI']
                 and cm.TREND_RSI_LONG_MIN < latest['RSI'] < cm.TREND_RSI_LONG_MAX
             ):
-                return 'long'
+                long_score += 1.5
             # Bearish Trend Continuation
             #   cm.TREND_RSI_SHORT_MIN = 30
             #   cm.TREND_RSI_SHORT_MAX = 60
             if (
-                latest['EMA_FAST'] < latest['EMA_MID'] < latest['EMA_SLOW']
-                and latest['-DI'] > latest['+DI']
+                bearish and latest['-DI'] > latest['+DI']
                 and cm.TREND_RSI_SHORT_MIN < latest['RSI'] < cm.TREND_RSI_SHORT_MAX                
             ):
-                return 'short'
-        
-        # Default Fallback
-        return 'no-go'
+                short_score += 1.5
+
+        # =============================
+        # TREND STRUCTURE SCORE
+        # =============================
+        if latest['ADX'] > cm.VCP_ADX_TREND_THRESHOLD:
+            if latest['+DI'] > latest['-DI']:
+                long_score += 0.5
+            else:
+                short_score += 0.5
+
+        # =============================
+        # VOLUME SCORE
+        # =============================
+        if context['buying_climax']:
+            short_score += 1.0
+
+        if context['no_supply'] and bullish :
+            long_score += 0.8
+
+        if context['divergence']:
+            long_score -= 0.7
+
+        if context['absorption']:
+            short_score += 0.6
+
+        # =============================
+        # FINAL DECISION
+        # =============================
+
+        score_diff = long_score - short_score
+
+        if score_diff > 1.0:
+            signal = 'long'
+        elif score_diff < -1.0:
+            signal = 'short'
+        else:
+            signal = 'no-go'
+       
+
 
     # =====================================================
     # MARGIN ADAPTATION
@@ -555,12 +588,41 @@ class MinerviniClaude:
             and latest['close'] < latest['open']
             and latest['close'] > latest['low'] + (candle_range * 0.3)
         )
+        # ==========================================
+        # context['buying_climax']
+        # ==========================================
+
+        # cm.BUYING_CLIMAX_LOOKBACK = 20
+        recent_high = df['high'].rolling(cm.BUYING_CLIMAX_LOOKBACK).max().iloc[-2]
+        is_breakout_high = latest['high'] >= recent_high
+
+        # cm.BUYING_CLIMAX_TREND_LOOKBACK = 15
+        trend_up = (
+            df['close'].iloc[-cm.BUYING_CLIMAX_TREND_LOOKBACK:].mean()
+            >
+            df['close'].iloc[-2*cm.BUYING_CLIMAX_TREND_LOOKBACK:-cm.BUYING_CLIMAX_TREND_LOOKBACK].mean()
+        )
+        # cm.BUYING_CLIMAX_EXTENSION = 0.004   # 0.4%
+        extension = (latest['close'] - latest['FVP']) / latest['FVP']
+        is_overextended = extension > cm.BUYING_CLIMAX_EXTENSION
+        # cm.BUYING_CLIMAX_COOLDOWN_SECONDS = 900  # 15 minutos
+        cooldown_ok = (
+            not hasattr(self, "_last_climax_time")
+            or self._last_climax_time is None
+            or (df.index[-1] - self._last_climax_time).seconds > cm.BUYING_CLIMAX_COOLDOWN_SECONDS
+        )
 
         context['buying_climax'] = (
             relative_volume > cm.EXTREME_VOLUME_THRESHOLD
             and relative_body > cm.EXTREME_BODY_ATR_THRESHOLD
-            and latest['close'] > latest['open']
+            and is_breakout_high
+            and trend_up
+            and is_overextended
+            and cooldown_ok
         )
+
+        if context['buying_climax']:
+            self._last_climax_time = df.index[-1]
 
         context['no_supply'] = (
             price_slope < 0
