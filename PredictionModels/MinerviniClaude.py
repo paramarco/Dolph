@@ -72,7 +72,7 @@ class MinerviniClaude:
             self.df = self._compute_indicators(self.df)
 
             phase = self._detect_phase(self.df)
-            
+
             signal = self._generate_signal(self.df, phase)
 
             context = self._volume_context(df)
@@ -142,20 +142,27 @@ class MinerviniClaude:
 
         df = df[df['mnemonic'] == self.seccode].copy()
 
-        # Exclude non-price columns ('mnemonic', 'hastrade', 'numberoftrades')
+        # Exclude non-price columns ('hastrade', 'numberoftrades')
         df = df.drop(columns=['hastrade', 'numberoftrades'], errors='ignore')
             
         # Ensure df has a datetime index
         if not isinstance(df.index, pd.DatetimeIndex):
             raise ValueError("DataFrame must have a datetime index.")
+            
+        # Standardize volume column
+        if 'volume' not in df.columns:
+            if 'addedvolume' in df.columns:
+                df.rename(columns={'addedvolume': 'volume'}, inplace=True)
+            else:
+                raise KeyError("No volume column found")
+
 
         # Now proceed with renaming the columns as before
         df = df.rename(columns={
             'startprice': 'open',
             'maxprice': 'high',
             'minprice': 'low',
-            'endprice': 'close',
-            'addedvolume' : 'volume'
+            'endprice': 'close'
         })
 
         df = df[['open', 'high', 'low', 'close','volume']]
