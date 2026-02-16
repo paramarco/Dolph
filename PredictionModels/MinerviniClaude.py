@@ -75,7 +75,7 @@ class MinerviniClaude:
 
             signal = self._generate_signal(self.df, phase)
 
-            context = self._volume_context(df)
+            context = self._volume_context(self.df)
 
             # Divergence cancels longs
             if signal == 'long' and context['divergence']:
