@@ -86,14 +86,12 @@ class MinerviniClaude:
             if signal == 'long' and context['trust']:
                 log.info(f"{self.seccode}: TRUST breakout confirmed")
 
-            # Absorption at highs biases short
-            if context['absorption']:
-                log.info(f"{self.seccode}: ABSORPTION detected")
-                signal = 'short'
+            if signal == 'long' and context['buying_climax']:
+                signal = 'no-go'
 
-            # Buying climax warns
-            if context['buying_climax']:
-                log.info(f"{self.seccode}: BUYING CLIMAX warning")
+
+            # reversión SOLO si contexto bajista real
+            if phase == 'distribution' and context['buying_climax'] and context['absorption']:
                 signal = 'short'
 
             # No supply encourages long
