@@ -75,30 +75,6 @@ class MinerviniClaude:
 
             signal = self._generate_signal(self.df, phase)
 
-            context = self._volume_context(self.df)
-
-            # Trust strengthens breakout
-            if signal == 'long' and context['trust']:
-                log.info(f"{self.seccode}: TRUST breakout confirmed")
-
-            # Divergence cancels longs
-            if signal == 'long' and context['divergence']:
-                log.info(f"{self.seccode}: volume divergence detected → cancelling long")
-                signal = 'no-go'
-
-            if signal == 'long' and context['buying_climax']:
-                signal = 'no-go'
-
-            # Strong reversal (only if real confluence)
-            if (phase == 'expansion' and context['buying_climax'] and context['absorption']):
-                signal = 'short'
-
-            if (phase == 'trend' and signal == 'no-go'and context['no_supply']):
-                latest = self.df.iloc[-1]
-                # Only if the trend is upward
-                if latest['EMA_FAST'] > latest['EMA_MID'] > latest['EMA_SLOW']:
-                    signal = 'long'
-
             self._adapt_margin(sec, phase, self.df)
 
             utc_now = dt.datetime.now(dt.timezone.utc)
@@ -305,10 +281,9 @@ class MinerviniClaude:
 
         long_score = 0.0
         short_score = 0.0
-        latest = df.iloc[-1]        # Get latest indicator values
+        latest = df.iloc[-1]        # Get latest indicator values        
         bullish = latest['EMA_FAST'] > latest['EMA_MID'] > latest['EMA_SLOW']
-        bearish = latest['EMA_FAST'] < latest['EMA_MID'] < latest['EMA_SLOW']
- 
+        bearish = latest['EMA_FAST'] < latest['EMA_MID'] < latest['EMA_SLOW']        
         # ---------------------------------------------------------
         # EXPANSION PHASE
         #   Mean-reversion relative to Fair Value Price (FVP)
@@ -364,6 +339,8 @@ class MinerviniClaude:
         # =============================
         # VOLUME SCORE
         # =============================
+        context = self._volume_context(df) 
+
         if context['buying_climax']:
             short_score += 1.0
 
