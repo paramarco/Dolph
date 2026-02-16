@@ -219,3 +219,9 @@ BUYING_CLIMAX_LOOKBACK = 20
 BUYING_CLIMAX_TREND_LOOKBACK = 15
 BUYING_CLIMAX_EXTENSION = 0.004   # 0.4%
 BUYING_CLIMAX_COOLDOWN_SECONDS = 900  # 15 minutos
+
+# ==========================================
+# FINAL DECISION SCORING
+# ==========================================
+MIN_TOTAL_SCORE = 1.5
+MIN_CONFIDENCE = 0.6
