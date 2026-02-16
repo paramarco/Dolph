@@ -77,27 +77,27 @@ class MinerviniClaude:
 
             context = self._volume_context(self.df)
 
+            # Trust strengthens breakout
+            if signal == 'long' and context['trust']:
+                log.info(f"{self.seccode}: TRUST breakout confirmed")
+
             # Divergence cancels longs
             if signal == 'long' and context['divergence']:
                 log.info(f"{self.seccode}: volume divergence detected → cancelling long")
                 signal = 'no-go'
 
-            # Trust strengthens breakout
-            if signal == 'long' and context['trust']:
-                log.info(f"{self.seccode}: TRUST breakout confirmed")
-
             if signal == 'long' and context['buying_climax']:
                 signal = 'no-go'
 
-
-            # reversión SOLO si contexto bajista real
-            if phase == 'distribution' and context['buying_climax'] and context['absorption']:
+            # Strong reversal (only if real confluence)
+            if (phase == 'expansion' and context['buying_climax'] and context['absorption']):
                 signal = 'short'
 
-            # No supply encourages long
-            if context['no_supply']:
-                log.info(f"{self.seccode}: NO SUPPLY test → long bias")
-                signal = 'long'
+            if (phase == 'trend' and signal == 'no-go'and context['no_supply']):
+                latest = self.df.iloc[-1]
+                # Only if the trend is upward
+                if latest['EMA_FAST'] > latest['EMA_MID'] > latest['EMA_SLOW']:
+                    signal = 'long'
 
             self._adapt_margin(sec, phase, self.df)
 
