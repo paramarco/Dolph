@@ -133,36 +133,21 @@ class MinerviniClaude:
 
     def _prepare_ohlcv(self, df):
 
-        log.debug(f"{self.seccode} columns BEFORE rename: {df.columns.tolist()}")
-
         # Filter by mnemonic
         if 'mnemonic' in df.columns:
             df = df[df['mnemonic'] == self.seccode].copy()
         else:
             raise KeyError("DataFrame missing 'mnemonic' column")
-
         # Rename OHLC
         df = df.rename(columns={
             'startprice': 'open',
             'maxprice': 'high',
             'minprice': 'low',
-            'endprice': 'close'
+            'endprice': 'close',
+            'addedvolume': 'volume'
         })
 
-        log.debug(f"{self.seccode} columns AFTER rename 1 : {df.columns.tolist()}")
-        # ---- ROBUST VOLUME STANDARDIZATION ----
-        if 'volume' in df.columns:
-            pass
-        elif 'addedvolume' in df.columns:
-            df.rename(columns={'addedvolume': 'volume'}, inplace=True)
-        elif 'numberoftrades' in df.columns:
-            df.rename(columns={'numberoftrades': 'volume'}, inplace=True)
-        else:
-            log.error(f"{self.seccode}: No volume column found. Columns={df.columns}")
-            raise KeyError("No volume column found")
-
-        log.debug(f"{self.seccode} columns AFTER rename 2: {df.columns.tolist()}")
-
+        log.debug(f"{self.seccode} columns AFTER rename : {df.columns.tolist()}")
         # Keep only required columns
         df = df[['open', 'high', 'low', 'close', 'volume']]
 
