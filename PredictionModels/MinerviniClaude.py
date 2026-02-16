@@ -147,7 +147,7 @@ class MinerviniClaude:
             'addedvolume': 'volume'
         })
 
-        log.debug(f"{self.seccode} columns AFTER rename : {df.columns.tolist()}")
+        #log.debug(f"{self.seccode} columns AFTER rename : {df.columns.tolist()}")
         # Keep only required columns
         df = df[['open', 'high', 'low', 'close', 'volume']]
 
