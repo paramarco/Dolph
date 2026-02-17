@@ -527,7 +527,7 @@ class MinerviniClaude:
                         best_value = c
                 best_params[param_name] = best_value
                 if best_value != base_value:
-                    log.debug(f"{self.seccode}: {param_name}: {base_value} -> {best_value} (score={best_score:.6f})")
+                    log.info(f"{self.seccode}: {param_name}: {base_value} -> {best_value} (score={best_score:.6f})")
 
             # ---- Phase 2: Non-indicator params (cache indicators, cheaper) ----
             cached_df = self._compute_indicators_for_calibration(hist.copy(), best_params)
@@ -544,7 +544,7 @@ class MinerviniClaude:
                         best_value = c
                 best_params[param_name] = best_value
                 if best_value != base_value:
-                    log.debug(f"{self.seccode}: {param_name}: {base_value} -> {best_value} (score={best_score:.6f})")
+                    log.info(f"{self.seccode}: {param_name}: {base_value} -> {best_value} (score={best_score:.6f})")
 
             # ---- Save optimized params ----
             MinerviniClaude._calibration_cache[self.seccode] = dict(best_params)
