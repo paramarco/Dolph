@@ -141,46 +141,47 @@ class MinerviniClaude:
             Signal generation (long / short / no-go)
             Volatility-based margin adaptation
         """
+        p = self.params
         # ---------------------------------------------------------
         # Exponential moving averages used for trend alignment. Used for:
         #   EMA alignment (trend detection)
         #   Short-term vs mid-term structure
         #   Pullback detection    
         # ---------------------------------------------------------
-        df['EMA_FAST'] = df['close'].ewm(span=cm.EMA_FAST).mean()   # cm.EMA_FAST = 9
-        df['EMA_MID'] = df['close'].ewm(span=cm.EMA_MID).mean()     # cm.EMA_MID = 21
-        df['EMA_SLOW'] = df['close'].ewm(span=cm.EMA_SLOW).mean()   # cm.EMA_SLOW = 50
+        df['EMA_FAST'] = df['close'].ewm(span=p.EMA_FAST).mean()   # cm.EMA_FAST = 9
+        df['EMA_MID'] = df['close'].ewm(span=p.EMA_MID).mean()     # cm.EMA_MID = 21
+        df['EMA_SLOW'] = df['close'].ewm(span=p.EMA_SLOW).mean()   # cm.EMA_SLOW = 50
         # ---------------------------------------------------------
         # RSI (Momentum Filter). Used for:
         #   Avoid overbought/oversold extremes
         #   Confirm directional entries
         #   Filter false breakouts
         # ---------------------------------------------------------
-        df['RSI'] = self._rsi_series(df['close'], cm.RSI_PERIOD) # cm.RSI_PERIOD = 14
+        df['RSI'] = self._rsi_series(df['close'], p.RSI_PERIOD) # cm.RSI_PERIOD = 14
         # ---------------------------------------------------------
         # ATR + ATR Slope (Volatility Regime). Measures volatility level, Used to:
         #   Detect expansion (volatility rising)
         #   Detect contraction (volatility compressing)
         # ---------------------------------------------------------
-        df['ATR'] = self._atr(df, cm.ATR_PERIOD)                # cm.ATR_PERIOD = 14 
-        df['ATR_slope'] = df['ATR'].diff(cm.ATR_SLOPE_WINDOW)   # cm.ATR_SLOPE_WINDOW = 5
+        df['ATR'] = self._atr(df, p.ATR_PERIOD)                # cm.ATR_PERIOD = 14 
+        df['ATR_slope'] = df['ATR'].diff(p.ATR_SLOPE_WINDOW)   # cm.ATR_SLOPE_WINDOW = 5
         # ---------------------------------------------------------
         # ADX + DI (Trend Strength). Measures trend strength and direction, Used to:
         #   Confirm directional strength
         #   Filter ranging markets
         # ---------------------------------------------------------
-        df['ADX'], df['+DI'], df['-DI'] = self._adx(df, cm.ADX_PERIOD) # cm.ADX_PERIOD = 14
+        df['ADX'], df['+DI'], df['-DI'] = self._adx(df, p.ADX_PERIOD) # cm.ADX_PERIOD = 14
         # ---------------------------------------------------------
         # BOLLINGER BAND + Percentile. Measures compression vs expansion of volatility, Used to:
         #   Detect volatility compression
         #   Detect breakout expansion
         # ---------------------------------------------------------        
-        ma = df['close'].rolling(cm.BB_WINDOW).mean()           # cm.BB_WINDOW = 20
-        std = df['close'].rolling(cm.BB_WINDOW).std()           # cm.BB_WINDOW = 20
+        ma = df['close'].rolling(p.BB_WINDOW).mean()           # cm.BB_WINDOW = 20
+        std = df['close'].rolling(p.BB_WINDOW).std()           # cm.BB_WINDOW = 20
         # Normalized width (volatility relative to price level)
-        df['BB_width'] = (cm.BB_STD * std) / ma                 # cm.BB_STD = 2
+        df['BB_width'] = (p.BB_STD * std) / ma                 # cm.BB_STD = 2
         # Percentile of BB width over rolling window            # cm.BB_PERCENTILE_WINDOW = 100
-        df['BB_width_pctile'] = df['BB_width'].rolling(cm.BB_PERCENTILE_WINDOW).apply(
+        df['BB_width_pctile'] = df['BB_width'].rolling(p.BB_PERCENTILE_WINDOW).apply(
             lambda x: pd.Series(x).rank(pct=True).iloc[-1]
         )
         # ---------------------------------------------------------
@@ -188,7 +189,7 @@ class MinerviniClaude:
         # Statistical center of recent price movement
         # Used for mean-reversion during expansion
         # ---------------------------------------------------------
-        df['FVP'] = df['close'].rolling(cm.FVP_WINDOW).mean()   # cm.FVP_WINDOW = 30
+        df['FVP'] = df['close'].rolling(p.FVP_WINDOW).mean()   # cm.FVP_WINDOW = 30
 
         df.dropna(inplace=True)
 
@@ -248,14 +249,15 @@ class MinerviniClaude:
             Default fallback.
             Low volatility compression phase.
         """
+        p = self.params
         latest = df.iloc[-1]  # Get the latest row of indicators
         # ---------------------------------------------------------
         # Expansion is detected when volatility increases rapidly
         # ATR_slope > threshold AND Bollinger width percentile high
         # ---------------------------------------------------------
         if (
-            latest['ATR_slope'] > cm.VCP_ATR_SLOPE_EXPANSION  and  # VCP_ATR_SLOPE_EXPANSION = 0.15
-            latest['BB_width_pctile'] > cm.VCP_BB_WIDTH_PERCENTILE_EXPANSION  # VCP_BB_WIDTH_PERCENTILE_EXPANSION = 0.5
+            latest['ATR_slope'] > p.VCP_ATR_SLOPE_EXPANSION  and  # cm.VCP_ATR_SLOPE_EXPANSION = 0.15
+            latest['BB_width_pctile'] > p.VCP_BB_WIDTH_PERCENTILE_EXPANSION  # cm.VCP_BB_WIDTH_PERCENTILE_EXPANSION = 0.5
         ):
             return 'expansion'
         # ---------------------------------------------------------
@@ -264,7 +266,7 @@ class MinerviniClaude:
         #   2) EMA alignment either bullish or bearish
         # ---------------------------------------------------------
         if (
-            latest['ADX'] > cm.VCP_ADX_TREND_THRESHOLD and  # VCP_ADX_TREND_THRESHOLD = 25
+            latest['ADX'] > p.VCP_ADX_TREND_THRESHOLD and  # cm.VCP_ADX_TREND_THRESHOLD = 25
             (
                 latest['EMA_FAST'] > latest['EMA_MID'] > latest['EMA_SLOW']                
                 or                
@@ -283,11 +285,13 @@ class MinerviniClaude:
 
     def _generate_signal(self, df, phase):
 
+        p = self.params
         long_score = 0.0
         short_score = 0.0
         latest = df.iloc[-1]        # Get latest indicator values        
         bullish = latest['EMA_FAST'] > latest['EMA_MID'] > latest['EMA_SLOW']
-        bearish = latest['EMA_FAST'] < latest['EMA_MID'] < latest['EMA_SLOW']        
+        bearish = latest['EMA_FAST'] < latest['EMA_MID'] < latest['EMA_SLOW']
+        
         # ---------------------------------------------------------
         # EXPANSION PHASE
         #   Mean-reversion relative to Fair Value Price (FVP)
@@ -298,14 +302,14 @@ class MinerviniClaude:
             deviation = (latest['close'] - latest['FVP']) / latest['FVP'] 
             # Short signal:  Price above fair value AND RSI not weak
             if (
-                deviation > cm.EXPANSION_DEVIATION_THRESHOLD and    # cm.EXPANSION_DEVIATION_THRESHOLD = 0.0005
-                latest['RSI'] > cm.EXPANSION_RSI_SHORT_MIN          # cm.EXPANSION_RSI_SHORT_MIN = 40
+                deviation > p.EXPANSION_DEVIATION_THRESHOLD and    # cm.EXPANSION_DEVIATION_THRESHOLD = 0.0005
+                latest['RSI'] > p.EXPANSION_RSI_SHORT_MIN          # cm.EXPANSION_RSI_SHORT_MIN = 40
             ):                
                 short_score += 1.0
             # Long signal: Price below fair value AND RSI not overheated
             if (
-                deviation < -cm.EXPANSION_DEVIATION_THRESHOLD and   # cm.EXPANSION_DEVIATION_THRESHOLD = 0.0005
-                latest['RSI'] < cm.EXPANSION_RSI_LONG_MAX           # cm.EXPANSION_RSI_LONG_MAX = 60
+                deviation < -p.EXPANSION_DEVIATION_THRESHOLD and   # cm.EXPANSION_DEVIATION_THRESHOLD = 0.0005
+                latest['RSI'] < p.EXPANSION_RSI_LONG_MAX           # cm.EXPANSION_RSI_LONG_MAX = 60
             ):
                 long_score += 1.0
 
@@ -319,7 +323,7 @@ class MinerviniClaude:
             #   cm.TREND_RSI_LONG_MAX = 70
             if (
                 bullish and latest['+DI'] > latest['-DI']
-                and cm.TREND_RSI_LONG_MIN < latest['RSI'] < cm.TREND_RSI_LONG_MAX
+                and p.TREND_RSI_LONG_MIN < latest['RSI'] < p.TREND_RSI_LONG_MAX
             ):
                 long_score += 1.5
             # Bearish Trend Continuation
@@ -327,14 +331,14 @@ class MinerviniClaude:
             #   cm.TREND_RSI_SHORT_MAX = 60
             if (
                 bearish and latest['-DI'] > latest['+DI']
-                and cm.TREND_RSI_SHORT_MIN < latest['RSI'] < cm.TREND_RSI_SHORT_MAX                
+                and p.TREND_RSI_SHORT_MIN < latest['RSI'] < p.TREND_RSI_SHORT_MAX                
             ):
                 short_score += 1.5
 
         # =============================
         # TREND STRUCTURE SCORE
         # =============================
-        if latest['ADX'] > cm.VCP_ADX_TREND_THRESHOLD:
+        if latest['ADX'] > p.VCP_ADX_TREND_THRESHOLD:
             if latest['+DI'] > latest['-DI']:
                 long_score += 0.5
             else:
@@ -370,12 +374,12 @@ class MinerviniClaude:
 
         # ---- Low energy filter ---- cm.MIN_TOTAL_SCORE = 1.5
         # Minimum intensity filter. Avoid trades when there is very little total energy.
-        if total_score < cm.MIN_TOTAL_SCORE:
+        if total_score < p.MIN_TOTAL_SCORE:
             return 'no-go'
 
         # ---- Conflict filter ----  cm.MIN_CONFIDENCE = 0.6
         # Minimum conviction filter. Avoid trades when there is internal conflict.
-        if confidence < cm.MIN_CONFIDENCE:
+        if confidence < p.MIN_CONFIDENCE:
             return 'no-go'
 
         # ---- Direction ----
@@ -394,6 +398,7 @@ class MinerviniClaude:
 
     def _adapt_margin(self, sec, phase, df):
 
+        p = self.params
         latest = df.iloc[-1]        # Get latest indicator values
         close = latest['close']     # Current price (used to normalize ATR)
 
@@ -408,34 +413,33 @@ class MinerviniClaude:
                 return
         # Contraction Phase. Very tight margin because volatility is low
         if phase == 'contraction':
-            m = cm.MARGIN_CONTRACTION_FIXED                 # cm.MARGIN_CONTRACTION_FIXED = 0.0015
+            m = p.MARGIN_CONTRACTION_FIXED                 # cm.MARGIN_CONTRACTION_FIXED = 0.0015
         
         # Expansion Phase. Reflects volatility breakout amplitude
         elif phase == 'expansion':
            # cm.MARGIN_EXPANSION_MULTIPLIER = 1.5
-            raw_margin = latest['BB_width'] * cm.MARGIN_EXPANSION_MULTIPLIER 
+            raw_margin = latest['BB_width'] * p.MARGIN_EXPANSION_MULTIPLIER 
             # Clamp margin inside configured bounds
             m = min(
-                max(raw_margin, cm.MARGIN_EXPANSION_MIN),   # cm.MARGIN_EXPANSION_MIN = 0.002
-                cm.MARGIN_EXPANSION_MAX                     # cm.MARGIN_EXPANSION_MAX = 0.008
+                max(raw_margin, p.MARGIN_EXPANSION_MIN),   # cm.MARGIN_EXPANSION_MIN = 0.002
+                p.MARGIN_EXPANSION_MAX                     # cm.MARGIN_EXPANSION_MAX = 0.008
             )
         # Trend Phase. Reflects sustained directional volatility. Margin proportional to ATR normalized
         elif phase == 'trend':
-            m = min(max(2.0 * latest['ATR'] / close, 0.002), 0.006)
             # cm.MARGIN_TREND_ATR_MULTIPLIER = 2.0
             raw_margin = (
-                cm.MARGIN_TREND_ATR_MULTIPLIER *
+                p.MARGIN_TREND_ATR_MULTIPLIER *
                 latest['ATR'] / close
             )
             # Clamp margin inside configured bounds
             m = min(
-                max(raw_margin, cm.MARGIN_TREND_MIN),       # cm.MARGIN_TREND_MIN = 0.002
-                cm.MARGIN_TREND_MAX                         # cm.MARGIN_TREND_MAX = 0.006
+                max(raw_margin, p.MARGIN_TREND_MIN),       # cm.MARGIN_TREND_MIN = 0.002
+                p.MARGIN_TREND_MAX                         # cm.MARGIN_TREND_MAX = 0.006
             )
 
         # Fallback (safety)    
         else:
-            m = cm.MARGIN_CONTRACTION_FIXED                 # cm.MARGIN_CONTRACTION_FIXED = 0.0015
+            m = p.MARGIN_CONTRACTION_FIXED                 # cm.MARGIN_CONTRACTION_FIXED = 0.0015
         
         # Apply computed margin to security parameters
         sec['params']['positionMargin'] = float(m)
@@ -518,7 +522,7 @@ class MinerviniClaude:
                 entry = df['close'].iloc[i]
                 # Takeprofit level
                 tp = entry * (1 + m)        
-                # Stoploss level cm.CALIBRATION_STOPLOSS_MULTIPLIER = 3.0
+                # Stoploss level cm.CALIBRATION_STOPLOSS_MULTIPLIER = 5.0
                 sl = entry * ( 1 - cm.CALIBRATION_STOPLOSS_MULTIPLIER * m ) 
                 # Lookahead window, cm.CALIBRATION_LOOKAHEAD_BARS = = 60
                 window = df.iloc[i:i+cm.CALIBRATION_LOOKAHEAD_BARS]
@@ -544,18 +548,19 @@ class MinerviniClaude:
 
     def _volume_context(self, df):
 
+        p = self.params
         latest = df.iloc[-1]
 
         # Compute relative metrics
-        volume_avg = df['volume'].rolling(cm.VOLUME_AVG_WINDOW).mean().iloc[-1]
+        volume_avg = df['volume'].rolling(p.VOLUME_AVG_WINDOW).mean().iloc[-1]
         relative_volume = latest['volume'] / volume_avg
 
         candle_body = abs(latest['close'] - latest['open'])
         candle_range = latest['high'] - latest['low']
         relative_body = candle_body / latest['ATR']
 
-        price_slope = df['close'].diff(cm.VOLUME_SLOPE_WINDOW).iloc[-1]
-        volume_slope = df['volume'].diff(cm.VOLUME_SLOPE_WINDOW).iloc[-1]
+        price_slope = df['close'].diff(p.VOLUME_SLOPE_WINDOW).iloc[-1]
+        volume_slope = df['volume'].diff(p.VOLUME_SLOPE_WINDOW).iloc[-1]
 
         context = {}
 
@@ -566,22 +571,22 @@ class MinerviniClaude:
         )
 
         context['absorption'] = (
-            relative_volume > cm.BIG_VOLUME_THRESHOLD
+            relative_volume > p.BIG_VOLUME_THRESHOLD
             and relative_body < 0.5
         )
 
         context['trust'] = (
-            relative_body > cm.BIG_BODY_ATR_THRESHOLD
-            and relative_volume > cm.BIG_VOLUME_THRESHOLD
+            relative_body > p.BIG_BODY_ATR_THRESHOLD
+            and relative_volume > p.BIG_VOLUME_THRESHOLD
         )
 
         context['divergence'] = (
-            df['close'].iloc[-1] > df['close'].iloc[-cm.DIVERGENCE_LOOKBACK]
-            and df['volume'].iloc[-1] < df['volume'].iloc[-cm.DIVERGENCE_LOOKBACK]
+            df['close'].iloc[-1] > df['close'].iloc[-p.DIVERGENCE_LOOKBACK]
+            and df['volume'].iloc[-1] < df['volume'].iloc[-p.DIVERGENCE_LOOKBACK]
         )
 
         context['stopping_volume'] = (
-            relative_volume > cm.EXTREME_VOLUME_THRESHOLD
+            relative_volume > p.EXTREME_VOLUME_THRESHOLD
             and latest['close'] < latest['open']
             and latest['close'] > latest['low'] + (candle_range * 0.3)
         )
@@ -590,28 +595,28 @@ class MinerviniClaude:
         # ==========================================
 
         # cm.BUYING_CLIMAX_LOOKBACK = 20
-        recent_high = df['high'].rolling(cm.BUYING_CLIMAX_LOOKBACK).max().iloc[-2]
+        recent_high = df['high'].rolling(p.BUYING_CLIMAX_LOOKBACK).max().iloc[-2]
         is_breakout_high = latest['high'] >= recent_high
 
         # cm.BUYING_CLIMAX_TREND_LOOKBACK = 15
         trend_up = (
-            df['close'].iloc[-cm.BUYING_CLIMAX_TREND_LOOKBACK:].mean()
+            df['close'].iloc[-p.BUYING_CLIMAX_TREND_LOOKBACK:].mean()
             >
-            df['close'].iloc[-2*cm.BUYING_CLIMAX_TREND_LOOKBACK:-cm.BUYING_CLIMAX_TREND_LOOKBACK].mean()
+            df['close'].iloc[-2*p.BUYING_CLIMAX_TREND_LOOKBACK:-p.BUYING_CLIMAX_TREND_LOOKBACK].mean()
         )
         # cm.BUYING_CLIMAX_EXTENSION = 0.004   # 0.4%
         extension = (latest['close'] - latest['FVP']) / latest['FVP']
-        is_overextended = extension > cm.BUYING_CLIMAX_EXTENSION
+        is_overextended = extension > p.BUYING_CLIMAX_EXTENSION
         # cm.BUYING_CLIMAX_COOLDOWN_SECONDS = 900  # 15 minutos
         cooldown_ok = (
             not hasattr(self, "_last_climax_time")
             or self._last_climax_time is None
-            or (df.index[-1] - self._last_climax_time).seconds > cm.BUYING_CLIMAX_COOLDOWN_SECONDS
+            or (df.index[-1] - self._last_climax_time).seconds > p.BUYING_CLIMAX_COOLDOWN_SECONDS
         )
 
         context['buying_climax'] = (
-            relative_volume > cm.EXTREME_VOLUME_THRESHOLD
-            and relative_body > cm.EXTREME_BODY_ATR_THRESHOLD
+            relative_volume > p.EXTREME_VOLUME_THRESHOLD
+            and relative_body > p.EXTREME_BODY_ATR_THRESHOLD
             and is_breakout_high
             and trend_up
             and is_overextended

@@ -9,58 +9,236 @@ platform = tps.platform
 securities = []
 securities = [
     {
-        'seccode': 'AAPL'
-        ,'board': 'EQTY'
-        ,'market': 'NASDAQ'
-        ,'decimals' : 2 
-        ,'id' : 0
-        ,'params': {
-            'algorithm': 'MinerviniClaude'
-            ,'entryByMarket': True
-            ,'exitTimeSeconds': 36000
-            ,'entryTimeSeconds': 3600
-            ,'minNumPastSamples': 51
-            ,"positionMargin": 0.0035
-            ,"stopLossCoefficient": 20 
-            ,'period': '1Min'
-        }
-    }
-    ,{
-        'seccode': 'INTC'       
-        ,'board': 'EQTY'
-        ,'market': 'NASDAQ'
-        ,'decimals' : 3
-        ,'id' : 0
-        ,'params': {
-            'algorithm': 'MinerviniClaude'
-            ,'entryByMarket': True
-            ,'exitTimeSeconds': 36000
-            ,'entryTimeSeconds': 3600
-            ,'minNumPastSamples': 51
-            ,"positionMargin": 0.0035
-            ,"stopLossCoefficient": 20 
-            ,'period': '1Min'
-        }
-    }
-    ,{
-        'seccode': 'NVDA'        
-        ,'board': 'EQTY'
-        ,'market': 'NASDAQ'
-        ,'decimals' : 2
-        ,'id' : 0
-        ,'params': {
+        'seccode': 'AAPL',
+        'board': 'EQTY',
+        'market': 'NASDAQ',
+        'decimals': 2,
+        'id': 0,
+        'params': {
             'algorithm': 'MinerviniClaude',
             'entryByMarket': True,
             'exitTimeSeconds': 36000,
             'entryTimeSeconds': 3600,
-            'minNumPastSamples': 51
-            ,"positionMargin": 0.0035
-            ,"stopLossCoefficient": 20 
-            ,"acceptableTrainingError": 0.000192
-            ,'period': '1Min'
-            ,'rsiCoeff': '14'
+            'minNumPastSamples': 51,
+            'positionMargin': 0.0035,
+            'stopLossCoefficient': 20,
+            'period': '1Min',
+            # VCP
+            'VCP_ATR_SLOPE_EXPANSION': 0.15,
+            'VCP_BB_WIDTH_PERCENTILE_EXPANSION': 0.5,
+            'VCP_ADX_TREND_THRESHOLD': 25,
+            # Indicator Periods
+            'EMA_FAST': 9,
+            'EMA_MID': 21,
+            'EMA_SLOW': 50,
+            'RSI_PERIOD': 14,
+            'ATR_PERIOD': 14,
+            'ATR_SLOPE_WINDOW': 5,
+            'ADX_PERIOD': 14,
+            'BB_WINDOW': 20,
+            'BB_STD': 2,
+            'BB_PERCENTILE_WINDOW': 100,
+            'FVP_WINDOW': 30,
+            # Expansion Phase Thresholds
+            'EXPANSION_DEVIATION_THRESHOLD': 0.0005,
+            'EXPANSION_RSI_SHORT_MIN': 40,
+            'EXPANSION_RSI_LONG_MAX': 60,
+            # Trend Phase Thresholds
+            'TREND_RSI_LONG_MIN': 40,
+            'TREND_RSI_LONG_MAX': 70,
+            'TREND_RSI_SHORT_MIN': 30,
+            'TREND_RSI_SHORT_MAX': 60,
+            # Margin Adaptation Parameters
+            'MARGIN_CONTRACTION_FIXED': 0.0015,
+            'MARGIN_EXPANSION_MULTIPLIER': 1.5,
+            'MARGIN_EXPANSION_MIN': 0.002,
+            'MARGIN_EXPANSION_MAX': 0.008,
+            'MARGIN_TREND_ATR_MULTIPLIER': 2.0,
+            'MARGIN_TREND_MIN': 0.002,
+            'MARGIN_TREND_MAX': 0.006,
+            # Calibration Parameters
+            'CALIBRATION_LOOKBACK_DAYS': 90,
+            'CALIBRATION_LIMIT_RESULTS': 5000,
+            'CALIBRATION_MIN_ROWS': 1000,
+            'CALIBRATION_MARGIN_MIN': 0.001,
+            'CALIBRATION_MARGIN_MAX': 0.006,
+            'CALIBRATION_MARGIN_STEPS': 10,
+            # Calibration Simulation Parameters
+            'CALIBRATION_LOOKAHEAD_BARS': 60,
+            'CALIBRATION_STOPLOSS_MULTIPLIER': 5.0,
+            'CALIBRATION_DEFAULT_MARGIN': 0.003,
+            # Volume Analysis Parameters
+            'VOLUME_AVG_WINDOW': 20,
+            'VOLUME_SLOPE_WINDOW': 5,
+            'BIG_VOLUME_THRESHOLD': 1.8,
+            'EXTREME_VOLUME_THRESHOLD': 2.5,
+            'BIG_BODY_ATR_THRESHOLD': 1.2,
+            'EXTREME_BODY_ATR_THRESHOLD': 2.0,
+            'DIVERGENCE_LOOKBACK': 10,
+            # Buying Climax
+            'BUYING_CLIMAX_LOOKBACK': 20,
+            'BUYING_CLIMAX_TREND_LOOKBACK': 15,
+            'BUYING_CLIMAX_EXTENSION': 0.004,
+            'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
+            # Final Decision Scoring
+            'MIN_TOTAL_SCORE': 1.5,
+            'MIN_CONFIDENCE': 0.6,
         }
-    }
+    },
+    {
+        'seccode': 'INTC',
+        'board': 'EQTY',
+        'market': 'NASDAQ',
+        'decimals': 3,
+        'id': 0,
+        'params': {
+            'algorithm': 'MinerviniClaude',
+            'entryByMarket': True,
+            'exitTimeSeconds': 36000,
+            'entryTimeSeconds': 3600,
+            'minNumPastSamples': 51,
+            'positionMargin': 0.0035,
+            'stopLossCoefficient': 20,
+            'period': '1Min',
+            # VCP
+            'VCP_ATR_SLOPE_EXPANSION': 0.15,
+            'VCP_BB_WIDTH_PERCENTILE_EXPANSION': 0.5,
+            'VCP_ADX_TREND_THRESHOLD': 25,
+            # Indicator Periods
+            'EMA_FAST': 9,
+            'EMA_MID': 21,
+            'EMA_SLOW': 50,
+            'RSI_PERIOD': 14,
+            'ATR_PERIOD': 14,
+            'ATR_SLOPE_WINDOW': 5,
+            'ADX_PERIOD': 14,
+            'BB_WINDOW': 20,
+            'BB_STD': 2,
+            'BB_PERCENTILE_WINDOW': 100,
+            'FVP_WINDOW': 30,
+            # Expansion Phase Thresholds
+            'EXPANSION_DEVIATION_THRESHOLD': 0.0005,
+            'EXPANSION_RSI_SHORT_MIN': 40,
+            'EXPANSION_RSI_LONG_MAX': 60,
+            # Trend Phase Thresholds
+            'TREND_RSI_LONG_MIN': 40,
+            'TREND_RSI_LONG_MAX': 70,
+            'TREND_RSI_SHORT_MIN': 30,
+            'TREND_RSI_SHORT_MAX': 60,
+            # Margin Adaptation Parameters
+            'MARGIN_CONTRACTION_FIXED': 0.0015,
+            'MARGIN_EXPANSION_MULTIPLIER': 1.5,
+            'MARGIN_EXPANSION_MIN': 0.002,
+            'MARGIN_EXPANSION_MAX': 0.008,
+            'MARGIN_TREND_ATR_MULTIPLIER': 2.0,
+            'MARGIN_TREND_MIN': 0.002,
+            'MARGIN_TREND_MAX': 0.006,
+            # Calibration Parameters
+            'CALIBRATION_LOOKBACK_DAYS': 90,
+            'CALIBRATION_LIMIT_RESULTS': 5000,
+            'CALIBRATION_MIN_ROWS': 1000,
+            'CALIBRATION_MARGIN_MIN': 0.001,
+            'CALIBRATION_MARGIN_MAX': 0.006,
+            'CALIBRATION_MARGIN_STEPS': 10,
+            # Calibration Simulation Parameters
+            'CALIBRATION_LOOKAHEAD_BARS': 60,
+            'CALIBRATION_STOPLOSS_MULTIPLIER': 5.0,
+            'CALIBRATION_DEFAULT_MARGIN': 0.003,
+            # Volume Analysis Parameters
+            'VOLUME_AVG_WINDOW': 20,
+            'VOLUME_SLOPE_WINDOW': 5,
+            'BIG_VOLUME_THRESHOLD': 1.8,
+            'EXTREME_VOLUME_THRESHOLD': 2.5,
+            'BIG_BODY_ATR_THRESHOLD': 1.2,
+            'EXTREME_BODY_ATR_THRESHOLD': 2.0,
+            'DIVERGENCE_LOOKBACK': 10,
+            # Buying Climax
+            'BUYING_CLIMAX_LOOKBACK': 20,
+            'BUYING_CLIMAX_TREND_LOOKBACK': 15,
+            'BUYING_CLIMAX_EXTENSION': 0.004,
+            'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
+            # Final Decision Scoring
+            'MIN_TOTAL_SCORE': 1.5,
+            'MIN_CONFIDENCE': 0.6,
+        }
+    },
+    {
+        'seccode': 'NVDA',
+        'board': 'EQTY',
+        'market': 'NASDAQ',
+        'decimals': 2,
+        'id': 0,
+        'params': {
+            'algorithm': 'MinerviniClaude',
+            'entryByMarket': True,
+            'exitTimeSeconds': 36000,
+            'entryTimeSeconds': 3600,
+            'minNumPastSamples': 51,
+            'positionMargin': 0.0035,
+            'stopLossCoefficient': 20,
+            'period': '1Min',
+            # VCP
+            'VCP_ATR_SLOPE_EXPANSION': 0.15,
+            'VCP_BB_WIDTH_PERCENTILE_EXPANSION': 0.5,
+            'VCP_ADX_TREND_THRESHOLD': 25,
+            # Indicator Periods
+            'EMA_FAST': 9,
+            'EMA_MID': 21,
+            'EMA_SLOW': 50,
+            'RSI_PERIOD': 14,
+            'ATR_PERIOD': 14,
+            'ATR_SLOPE_WINDOW': 5,
+            'ADX_PERIOD': 14,
+            'BB_WINDOW': 20,
+            'BB_STD': 2,
+            'BB_PERCENTILE_WINDOW': 100,
+            'FVP_WINDOW': 30,
+            # Expansion Phase Thresholds
+            'EXPANSION_DEVIATION_THRESHOLD': 0.0005,
+            'EXPANSION_RSI_SHORT_MIN': 40,
+            'EXPANSION_RSI_LONG_MAX': 60,
+            # Trend Phase Thresholds
+            'TREND_RSI_LONG_MIN': 40,
+            'TREND_RSI_LONG_MAX': 70,
+            'TREND_RSI_SHORT_MIN': 30,
+            'TREND_RSI_SHORT_MAX': 60,
+            # Margin Adaptation Parameters
+            'MARGIN_CONTRACTION_FIXED': 0.0015,
+            'MARGIN_EXPANSION_MULTIPLIER': 1.5,
+            'MARGIN_EXPANSION_MIN': 0.002,
+            'MARGIN_EXPANSION_MAX': 0.008,
+            'MARGIN_TREND_ATR_MULTIPLIER': 2.0,
+            'MARGIN_TREND_MIN': 0.002,
+            'MARGIN_TREND_MAX': 0.006,
+            # Calibration Parameters
+            'CALIBRATION_LOOKBACK_DAYS': 90,
+            'CALIBRATION_LIMIT_RESULTS': 5000,
+            'CALIBRATION_MIN_ROWS': 1000,
+            'CALIBRATION_MARGIN_MIN': 0.001,
+            'CALIBRATION_MARGIN_MAX': 0.006,
+            'CALIBRATION_MARGIN_STEPS': 10,
+            # Calibration Simulation Parameters
+            'CALIBRATION_LOOKAHEAD_BARS': 60,
+            'CALIBRATION_STOPLOSS_MULTIPLIER': 5.0,
+            'CALIBRATION_DEFAULT_MARGIN': 0.003,
+            # Volume Analysis Parameters
+            'VOLUME_AVG_WINDOW': 20,
+            'VOLUME_SLOPE_WINDOW': 5,
+            'BIG_VOLUME_THRESHOLD': 1.8,
+            'EXTREME_VOLUME_THRESHOLD': 2.5,
+            'BIG_BODY_ATR_THRESHOLD': 1.2,
+            'EXTREME_BODY_ATR_THRESHOLD': 2.0,
+            'DIVERGENCE_LOOKBACK': 10,
+            # Buying Climax
+            'BUYING_CLIMAX_LOOKBACK': 20,
+            'BUYING_CLIMAX_TREND_LOOKBACK': 15,
+            'BUYING_CLIMAX_EXTENSION': 0.004,
+            'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
+            # Final Decision Scoring
+            'MIN_TOTAL_SCORE': 1.5,
+            'MIN_CONFIDENCE': 0.6,
+        }
+    },
 ]
 logLevel = logging.DEBUG 
 #logLevel = logging.INFO
@@ -189,7 +367,7 @@ CALIBRATION_MARGIN_STEPS = 10
 # ===================================
 
 CALIBRATION_LOOKAHEAD_BARS = 60
-CALIBRATION_STOPLOSS_MULTIPLIER = 3.0
+CALIBRATION_STOPLOSS_MULTIPLIER = 5.0
 CALIBRATION_DEFAULT_MARGIN = 0.003
 
 # ==========================================
