@@ -804,9 +804,9 @@ class MinerviniClaude:
                 sl_first = sl_hits[0] if len(sl_hits) > 0 else lookahead + 1
 
                 if tp_first <= sl_first and tp_first <= lookahead:
-                    total_profit += m_abs
+                    total_profit += m_abs - 2.0
                 elif sl_first < tp_first and sl_first <= lookahead:
-                    total_profit -= sl_coeff * m_abs
+                    total_profit -= sl_coeff * m_abs + 2.0
 
             return total_profit
 
