@@ -761,6 +761,16 @@ class MinerviniClaude:
             margin_factor[trend_idx] = trend_clamped[trend_idx]
 
             # Step 5: Trade simulation
+            # Compute position size: quantity = (net_balance * factorPosition_Balance) / entry_price
+            # This matches DolphRobot.positionAssessment() logic
+            try:
+                net_balance = self.dolph.tp.get_net_balance()
+                if net_balance is None or net_balance <= 0:
+                    net_balance = 20000.0
+            except Exception:
+                net_balance = 20000.0
+            cash_4_position = net_balance * cm.factorPosition_Balance
+
             closes = df['close'].values
             highs  = df['high'].values
             lows   = df['low'].values
@@ -779,6 +789,9 @@ class MinerviniClaude:
                 entry_idx   = i + 2
                 entry_price = closes[entry_idx]
                 m_abs       = entry_price * margin_factor[i]
+                quantity    = round(cash_4_position / entry_price)
+                if quantity <= 0:
+                    continue
 
                 if sig == 1:   # long
                     tp_price = entry_price + m_abs
@@ -804,9 +817,9 @@ class MinerviniClaude:
                 sl_first = sl_hits[0] if len(sl_hits) > 0 else lookahead + 1
 
                 if tp_first <= sl_first and tp_first <= lookahead:
-                    total_profit += m_abs - 2.0
+                    total_profit += quantity * m_abs - 2.0
                 elif sl_first < tp_first and sl_first <= lookahead:
-                    total_profit -= sl_coeff * m_abs + 2.0
+                    total_profit -= quantity * sl_coeff * m_abs + 2.0
 
             return total_profit
 
