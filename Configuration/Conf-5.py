@@ -15,16 +15,14 @@ securities = [
         ,'decimals' : 2 
         ,'id' : 0
         ,'params': {
-            'algorithm': 'RsiBasedOnEmaOnlyModel',
-            'entryByMarket': False,
-            'exitTimeSeconds': 36000,
-            'entryTimeSeconds': 3600,
-            'minNumPastSamples': 51
-            ,"positionMargin": 0.0035 
+            'algorithm': 'MinerviniClaude'
+            ,'entryByMarket': True
+            ,'exitTimeSeconds': 36000
+            ,'entryTimeSeconds': 3600
+            ,'minNumPastSamples': 51
+            ,"positionMargin": 0.0035
             ,"stopLossCoefficient": 20 
-            ,"acceptableTrainingError": 0.000192
             ,'period': '1Min'
-            ,'rsiCoeff': '14'
         }
     }
     ,{
@@ -34,16 +32,14 @@ securities = [
         ,'decimals' : 3
         ,'id' : 0
         ,'params': {
-            'algorithm': 'RsiBasedOnEmaOnlyModel',
-            'entryByMarket': False,
-            'exitTimeSeconds': 36000,
-            'entryTimeSeconds': 3600,
-            'minNumPastSamples': 51
+            'algorithm': 'MinerviniClaude'
+            ,'entryByMarket': True
+            ,'exitTimeSeconds': 36000
+            ,'entryTimeSeconds': 3600
+            ,'minNumPastSamples': 51
             ,"positionMargin": 0.0035
             ,"stopLossCoefficient": 20 
-            ,"acceptableTrainingError": 0.000192
             ,'period': '1Min'
-            ,'rsiCoeff': '14'
         }
     }
     ,{
@@ -53,8 +49,8 @@ securities = [
         ,'decimals' : 2
         ,'id' : 0
         ,'params': {
-            'algorithm': 'RsiBasedOnEmaOnlyModel',
-            'entryByMarket': False,
+            'algorithm': 'MinerviniClaude',
+            'entryByMarket': True,
             'exitTimeSeconds': 36000,
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51
