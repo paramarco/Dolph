@@ -1577,8 +1577,9 @@ class IB_OrderStatusTask:
                 log.error(f"Failed to poll order updates: {e}")
             
             self.tp.cancelTimedoutEntries()
-            #self.tp.cancelTimedoutExits()           
-            
+            #self.tp.cancelTimedoutExits()
+            self.tp.reconcileOrphanedPositions()
+
             # Sleep for 5 seconds before the next poll
             time.sleep(5)
 
@@ -2221,7 +2222,26 @@ class IBTradingPlatform(TradingPlatform):
             p for p in self.monitoredPositions
             if order.id not in (p.exit_tp_id, p.exit_sl_id)
         ]
-        
+
+    def reconcileOrphanedPositions(self):
+        """ Interactive Brokers
+        Detects positions whose exit orders (TP and SL) are no longer active in IB
+        (e.g. filled or cancelled while bot was offline) and removes them.
+        """
+        active_exit_ids = {o.id for o in self.monitoredExitOrders}
+        orphaned = []
+        for mp in self.monitoredPositions:
+            if mp.exit_tp_id is not None and mp.exit_sl_id is not None:
+                tp_active = mp.exit_tp_id in active_exit_ids
+                sl_active = mp.exit_sl_id in active_exit_ids
+                if not tp_active and not sl_active:
+                    orphaned.append(mp)
+        for mp in orphaned:
+            log.warning(f"Orphaned position detected: {mp.seccode} "
+                        f"(exit orders TP={mp.exit_tp_id} SL={mp.exit_sl_id} no longer active) "
+                        f"- removing from monitoredPositions")
+            self.monitoredPositions.remove(mp)
+
     def set_exit_order_no_to_MonitoredPosition (self, stopOrder):
         """ Interactive Brokers """
         pass
