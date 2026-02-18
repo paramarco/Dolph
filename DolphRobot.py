@@ -306,24 +306,24 @@ class Dolph:
         return takePosition
   
     
-    def positionExceedsBalance (self, position):        
-       
+    def positionExceedsBalance (self, position):
+
         exceeds = True if position.quantity == 0 else False
-        
-        cash_balance = self.tp.get_cash_balance()
-        if cash_balance == 0 : return True
-        
-        positions = self.tp.get_PositionsByCode(position.seccode)
-        
+
+        net_balance = self.tp.get_net_balance()
+        if net_balance == 0 : return True
+
+        positions = self.tp.monitoredPositions
+
         cash_positions = position.quantity * position.entryPrice
         for p in positions :
             cash_positions += p.quantity * p.entryPrice
-            
-        if cash_positions > cash_balance : 
-            exceeds = True    
-            self.logger.error("cash_positions > cash_balance")
-        
-        return exceeds 
+
+        if cash_positions > net_balance :
+            exceeds = True
+            self.logger.error(f"total exposure {cash_positions} > net_balance {net_balance}")
+
+        return exceeds
     
     
     def positionAssessment (self, security):
