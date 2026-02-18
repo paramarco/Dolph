@@ -1392,15 +1392,14 @@ class AlpacaTradingPlatform(TradingPlatform):
     def closeExit(self, mp, meo):
         """ Alpaca """
 
-        try: 
+        try:
             res = self.cancelExitOrder(meo.id)
             log.debug(repr(res))
-        
+            mp.exitOrderAlreadyCancelled = True
+
         except Exception as e:
             log.error(f"Error placing closeExit {mp} , {meo}: {e}")
             mp.exitOrderAlreadyCancelled = False
-        
-        mp.exitOrderAlreadyCancelled = True        
         
 
     def set_exit_order_no_to_MonitoredPosition (self, stopOrder):
@@ -1833,8 +1832,8 @@ class IBTradingPlatform(TradingPlatform):
         # Process regular or stop orders
         if order.type in ['MKT']:
             self.processEntryOrderStatus(order)
-        elif order.type in ['STP', 'LMT']:
-            self.processExitOrderStatus(order)        
+        elif order.type in ['STP', 'LMT', 'STP LMT']:
+            self.processExitOrderStatus(order)
      
             
     def get_candles(self, security, since, until, period):
@@ -2053,18 +2052,49 @@ class IBTradingPlatform(TradingPlatform):
 
     def closeExit(self, mp, meo):
         """ Interactive Brokers """
-        
-        try: 
+
+        try:
+            # Cancel the TP exit order
             self.cancelExitOrder(meo.order)
-        
+
+            # Cancel the SL exit order (the other bracket leg)
+            if mp.exit_sl_id is not None:
+                sl_meo = next((o for o in self.monitoredExitOrders if o.id == mp.exit_sl_id), None)
+                if sl_meo is not None:
+                    self.cancelExitOrder(sl_meo.order)
+                    if sl_meo in self.monitoredExitOrders:
+                        self.monitoredExitOrders.remove(sl_meo)
+                else:
+                    log.warning(f"SL order {mp.exit_sl_id} not found in monitoredExitOrders")
+
+            # Send market order to close the position
+            exit_action = "SELL" if mp.takePosition == "long" else "BUY"
+            expdate = self.convert_to_utc(self.getExpDate(mp.seccode))
+            res = self.new_order(
+                mp.board, mp.seccode, mp.client, mp.union,
+                exit_action, expdate, mp.quantity,
+                price=0, bymarket=True, usecredit=False
+            )
+
+            if res is None:
+                log.error("Failed to create market order for closing position")
+            elif res.status in cm.statusOrderForwarding or res.status in cm.statusOrderExecuted:
+                log.info(f'exit by market successfully processed for {mp.seccode}')
+            else:
+                log.error(f'exit by market failed with status: {res.status}')
+
+            # Clean up
+            if meo in self.monitoredExitOrders:
+                self.monitoredExitOrders.remove(meo)
+            self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_tp_id != meo.id]
+
+            mp.exitOrderAlreadyCancelled = True
+
         except Exception as e:
-            log.error(f"Error placing closeExit {mp} , {meo}: {e}")
+            log.error(f"Error in closeExit {mp} , {meo}: {e}")
             mp.exitOrderAlreadyCancelled = False
-        
-        mp.exitOrderAlreadyCancelled = True
 
 
-    
     def getClientId(self):
         """ Interactive Brokers """  
         # Retrieve Client from the Alpaca secrets.        
