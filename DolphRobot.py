@@ -349,9 +349,11 @@ class Dolph:
             self.logger.warning(f"seccode={seccode} condition=(cash_balance == 0 or net_balance == 0) {m}")
             return 0 , 0 
         
-        if cash_4_position > cash_balance:
-            self.logger.warning(f"seccode={seccode} condition=(cash_4_position > cash_balance) {m}")            
-            return 0 , 0 
+        existing_exposure = sum(p.quantity * p.entryPrice for p in self.tp.monitoredPositions)
+        total_exposure = existing_exposure + (quantity * priceClose)
+        if total_exposure > net_balance:
+            self.logger.warning(f"seccode={seccode} condition=(total_exposure {total_exposure} > net_balance {net_balance}) existing_exposure={existing_exposure} new={quantity * priceClose} {m}")
+            return 0 , 0
 
         self.logger.info(f"seccode:{seccode} {m}")
 
