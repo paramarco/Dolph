@@ -35,14 +35,15 @@ class Position:
     def __init__(self, takePosition, board, seccode, marketId, 
                  quantity, entryPrice, exitPrice, stoploss, 
                  decimals, client, exitTime=None, correction=None, spread=None, bymarket = False, 
-                 entry_id=None, exit_id=None, exit_order_no=None , union = None, 
+                 entry_id=None, exit_tp_id=None, exit_sl_id=None, exit_order_no=None , union = None, 
                  expdate = None, buysell = None , exitOrderRequested = None, exitOrderAlreadyCancelled = None) :
         
         # id:= transactionid of the first order, "your entry" of the Position
         # will be assigned once upon successful entry of the Position
         self.entry_id = entry_id  # Add entry_id field
         # will be assigned once upon successful entry of the Position
-        self.exit_id = exit_id    # Add exit_id field
+        self.exit_tp_id = exit_tp_id    # Add exit_tp_id field
+        self.exit_sl_id = exit_sl_id    # Add exit_sl_id field
         # takePosition:= long | short | no-go
         self.takePosition = takePosition
         self.board = board
@@ -57,7 +58,7 @@ class Position:
         self.decimals = decimals
         # stoploss := price you want to exit if your prediction was wrong        
         self.stoploss = stoploss
-        self.exitOrderRequested = False if exit_id is None else True
+        self.exitOrderRequested = False if exit_tp_id is None else True
         # to be assigned when position is being proccessed by Tradingplatform
         self.buysell = buysell if buysell else None
         # exitTime := time for a emergency exit, close current position at 
@@ -86,7 +87,8 @@ class Position:
         msg += ' exitTakeProfit=' + "{0:0.{prec}f}".format(self.exitPrice, prec=self.decimals)
         msg += ' exitStopLoss=' + "{0:0.{prec}f}".format(self.stoploss, prec=self.decimals)
         msg += ' entry_id=' + str(self.entry_id)
-        msg += ' exit_id=' + str(self.exit_id)
+        msg += ' exit_tp_id=' + str(self.exit_tp_id)
+        msg += ' exit_sl_id=' + str(self.exit_sl_id)
         
         return msg
 
@@ -193,7 +195,7 @@ class TradingPlatform(ABC):
         pass
      
     @abstractmethod
-    def triggerStopOrder(self, order, monitoredPosition):
+    def triggerExitOrder(self, order, monitoredPosition):
         pass
 
     @abstractmethod
@@ -367,12 +369,12 @@ class TradingPlatform(ABC):
     def triggerExitByMarket(self, stopOrder, monitoredPosition):
         """ common """
                 
-        if monitoredPosition.exit_id != stopOrder.id: 
+        if monitoredPosition.exit_tp_id != stopOrder.id: 
             return
         
         mp = monitoredPosition
         mp.exitOrderRequested = True
-        log.info(f"trigerring exit by Market {mp.exit_id} due to cancelling {mp}")  
+        log.info(f"trigerring exit by Market {mp.exit_tp_id} due to cancelling {mp}")  
 
         res = self.new_order(
             mp.board, mp.seccode, mp.client, mp.union, stopOrder.buysell, mp.expdate, 
@@ -386,7 +388,7 @@ class TradingPlatform(ABC):
             if stopOrder in self.monitoredExitOrders:
                 self.monitoredExitOrders.remove(stopOrder)
  
-            self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_id != stopOrder.id] 
+            self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_tp_id != stopOrder.id] 
 
 
     def updateExistingExitOrder(self, exitOrder):
@@ -424,7 +426,7 @@ class TradingPlatform(ABC):
                     
                 elif not monitoredPosition.exitOrderRequested:
                     log.info(f'Order is Filled-Monitored wo exitOrderRequested: {repr(order.id)}')
-                    self.triggerStopOrder(order, monitoredPosition)                
+                    self.triggerExitOrder(order, monitoredPosition)                
                 else:
                     self.removeMonitoredPositionByExit(order)
                     if order in self.monitoredOrders:
@@ -464,14 +466,7 @@ class TradingPlatform(ABC):
                 if exitOrder not in self.monitoredExitOrders:
                     self.monitoredExitOrders.append(exitOrder)
                     m = f'exitOrder {exitOrder.id} with status: {s} added to monitoredExitOrders'
-                    
-            elif s in cm.statusExitOrderExecuted :  
-                
-                self.set_exit_order_no_to_MonitoredPosition(exitOrder)                      
-                if exitOrder in self.monitoredExitOrders:
-                    self.monitoredExitOrders.remove(exitOrder)
-                    m = f'exitOrder: {exitOrder.id} in status: {s} deleted from monitoredExitOrders'
-                
+                            
             elif s in cm.statusExitOrderFilled :
                 
                 self.removeMonitoredPositionByExit(exitOrder)
@@ -479,12 +474,11 @@ class TradingPlatform(ABC):
                     self.monitoredExitOrders.remove(exitOrder)
                     m = f'exitOrder: {exitOrder.id} in status: {s} deleted from monitoredExitOrders'                
             
-            elif s in cm.statusOrderCanceled:
+            elif ( s in cm.statusOrderCanceled or s in cm.statusExitOrderExecuted) :
 
-                monitoredPosition = self.getPositionByOrder(exitOrder)  
-                if monitoredPosition is not None:
-                    self.triggerExitByMarket(exitOrder, monitoredPosition)                    
-                    m = f'Exit Order {monitoredPosition.exit_id} due to cancelling {monitoredPosition}'
+                if exitOrder in self.monitoredExitOrders:
+                    self.monitoredExitOrders.remove(exitOrder)
+                    m = f'exitOrder: {exitOrder.id} in status: {s} deleted from monitoredExitOrders' 
                
             else:
                 log.debug(f'status: {s} skipped, belongs to: {cm.statusOrderOthers}')
@@ -630,7 +624,7 @@ class TradingPlatform(ABC):
         
         for mp in self.monitoredPositions:
             for meo in self.monitoredExitOrders:
-                if mp.exit_id == meo.id and current_time_only > cm.time2close and mp.exitOrderAlreadyCancelled == False:
+                if mp.exit_tp_id == meo.id and current_time_only > cm.time2close and mp.exitOrderAlreadyCancelled == False:
                     log.info(f'time-out exit detected, closing exit for {meo}')
                     self.closeExit(mp, meo)
                     break
@@ -927,7 +921,7 @@ class FinamTradingPlatform(TradingPlatform):
             logging.error( "position has not been processed by transaq")       
           
 
-    def triggerStopOrder(self, order, monitoredPosition):
+    def triggerExitOrder(self, order, monitoredPosition):
         """  TRANSAQ  """
         
         buysell = "S" if monitoredPosition.buysell == "B" else "B"
@@ -990,7 +984,7 @@ class FinamTradingPlatform(TradingPlatform):
             if meo in self.monitoredExitOrders:
                 self.monitoredExitOrders.remove(meo)
         
-            self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_id != meo.id] 
+            self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_tp_id != meo.id] 
         
         return tid
         
@@ -998,7 +992,7 @@ class FinamTradingPlatform(TradingPlatform):
     def set_exit_order_no_to_MonitoredPosition (self, stopOrder):
         """ Transaq """
         for mp in self.monitoredPositions: #TODO  
-            if mp.exit_id == stopOrder.id and stopOrder.order_no is not None: 
+            if mp.exit_tp_id == stopOrder.id and stopOrder.order_no is not None: 
                 mp.exit_order_no = stopOrder.order_no
                 break  
         
@@ -1007,7 +1001,7 @@ class FinamTradingPlatform(TradingPlatform):
         """Transaq"""
         monitoredPosition = None
         for m in self.monitoredPositions:
-            if order.id in [ m.entry_id, m.exit_id ] or  m.exit_order_no == order.order_no:
+            if order.id in [ m.entry_id, m.exit_tp_id ] or  m.exit_order_no == order.order_no:
                monitoredPosition = m
                break
         return monitoredPosition
@@ -1363,7 +1357,7 @@ class AlpacaTradingPlatform(TradingPlatform):
             return 0
 
 
-    def triggerStopOrder(self, order, monitoredPosition):
+    def triggerExitOrder(self, order, monitoredPosition):
         """ Alpaca """
         log.info('triggering stopOrder...')
         buysell = "sell" if monitoredPosition.takePosition == "long" else "buy"
@@ -1385,7 +1379,7 @@ class AlpacaTradingPlatform(TradingPlatform):
         # Alpaca doesn't have a 'success' flag, so let's check the status
         if res.status in ['new', 'pending_new']:
             monitoredPosition.exitOrderRequested = True
-            monitoredPosition.exit_id = res.id                
+            monitoredPosition.exit_tp_id = res.id                
             if order in self.monitoredOrders:
                 self.monitoredOrders.remove(order)
             
@@ -1417,14 +1411,14 @@ class AlpacaTradingPlatform(TradingPlatform):
         """ Alpaca """
         monitoredPosition = None
         for m in self.monitoredPositions:
-            if order.id in [ m.entry_id, m.exit_id ] :
+            if order.id in [ m.entry_id, m.exit_tp_id ] :
                monitoredPosition = m
                break
         return monitoredPosition
 
     def removeMonitoredPositionByExit(self, order):
         """Alpaca"""
-        self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_id != order.id]    
+        self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_tp_id != order.id]    
 
 
     def get_cash_balance (self) :      
@@ -1991,31 +1985,50 @@ class IBTradingPlatform(TradingPlatform):
         self.ib.cancelOrder(order_id)
 
 
-    def newExitOrder(self, board, seccode, client, buysell, quantity, trigger_price_sl, trigger_price_tp, correction, spread, bymarket, is_market):
+    def newExitOrder(self, board, seccode, client, exit_action, quantity, trigger_price_sl, trigger_price_tp, correction, spread, bymarket, is_market):
         """ Interactive Brokers """
+        #TODO adapt Stock(seccode, 'SMART', 'USD') to other currencies 
         try:
-            
             contract = Stock(seccode, 'SMART', 'USD') # Create the contract for the stock
-    
-            stop_price = float(trigger_price_tp) # Determine stop price and limit price
-            limit_price = float(trigger_price_tp)  # Use the target price as the limit price
-                
-            order = Order() # Create a Limit Order
-            order.action = buysell.capitalize()  # 'BUY' or 'SELL'
-            order.orderType = 'LMT'  # Limit Order
-            order.totalQuantity = quantity
-            order.auxPrice = stop_price  # The stop (trigger) price
-            order.lmtPrice = limit_price  # The limit price
-            order.tif = 'GTC'  # Good 'Til Cancel
-            order.account = self.account_number
-            
-            trade = self.ib.placeOrder(contract, order)   # Submit the order via IB API
+            utcInteger = int(datetime.datetime.now(timezone.utc).timestamp())
+            oca_group = f"OCA_{seccode}_{utcInteger}"
 
-            return trade
-    
+            # --- Take Profit (Limit Order) ---
+            tp_order = Order()
+            tp_order.action = exit_action
+            tp_order.orderType = 'LMT'
+            tp_order.totalQuantity = quantity
+            tp_order.lmtPrice = float(trigger_price_tp)
+            tp_order.tif = 'GTC' # Good 'Til Cancel
+            tp_order.account = self.account_number
+
+            # --- Stop Loss (Stop Order) ---
+            sl_order = Order()
+            sl_order.action = exit_action
+            sl_order.orderType = 'STP'
+            sl_order.totalQuantity = quantity
+            sl_order.auxPrice = float(trigger_price_sl)  # trigger price
+            sl_order.tif = 'GTC' # Good 'Til Cancel
+            sl_order.account = self.account_number
+
+            # --- Link them via OCA group ---
+            tp_order.ocaGroup = oca_group
+            tp_order.ocaType = 1  # 1 = Cancel remaining orders in group
+
+            sl_order.ocaGroup = oca_group
+            sl_order.ocaType = 1
+
+            # Place both orders
+            tp_trade = self.ib.placeOrder(contract, tp_order)
+            sl_trade = self.ib.placeOrder(contract, sl_order)
+
+            log.info(f"Bracket exit for seccode={seccode}: TP@{trigger_price_tp}, SL@{trigger_price_sl}, OCA={oca_group}")
+
+            return tp_trade, sl_trade
+
         except Exception as e:
-            log.error(f"Error placing stop-limit order for {seccode}: {e}")
-            return None
+            log.error(f"Error placing bracket exit order for {seccode}: {e}")
+            return None, None
 
 
     def cancelExitOrder(self, exitOrderId):
@@ -2073,7 +2086,7 @@ class IBTradingPlatform(TradingPlatform):
         monitoredPosition = None
         for m in self.monitoredPositions:
             if (
-                order.id in [ m.entry_id, m.exit_id ] 
+                order.id in [ m.entry_id, m.exit_tp_id ] 
                 or m.exit_order_no == order.id 
                 or ( m.seccode == order.seccode and m.buysell == order.buysell  )
             ):
@@ -2174,20 +2187,22 @@ class IBTradingPlatform(TradingPlatform):
 
     def removeMonitoredPositionByExit(self, order):
         """ Interactive Brokers """
-        self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_id != order.id]   
-
+        self.monitoredPositions = [
+            p for p in self.monitoredPositions
+            if order.id not in (p.exit_tp_id, p.exit_sl_id)
+        ]
         
     def set_exit_order_no_to_MonitoredPosition (self, stopOrder):
         """ Interactive Brokers """
         pass
 
     
-    def triggerStopOrder(self, order, monitoredPosition):
+    def triggerExitOrder(self, order, monitoredPosition):
         """ Interactive Brokers """    
         
         log.info('Triggering stop order...')        
         # Determine buy/sell action based on position type
-        buysell = "SELL" if monitoredPosition.takePosition == "long" else "BUY"
+        exit_action = "SELL" if monitoredPosition.takePosition == "long" else "BUY"
         # Format trigger prices
         trigger_price_tp = "{0:0.{prec}f}".format(
             round(monitoredPosition.exitPrice, monitoredPosition.decimals), prec=monitoredPosition.decimals
@@ -2196,8 +2211,8 @@ class IBTradingPlatform(TradingPlatform):
             round(monitoredPosition.stoploss, monitoredPosition.decimals), prec=monitoredPosition.decimals
         )
         
-        res = self.newExitOrder(
-            None, monitoredPosition.seccode, None, buysell, 
+        res, res_sl = self.newExitOrder(
+            None, monitoredPosition.seccode, None, exit_action, 
             monitoredPosition.quantity, trigger_price_sl, trigger_price_tp,
             None, None, None, False 
         )
@@ -2208,12 +2223,14 @@ class IBTradingPlatform(TradingPlatform):
         elif res.orderStatus.status in cm.statusOrderForwarding or res.orderStatus.status in cm.statusOrderExecuted:
                         
             monitoredPosition.exitOrderRequested = True
-            monitoredPosition.exit_id = res.order.orderId  # Capture IB order ID
-            if order in self.monitoredOrders:
-                self.monitoredOrders.remove(order)
-                
+            monitoredPosition.exit_tp_id = res.order.orderId  # Capture IB order ID
+            monitoredPosition.exit_sl_id = res_sl.order.orderId
             log.info(f"Exit order {order.id} successfully in IB OrderId: {res.order.orderId}")
             log.info(repr(res))  
+            
+            # safety net to not collision with an Entry
+            if order in self.monitoredOrders:
+                self.monitoredOrders.remove(order)               
             
         else:
             log.error(f"failed to Exit order for {order.id}, status: {res.orderStatus.status}")

@@ -246,27 +246,27 @@ class Dolph:
             entryPricePV=currentClose 
         return entryPricePV
     
-    def isBetterToClosePosition(self, security):
+    # def isBetterToClosePosition(self, security):
         
-        seccode = security['seccode']
-        params = security['params']
+    #     seccode = security['seccode']
+    #     params = security['params']
 
-        position = self.tp.getMonitoredPositionBySeccode(seccode)
-        if position is None :
-            self.logger.error(f'seccode={seccode} has an open-position, but there is no MonitoredPosition')
-            return True
+    #     position = self.tp.getMonitoredPositionBySeccode(seccode)
+    #     if position is None :
+    #         self.logger.error(f'seccode={seccode} has an open-position, but there is no MonitoredPosition')
+    #         return True
         
-        lastClosePrice = self.getLastClosePrice(seccode)
-        entryPrice = position.entryPrice
-        factorMargin_Position = params['positionMargin']
-        stopLossCoefficient = params['stopLossCoefficient']
-        limitToAcceptFallingOfPrice = entryPrice * factorMargin_Position * stopLossCoefficient
-        decision = False
-        if ( abs( entryPrice - lastClosePrice ) > limitToAcceptFallingOfPrice):
-            decision = True
-            self.logger.info(f'entryPrice: {entryPrice},lastClosePrice: {lastClosePrice}')
+    #     lastClosePrice = self.getLastClosePrice(seccode)
+    #     entryPrice = position.entryPrice
+    #     factorMargin_Position = params['positionMargin']
+    #     stopLossCoefficient = params['stopLossCoefficient']
+    #     limitToAcceptFallingOfPrice = entryPrice * factorMargin_Position * stopLossCoefficient
+    #     decision = False
+    #     if ( abs( entryPrice - lastClosePrice ) > limitToAcceptFallingOfPrice):
+    #         decision = True
+    #         self.logger.info(f'entryPrice: {entryPrice},lastClosePrice: {lastClosePrice}')
         
-        return decision
+    #     return decision
     
     def isPredictionInOppositeDirection(self, prediction, security ) :
         
@@ -287,16 +287,15 @@ class Dolph:
         openPosition = self.tp.isPositionOpen( seccode )
         takePosition = 'no-go' 
         prediction = prediction[-1]
-        isBetterToClose = self.isBetterToClosePosition(security) if openPosition else False
+        #isBetterToClose = self.isBetterToClosePosition(security) if openPosition else False
                 
         if openPosition and security['lastPositionTaken'] == prediction :
 
             takePosition = 'no-go'
                      
-        elif openPosition and isBetterToClose:
-            
-            takePosition = 'close'
-            security['lastPositionTaken'] = takePosition
+        # elif openPosition and isBetterToClose:            
+        #     takePosition = 'close'
+        #     security['lastPositionTaken'] = takePosition
         
         elif not openPosition:
             
