@@ -798,6 +798,7 @@ class DataServer:
                 WHERE code = %s AND board = %s
             """
             cursor.execute(select_query, (seccode, board))
+            log.info(f"searching  {select_query}")
             result = cursor.fetchone()
     
             # Si se encuentra, devolver el ID
@@ -806,6 +807,8 @@ class DataServer:
                 conn.close()
                 return str(result[0])
     
+            log.info(f"security not found adding new...")
+
             # Si no se encuentra, crear una nueva entrada
             insert_query = """
                 INSERT INTO security (code, board) 
@@ -814,9 +817,11 @@ class DataServer:
             """
             cursor.execute(insert_query, (seccode, board))
             new_id = cursor.fetchone()[0]
-            
+                        
             # Confirmar la transacción
             conn.commit()
+
+            log.info(f"new security {seccode} has been added...")
     
             cursor.close()
             conn.close()
