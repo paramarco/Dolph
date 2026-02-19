@@ -1645,7 +1645,7 @@ class IBTradingPlatform(TradingPlatform):
 
          log.info("Retrieving and storing initial candles...")
          now = self.getTradingPlatformTime()
-         months_ago = now - datetime.timedelta(days=150)
+         months_ago = now - datetime.timedelta(days=90)
 
          for sec in self.securities:
              candles = self.get_candles(sec, months_ago, now, period='1Min')
