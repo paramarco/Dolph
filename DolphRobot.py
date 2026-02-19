@@ -220,11 +220,13 @@ class Dolph:
 
 
     def predict( self ):
-        
+
         for period in self.periods:
             for sec in self.securities:
-                self.loadModel(sec, period)            
-                prediction = sec['models'][period].predict( self.data[period], sec, period )            
+                self.loadModel(sec, period)
+                if self.MODE == 'TEST_OFFLINE':
+                    continue  # calibration happens in loadModel, no prediction needed
+                prediction = sec['models'][period].predict( self.data[period], sec, period )
                 self.storePrediction( sec, prediction, period)
         
    
