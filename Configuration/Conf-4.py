@@ -112,8 +112,8 @@ periods = ['1Min'] #periods = ['1Min','30Min']
 simulation_net_balance = 29000
 
 current_tz = pytz.timezone('America/New_York')
-# 4 months ago to now
-since = current_tz.localize(dt.datetime(year=2025, month=10, day=19, hour=10, minute=0))
+# 3 months ago to now
+since = current_tz.localize(dt.datetime.now() - dt.timedelta(days=90))
 until = current_tz.localize(dt.datetime.now())
 between_time = (
     current_tz.localize(dt.datetime.strptime('07:00', '%H:%M')).time(),
