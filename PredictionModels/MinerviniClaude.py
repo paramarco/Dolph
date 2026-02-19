@@ -31,22 +31,25 @@ class MinerviniClaude:
     })
 
     def __init__(self, data, security, dolph):
-        self.df = data['1Min'].copy()
+        if '1Min' in data:
+            self.df = data['1Min'].copy()
 
-        # Exclude non-price columns ('mnemonic', 'hastrade', 'addedvolume', 'numberoftrades')
-        self.df = self.df.drop(columns=['hastrade', 'numberoftrades'], errors='ignore')
+            # Exclude non-price columns ('mnemonic', 'hastrade', 'addedvolume', 'numberoftrades')
+            self.df = self.df.drop(columns=['hastrade', 'numberoftrades'], errors='ignore')
 
-        # Ensure df has a datetime index
-        if not isinstance(self.df.index, pd.DatetimeIndex):
-            raise ValueError("DataFrame must have a datetime index.")
+            # Ensure df has a datetime index
+            if not isinstance(self.df.index, pd.DatetimeIndex):
+                raise ValueError("DataFrame must have a datetime index.")
 
-        # Rename the columns to standard format
-        self.df = self.df.rename(columns={
-            'startprice': 'open',
-            'maxprice': 'high',
-            'minprice': 'low',
-            'endprice': 'close'
-        })
+            # Rename the columns to standard format
+            self.df = self.df.rename(columns={
+                'startprice': 'open',
+                'maxprice': 'high',
+                'minprice': 'low',
+                'endprice': 'close'
+            })
+        else:
+            self.df = pd.DataFrame()
         self.security = security
         self.seccode = security['seccode']
         self.security_id = security['id']
