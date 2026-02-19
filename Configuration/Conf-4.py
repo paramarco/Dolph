@@ -106,14 +106,15 @@ securities = [
 
 logLevel = logging.DEBUG
 #logLevel = logging.INFO
-MODE = 'INIT_DB' # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL' | 'INIT_DB'
+MODE = 'TEST_OFFLINE' # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL' | 'INIT_DB'
 periods = ['1Min'] #periods = ['1Min','30Min']
+numDaysHistCandles = 89
 
 simulation_net_balance = 29000
 
 current_tz = pytz.timezone('America/New_York')
 # 3 months ago to now
-since = current_tz.localize(dt.datetime.now() - dt.timedelta(days=90))
+since = current_tz.localize(dt.datetime.now() - dt.timedelta(days=numDaysHistCandles))
 until = current_tz.localize(dt.datetime.now())
 between_time = (
     current_tz.localize(dt.datetime.strptime('07:00', '%H:%M')).time(),
