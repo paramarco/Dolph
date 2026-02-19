@@ -936,7 +936,7 @@ securities = [
 logLevel = logging.INFO
 MODE = 'OPERATIONAL' # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL' | 'INIT_DB'
 periods = ['1Min'] #periods = ['1Min','30Min']
-numDaysHistCandles = 29
+numDaysHistCandles = 3
 
 current_tz = pytz.timezone('America/New_York')
 # Localize the 'since' and 'until' datetime objects to the specified timezone
