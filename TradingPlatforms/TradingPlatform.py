@@ -1844,29 +1844,41 @@ class IBTradingPlatform(TradingPlatform):
 
         seccode = security['seccode']
 
-        # Map the period to IB's duration and barSize settings
-        timeframe_mapping = {
-            '1Min': ('1 M', '1 min'),
-            'hour': ('1 M', '1 hour'),
-            'day': ('1 M', '1 day')
+        # Map period to IB barSize
+        barsize_mapping = {
+            '1Min': '1 min',
+            'hour': '1 hour',
+            'day': '1 day'
         }
-        duration, barSize = timeframe_mapping.get(period, ('1 M', '1 min'))
+        barSize = barsize_mapping.get(period, '1 min')
 
         # Convert localized times to UTC
         since_utc = since.astimezone(pytz.utc)
         until_utc = until.astimezone(pytz.utc)
+
+        # Calculate actual duration and chunk accordingly
+        total_days = (until_utc - since_utc).days + 1
+        if total_days <= 5:
+            chunk_days = total_days
+            duration = f'{total_days} D'
+        elif total_days <= 30:
+            chunk_days = total_days
+            duration = '1 M'
+        else:
+            chunk_days = 30
+            duration = '1 M'
 
         contract = Stock(seccode, 'SMART', 'USD')
         all_dfs = []
         chunk_end = until_utc
         chunk_num = 0
 
-        log.info(f"Fetching candles for {seccode} from {since_utc} to {until_utc} in monthly chunks")
+        log.info(f"Fetching candles for {seccode}: {total_days} days, duration={duration}, chunks of {chunk_days} days")
 
         while chunk_end > since_utc:
             chunk_num += 1
             end_date_time = chunk_end.strftime('%Y%m%d-%H:%M:%S')
-            log.info(f"  {seccode} chunk {chunk_num}: ending {end_date_time}")
+            log.info(f"  {seccode} chunk {chunk_num}: ending {end_date_time}, duration={duration}")
 
             try:
                 if self.ib_loop and self.ib_loop.is_running():
@@ -1894,7 +1906,7 @@ class IBTradingPlatform(TradingPlatform):
             except Exception as e:
                 log.error(f"Failed to fetch chunk {chunk_num} for {seccode}: {e}")
 
-            chunk_end -= datetime.timedelta(days=30)
+            chunk_end -= datetime.timedelta(days=chunk_days)
             time.sleep(1)
 
         if not all_dfs:
