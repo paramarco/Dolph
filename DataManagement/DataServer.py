@@ -1364,8 +1364,9 @@ class DataServer:
             #security_id = self.getSecurityIdSQL(board, seccode)            
     
             for index, row in candles.iterrows():
+                timestamp = row['date'] if 'date' in row.index else index
                 values = (
-                    index,  # Use the index as the timestamp
+                    timestamp,
                     row['open'],
                     row['high'],
                     row['low'],

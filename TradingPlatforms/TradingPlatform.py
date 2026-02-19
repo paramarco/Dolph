@@ -1901,7 +1901,7 @@ class IBTradingPlatform(TradingPlatform):
             log.warning(f"No data returned for {seccode}")
             return None
 
-        df = pd.concat(all_dfs, ignore_index=False)
+        df = pd.concat(all_dfs, ignore_index=True)
         df = df.drop_duplicates(subset=['date'], keep='last')
         df = df.sort_values('date').reset_index(drop=True)
         log.info(f"Fetched total {len(df)} rows of candles for {seccode}")
