@@ -26,9 +26,9 @@ class Dolph:
         self.ds = ds.DataServer()
         self.tp = tp.initTradingPlatform( self.onCounterPosition )   
         self.initDB()
-        if self.MODE == 'OPERATIONAL':
+        if self.MODE in ('OPERATIONAL', 'TEST_OFFLINE'):
             self.ds.loadSecurityParamsFromDB(self.securities)
-            self.logger.info("OPERATIONAL mode: loaded calibrated params from DB")
+            self.logger.info(f"{self.MODE} mode: loaded calibrated params from DB")
         self._init_securities() 
         self.tv = tv.TrendViewer( self.evaluatePosition )
         self.data = {}
