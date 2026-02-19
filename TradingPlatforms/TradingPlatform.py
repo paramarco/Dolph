@@ -1839,42 +1839,18 @@ class IBTradingPlatform(TradingPlatform):
             self.processExitOrderStatus(order)
      
             
-    def _fetch_candles_chunk(self, contract, end_date_time, duration, barSize, seccode):
-        """Fetch a single chunk of historical candles from IB."""
-        try:
-            if self.ib_loop and self.ib_loop.is_running():
-                bars = self._run_ib(self.ib.reqHistoricalDataAsync(
-                    contract, endDateTime=end_date_time, durationStr=duration,
-                    barSizeSetting=barSize, whatToShow='TRADES', useRTH=False))
-
-                if bars is None:
-                    log.warning(f"Async call failed for {seccode}, trying sync")
-                    bars = self.ib.reqHistoricalData(
-                        contract, endDateTime=end_date_time, durationStr=duration,
-                        barSizeSetting=barSize, whatToShow='TRADES', useRTH=False)
-            else:
-                bars = self.ib.reqHistoricalData(
-                    contract, endDateTime=end_date_time, durationStr=duration,
-                    barSizeSetting=barSize, whatToShow='TRADES', useRTH=False)
-            return bars
-        except Exception as e:
-            log.error(f"Failed to fetch chunk for {seccode} ending {end_date_time}: {e}")
-            return None
-
     def get_candles(self, security, since, until, period):
-        """Interactive Brokers - Fetch historical candles, chunking in 1-week intervals."""
+        """Interactive Brokers - Fetch historical candles with improved error handling."""
 
         seccode = security['seccode']
 
-        # Map the period to IB's barSize settings
-        barSize_mapping = {
-            '1Min': '1 min',
-            'hour': '1 hour',
-            'day': '1 day'
+        # Map the period to IB's duration and barSize settings
+        timeframe_mapping = {
+            '1Min': ('1 M', '1 min'),
+            'hour': ('1 M', '1 hour'),
+            'day': ('1 M', '1 day')
         }
-        barSize = barSize_mapping.get(period, '1 min')
-        chunk_duration = '1 W'
-        chunk_delta = datetime.timedelta(weeks=1)
+        duration, barSize = timeframe_mapping.get(period, ('1 M', '1 min'))
 
         # Convert localized times to UTC
         since_utc = since.astimezone(pytz.utc)
@@ -1882,47 +1858,52 @@ class IBTradingPlatform(TradingPlatform):
 
         contract = Stock(seccode, 'SMART', 'USD')
         all_dfs = []
-
-        # Walk backwards from until to since in 1-week chunks
         chunk_end = until_utc
         chunk_num = 0
 
-        log.info(f"Fetching candles for {seccode} from {since_utc} to {until_utc} in weekly chunks")
+        log.info(f"Fetching candles for {seccode} from {since_utc} to {until_utc} in monthly chunks")
 
         while chunk_end > since_utc:
             chunk_num += 1
             end_date_time = chunk_end.strftime('%Y%m%d-%H:%M:%S')
-
             log.info(f"  {seccode} chunk {chunk_num}: ending {end_date_time}")
 
-            bars = self._fetch_candles_chunk(contract, end_date_time, chunk_duration, barSize, seccode)
+            try:
+                if self.ib_loop and self.ib_loop.is_running():
+                    bars = self._run_ib(self.ib.reqHistoricalDataAsync(
+                        contract, endDateTime=end_date_time, durationStr=duration,
+                        barSizeSetting=barSize, whatToShow='TRADES', useRTH=False))
 
-            if bars:
-                df_chunk = util.df(bars)
-                all_dfs.append(df_chunk)
-                log.info(f"  {seccode} chunk {chunk_num}: {len(df_chunk)} rows")
-            else:
-                log.warning(f"  {seccode} chunk {chunk_num}: no data")
+                    if bars is None:
+                        log.warning(f"Async historical data call failed for {seccode}, trying sync")
+                        bars = self.ib.reqHistoricalData(
+                            contract, endDateTime=end_date_time, durationStr=duration,
+                            barSizeSetting=barSize, whatToShow='TRADES', useRTH=False)
+                else:
+                    bars = self.ib.reqHistoricalData(
+                        contract, endDateTime=end_date_time, durationStr=duration,
+                        barSizeSetting=barSize, whatToShow='TRADES', useRTH=False)
 
-            chunk_end -= chunk_delta
+                if bars:
+                    df_chunk = util.df(bars)
+                    all_dfs.append(df_chunk)
+                    log.info(f"  {seccode} chunk {chunk_num}: {len(df_chunk)} rows")
+                else:
+                    log.warning(f"  {seccode} chunk {chunk_num}: no data")
 
-            # IB pacing: wait between requests to avoid rate limits
-            import time as _time
-            _time.sleep(2)
+            except Exception as e:
+                log.error(f"Failed to fetch chunk {chunk_num} for {seccode}: {e}")
+
+            chunk_end -= datetime.timedelta(days=30)
+            time.sleep(1)
 
         if not all_dfs:
             log.warning(f"No data returned for {seccode}")
             return None
 
-        # Concatenate, deduplicate, sort, and filter to [since, until]
         df = pd.concat(all_dfs, ignore_index=False)
         df = df.drop_duplicates(subset=['date'], keep='last')
         df = df.sort_values('date').reset_index(drop=True)
-
-        # Filter to requested date range
-        if df['date'].dt.tz is not None:
-            df = df[(df['date'] >= since_utc) & (df['date'] <= until_utc)]
-
         log.info(f"Fetched total {len(df)} rows of candles for {seccode}")
         return df
 
