@@ -797,11 +797,22 @@ class MinerviniClaude:
             trading_start, trading_end = getattr(cm, 'tradingTimes', (dt.time(9, 30), dt.time(16, 0)))
             use_trading_hours = (cm.MODE == 'TEST_OFFLINE')
 
-            # Exposure tracking for TEST_OFFLINE
-            track_exposure = (cm.MODE == 'TEST_OFFLINE')
+            # Exposure and position tracking for TEST_OFFLINE
+            track_constraints = (cm.MODE == 'TEST_OFFLINE')
             active_positions = []  # each: {'dir': 1/-1, 'exposure': float, 'close_bar': int}
             long_exposure = 0.0
             short_exposure = 0.0
+            has_open_position = False  # only 1 position at a time per security (mirrors isPositionOpen)
+
+            # Simulation counters for DEBUG logging
+            stats_signals = 0
+            stats_skip_hours = 0
+            stats_skip_position_open = 0
+            stats_skip_exposure = 0
+            stats_tp = 0
+            stats_sl = 0
+            stats_expired = 0
+            stats_max_concurrent = 0
 
             total_profit = 0.0
 
@@ -810,11 +821,14 @@ class MinerviniClaude:
                 if sig == 0:
                     continue
 
+                stats_signals += 1
+
                 # Trading hours filter
                 if use_trading_hours:
                     bar_time = df.index[i]
                     bar_ny = bar_time.tz_convert(ny_tz) if bar_time.tzinfo else bar_time
                     if not (trading_start <= bar_ny.time() <= trading_end):
+                        stats_skip_hours += 1
                         continue
 
                 # Entry at bar i+2 (n+1)
@@ -826,7 +840,7 @@ class MinerviniClaude:
                     continue
 
                 # Expire resolved positions and update exposure
-                if track_exposure:
+                if track_constraints:
                     still_active = []
                     for pos in active_positions:
                         if pos['close_bar'] <= i:
@@ -837,12 +851,21 @@ class MinerviniClaude:
                         else:
                             still_active.append(pos)
                     active_positions = still_active
+                    has_open_position = len(active_positions) > 0
+
+                    # Block if there is already an open position on this security
+                    # Mirrors TradingPlatform.isPositionOpen() / processingCheck()
+                    if has_open_position:
+                        stats_skip_position_open += 1
+                        continue
 
                     # Check exposure limits before opening
                     new_exposure = quantity * entry_price
                     if sig == 1 and (long_exposure + new_exposure) > net_balance:
+                        stats_skip_exposure += 1
                         continue
                     if sig == -1 and (short_exposure + new_exposure) > net_balance:
+                        stats_skip_exposure += 1
                         continue
 
                 if sig == 1:   # long
@@ -868,24 +891,40 @@ class MinerviniClaude:
                 tp_first = tp_hits[0] if len(tp_hits) > 0 else lookahead + 1
                 sl_first = sl_hits[0] if len(sl_hits) > 0 else lookahead + 1
 
-                # Determine close bar for exposure tracking
+                # Determine outcome and close bar
                 if tp_first <= sl_first and tp_first <= lookahead:
                     total_profit += quantity * m_abs - 2.0
                     close_bar = entry_idx + 1 + tp_first
+                    stats_tp += 1
                 elif sl_first < tp_first and sl_first <= lookahead:
                     total_profit -= quantity * sl_coeff * m_abs + 2.0
                     close_bar = entry_idx + 1 + sl_first
+                    stats_sl += 1
                 else:
                     close_bar = end  # expires at lookahead
+                    stats_expired += 1
 
-                # Track exposure
-                if track_exposure:
+                # Track exposure and position
+                if track_constraints:
                     new_exp = quantity * entry_price
                     active_positions.append({'dir': sig, 'exposure': new_exp, 'close_bar': close_bar})
                     if sig == 1:
                         long_exposure += new_exp
                     else:
                         short_exposure += new_exp
+                    if len(active_positions) > stats_max_concurrent:
+                        stats_max_concurrent = len(active_positions)
+
+            # DEBUG summary for this simulation run
+            if track_constraints:
+                trades_opened = stats_tp + stats_sl + stats_expired
+                log.debug(
+                    f"seccode={self.seccode} simulation: "
+                    f"signals={stats_signals} skip_hours={stats_skip_hours} "
+                    f"skip_position_open={stats_skip_position_open} skip_exposure={stats_skip_exposure} | "
+                    f"trades={trades_opened} TP={stats_tp} SL={stats_sl} expired={stats_expired} "
+                    f"max_concurrent={stats_max_concurrent} profit={total_profit:.2f}"
+                )
 
             return total_profit
 
