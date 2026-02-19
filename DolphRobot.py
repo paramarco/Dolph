@@ -26,6 +26,9 @@ class Dolph:
         self.ds = ds.DataServer()
         self.tp = tp.initTradingPlatform( self.onCounterPosition )   
         self.initDB()
+        if self.MODE == 'OPERATIONAL':
+            self.ds.loadSecurityParamsFromDB(self.securities)
+            self.logger.info("OPERATIONAL mode: loaded calibrated params from DB")
         self._init_securities() 
         self.tv = tv.TrendViewer( self.evaluatePosition )
         self.data = {}
@@ -515,7 +518,15 @@ def main():
             dolph.logger.info(f"[Iter {iteration}] Step 2/3: Predict")
             dolph.predict()
             dolph.logger.info(f"[Iter {iteration}] Step 2/3: ✓ COMPLETED")
-                        
+
+            if dolph.MODE == 'TEST_OFFLINE':
+                dolph.logger.info("TEST_OFFLINE calibration complete, saving params to DB...")
+                dolph.ds.saveSecurityParamsToDB(dolph.securities)
+                for sec in dolph.securities:
+                    dolph.logger.info(f"Calibrated {sec['seccode']}: {sec['params']}")
+                dolph.logger.info("All calibrated params saved to DB. Exiting.")
+                sys.exit(0)
+
             dolph.logger.info(f"[Iter {iteration}] Step 3/3: Take Position")
             dolph.takePosition()
             dolph.logger.info(f"[Iter {iteration}] Step 3/3: ✓ COMPLETED")

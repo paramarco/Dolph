@@ -434,13 +434,13 @@ class DataServer:
 
     def getSecurityAlgParams(self, security):
         errMsg = f"{security['seccode']} not found"
-
+        conn = None
         try:
             conn = psycopg2.connect(**cm.db_connection_params)
             cursor = conn.cursor()
             query = """
                 SELECT ALG_PARAMETERS
-                FROM security 
+                FROM security
                 WHERE CODE = %s AND BOARD = %s
             """
             cursor.execute(query, (security['seccode'], security['board']))
@@ -450,13 +450,43 @@ class DataServer:
                 raise RuntimeError(errMsg)
 
             cursor.close()
-            params = result[0]  # No need to use json.loads()            
+            params = result[0]  # No need to use json.loads()
             return params
 
         except psycopg2.Error as error:
             log.error("Failed to read from database", error)
         except Exception as inst:
             log.error(str(inst.args))
+        finally:
+            if conn:
+                conn.close()
+
+    def saveSecurityParamsToDB(self, securities):
+        """Save each security's params dict to the alg_parameters JSONB column."""
+        try:
+            conn = psycopg2.connect(**cm.db_connection_params)
+            cursor = conn.cursor()
+            for sec in securities:
+                cursor.execute(
+                    "UPDATE security SET alg_parameters = %s WHERE code = %s AND board = %s",
+                    (json.dumps(sec['params']), sec['seccode'], sec['board'])
+                )
+            conn.commit()
+            cursor.close()
+            conn.close()
+            log.info(f"Saved alg_parameters for {len(securities)} securities to DB")
+        except Exception as e:
+            log.error(f"Failed to save params to DB: {e}")
+
+    def loadSecurityParamsFromDB(self, securities):
+        """Load alg_parameters from DB and overwrite each security's params dict."""
+        for sec in securities:
+            params = self.getSecurityAlgParams(sec)
+            if params:
+                sec['params'] = params
+                log.info(f"Loaded params from DB for {sec['seccode']}")
+            else:
+                log.warning(f"No params in DB for {sec['seccode']}, keeping config values")
 
     def syncData(self, data):
         log.info("Synchronizing database...")
@@ -809,13 +839,21 @@ class DataServer:
     
             log.debug(f"security not found adding new...")
 
-            # Si no se encuentra, crear una nueva entrada
+            # Look up INTC as reference for period, decimals, market, platform
+            cursor.execute("SELECT period, decimals, market, platform FROM security WHERE code = 'INTC'")
+            ref = cursor.fetchone()
+            if ref:
+                period_val, decimals_val, market_val, platform_val = ref
+            else:
+                period_val, decimals_val, market_val, platform_val = 1, 2, 'NASDAQ', None
+
+            # Insert with complete fields from reference
             insert_query = """
-                INSERT INTO security (code, board) 
-                VALUES (%s, %s)
+                INSERT INTO security (code, board, period, decimals, market, platform)
+                VALUES (%s, %s, %s, %s, %s, %s)
                 RETURNING id
             """
-            cursor.execute(insert_query, (seccode, board))
+            cursor.execute(insert_query, (seccode, board, period_val, decimals_val, market_val, platform_val))
             new_id = cursor.fetchone()[0]
                         
             # Confirmar la transacción

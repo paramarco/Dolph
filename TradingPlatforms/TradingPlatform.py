@@ -127,7 +127,8 @@ class TradingPlatform(ABC):
         self.candlesUpdateTask = None
         self.fmt = "%d.%m.%Y %H:%M:%S"
         
-        self.loadMonitoredPositions() 
+        if self.MODE != 'TEST_OFFLINE':
+            self.loadMonitoredPositions()
 
     def _init_configuration(self):
         
@@ -1187,7 +1188,8 @@ class AlpacaTradingPlatform(TradingPlatform):
             self.stream.stop()
         self.barsUpdateTask.terminate()
         self.ordersStatusUpdateTask.terminate()
-        self.storeMonitoredPositions()
+        if self.MODE != 'TEST_OFFLINE':
+            self.storeMonitoredPositions()
   
 
     def getTradingPlatformTimeZone(self):
@@ -1903,14 +1905,15 @@ class IBTradingPlatform(TradingPlatform):
         
 
     def disconnect(self):
-        
+
         log.info('disconnecting from Interactive Brokers...')
         if self.ib.isConnected():
             self.ib.disconnect()
-        
+
         #self.eventLoopTask.terminate()
         self.ordersStatusUpdateTask.terminate()
-        self.storeMonitoredPositions()
+        if self.MODE != 'TEST_OFFLINE':
+            self.storeMonitoredPositions()
 
     def on_error(self, reqId, errorCode, errorString, contract):
         
@@ -2128,6 +2131,8 @@ class IBTradingPlatform(TradingPlatform):
     
     def get_cash_balance(self):
         """ Interactive Brokers """
+        if self.MODE == 'TEST_OFFLINE':
+            return getattr(cm, 'simulation_net_balance', 29000)
         try:
             # Verificar que el loop esté disponible
             if not self.ib_loop or not self.ib_loop.is_running():
@@ -2159,6 +2164,8 @@ class IBTradingPlatform(TradingPlatform):
 
     def get_net_balance(self):
         """ Interactive Brokers """
+        if self.MODE == 'TEST_OFFLINE':
+            return getattr(cm, 'simulation_net_balance', 29000)
         try:
             # Verificar que el loop esté disponible
             if not self.ib_loop or not self.ib_loop.is_running():

@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import logging
 import datetime as dt
+import pytz
 from Configuration import Conf as cm
 
 log = logging.getLogger("PredictionModel")
@@ -52,15 +53,25 @@ class MinerviniClaude:
         self.params = security['params']
         self.dolph = dolph
 
-        if self.seccode not in MinerviniClaude._calibration_cache:
-            log.info(f"seccode={self.seccode} calibrating params from historical DB...")
-            self._calibrate_params_from_db()
+        if cm.MODE == 'OPERATIONAL':
+            # Skip calibration, use pre-loaded params from DB (loaded by DolphRobot)
+            if self.seccode in MinerviniClaude._calibration_cache:
+                cached = MinerviniClaude._calibration_cache[self.seccode]
+                for k, v in cached.items():
+                    self.security['params'][k] = v
+                self.params = self.security['params']
+            log.info(f"seccode={self.seccode} OPERATIONAL mode, using pre-loaded params")
         else:
-            cached = MinerviniClaude._calibration_cache[self.seccode]
-            for k, v in cached.items():
-                self.security['params'][k] = v
-            self.params = self.security['params']
-            log.info(f"seccode={self.seccode} loaded calibrated params from cache")
+            # TEST_OFFLINE or other modes: run calibration
+            if self.seccode not in MinerviniClaude._calibration_cache:
+                log.info(f"seccode={self.seccode} calibrating params from historical DB...")
+                self._calibrate_params_from_db()
+            else:
+                cached = MinerviniClaude._calibration_cache[self.seccode]
+                for k, v in cached.items():
+                    self.security['params'][k] = v
+                self.params = self.security['params']
+                log.info(f"seccode={self.seccode} loaded calibrated params from cache")
 
     # =====================================================
     # PUBLIC
@@ -763,12 +774,15 @@ class MinerviniClaude:
             # Step 5: Trade simulation
             # Compute position size: quantity = (net_balance * factorPosition_Balance) / entry_price
             # This matches DolphRobot.positionAssessment() logic
-            try:
-                net_balance = self.dolph.tp.get_net_balance()
-                if net_balance is None or net_balance <= 0:
+            if cm.MODE == 'TEST_OFFLINE':
+                net_balance = getattr(cm, 'simulation_net_balance', 29000)
+            else:
+                try:
+                    net_balance = self.dolph.tp.get_net_balance()
+                    if net_balance is None or net_balance <= 0:
+                        net_balance = 20000.0
+                except Exception:
                     net_balance = 20000.0
-            except Exception:
-                net_balance = 20000.0
             cash_4_position = net_balance * cm.factorPosition_Balance
 
             closes = df['close'].values
@@ -778,12 +792,30 @@ class MinerviniClaude:
             lookahead = int(params['CALIBRATION_LOOKAHEAD_BARS'])
             n = len(df)
 
+            # Trading hours filter setup
+            ny_tz = cm.current_tz
+            trading_start, trading_end = getattr(cm, 'tradingTimes', (dt.time(9, 30), dt.time(16, 0)))
+            use_trading_hours = (cm.MODE == 'TEST_OFFLINE')
+
+            # Exposure tracking for TEST_OFFLINE
+            track_exposure = (cm.MODE == 'TEST_OFFLINE')
+            active_positions = []  # each: {'dir': 1/-1, 'exposure': float, 'close_bar': int}
+            long_exposure = 0.0
+            short_exposure = 0.0
+
             total_profit = 0.0
 
             for i in range(n - lookahead - 2):
                 sig = signals[i]
                 if sig == 0:
                     continue
+
+                # Trading hours filter
+                if use_trading_hours:
+                    bar_time = df.index[i]
+                    bar_ny = bar_time.tz_convert(ny_tz) if bar_time.tzinfo else bar_time
+                    if not (trading_start <= bar_ny.time() <= trading_end):
+                        continue
 
                 # Entry at bar i+2 (n+1)
                 entry_idx   = i + 2
@@ -792,6 +824,26 @@ class MinerviniClaude:
                 quantity    = round(cash_4_position / entry_price)
                 if quantity <= 0:
                     continue
+
+                # Expire resolved positions and update exposure
+                if track_exposure:
+                    still_active = []
+                    for pos in active_positions:
+                        if pos['close_bar'] <= i:
+                            if pos['dir'] == 1:
+                                long_exposure -= pos['exposure']
+                            else:
+                                short_exposure -= pos['exposure']
+                        else:
+                            still_active.append(pos)
+                    active_positions = still_active
+
+                    # Check exposure limits before opening
+                    new_exposure = quantity * entry_price
+                    if sig == 1 and (long_exposure + new_exposure) > net_balance:
+                        continue
+                    if sig == -1 and (short_exposure + new_exposure) > net_balance:
+                        continue
 
                 if sig == 1:   # long
                     tp_price = entry_price + m_abs
@@ -816,10 +868,24 @@ class MinerviniClaude:
                 tp_first = tp_hits[0] if len(tp_hits) > 0 else lookahead + 1
                 sl_first = sl_hits[0] if len(sl_hits) > 0 else lookahead + 1
 
+                # Determine close bar for exposure tracking
                 if tp_first <= sl_first and tp_first <= lookahead:
                     total_profit += quantity * m_abs - 2.0
+                    close_bar = entry_idx + 1 + tp_first
                 elif sl_first < tp_first and sl_first <= lookahead:
                     total_profit -= quantity * sl_coeff * m_abs + 2.0
+                    close_bar = entry_idx + 1 + sl_first
+                else:
+                    close_bar = end  # expires at lookahead
+
+                # Track exposure
+                if track_exposure:
+                    new_exp = quantity * entry_price
+                    active_positions.append({'dir': sig, 'exposure': new_exp, 'close_bar': close_bar})
+                    if sig == 1:
+                        long_exposure += new_exp
+                    else:
+                        short_exposure += new_exp
 
             return total_profit
 
