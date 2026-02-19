@@ -191,8 +191,11 @@ class Dolph:
         self.tp.processPosition(position)     
        
 
-    def dataAcquisition(self):        
-        
+    def dataAcquisition(self):
+
+        if self.MODE == 'TEST_OFFLINE':
+            self.logger.info("TEST_OFFLINE mode: skipping dataAcquisition (calibration reads DB directly)")
+            return
         self.ds.syncData( self.data )
 
 
