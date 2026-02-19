@@ -106,7 +106,7 @@ securities = [
 
 logLevel = logging.DEBUG
 #logLevel = logging.INFO
-MODE = 'TEST_OFFLINE' # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL' | 'INIT_DB'
+MODE = 'INIT_DB' # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL' | 'INIT_DB'
 periods = ['1Min'] #periods = ['1Min','30Min']
 
 simulation_net_balance = 29000
