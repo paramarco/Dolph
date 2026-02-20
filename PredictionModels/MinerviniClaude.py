@@ -114,6 +114,7 @@ class MinerviniClaude:
             signal_result = self._generate_signal(self.df, phase)
             signal = signal_result['signal']
             confidence = signal_result['confidence']
+            volume_contexts = signal_result.get('volume_contexts', [])
 
             if signal not in ['long', 'short', 'no-go']:
                 log.error(f"{self.seccode}: invalid signal {signal}, forcing no-go")
@@ -134,9 +135,11 @@ class MinerviniClaude:
             exitPrice = "{0:0.{prec}f}".format(exitPrice, prec=sec['decimals'])
             margin = "{0:0.{prec}f}".format(sec['params']['positionMargin'], prec=5)
 
+            vol_ctx_str = ','.join(volume_contexts) if volume_contexts else 'none'
             log.info(
                 f"seccode={self.seccode} phase={phase}, signal={signal},"
-                f" confidence={confidence:.4f}, margin={margin}, entryPrice={lastClosePrice},"
+                f" confidence={confidence:.4f}, volume_contexts=[{vol_ctx_str}],"
+                f" margin={margin}, entryPrice={lastClosePrice},"
                 f" exitPrice={exitPrice}, UTC-time={utc_now.isoformat()}"
             )
 
@@ -409,26 +412,29 @@ class MinerviniClaude:
         score_diff = long_score - short_score
         total_score = long_score + short_score
 
+        # Active volume contexts (only those that are True)
+        active_contexts = [k for k, v in context.items() if v]
+
         if total_score == 0:
-            return {'signal': 'no-go', 'confidence': 0.0}
+            return {'signal': 'no-go', 'confidence': 0.0, 'volume_contexts': active_contexts}
 
         confidence = abs(score_diff) / total_score
 
         # ---- Low energy filter ---- cm.MIN_TOTAL_SCORE = 1.5
         # Minimum intensity filter. Avoid trades when there is very little total energy.
         if total_score < p['MIN_TOTAL_SCORE']:
-            return {'signal': 'no-go', 'confidence': 0.0}
+            return {'signal': 'no-go', 'confidence': 0.0, 'volume_contexts': active_contexts}
 
         # ---- Conflict filter ----  cm.MIN_CONFIDENCE = 0.6
         # Minimum conviction filter. Avoid trades when there is internal conflict.
         if confidence < p['MIN_CONFIDENCE']:
-            return {'signal': 'no-go', 'confidence': 0.0}
+            return {'signal': 'no-go', 'confidence': 0.0, 'volume_contexts': active_contexts}
 
         # ---- Direction ----
         if score_diff > 0:
-            return {'signal': 'long', 'confidence': confidence}
+            return {'signal': 'long', 'confidence': confidence, 'volume_contexts': active_contexts}
         else:
-            return {'signal': 'short', 'confidence': confidence}
+            return {'signal': 'short', 'confidence': confidence, 'volume_contexts': active_contexts}
 
 
     # =====================================================
