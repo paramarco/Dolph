@@ -440,17 +440,6 @@ class Dolph:
             confidence = 0.0
 
         takePosition = self.takeDecision( security, prediction)
-
-        # Minimum absolute margin protection: avoid trades where margin
-        # is too small to cover spread + commissions
-        params = security['params']
-        min_margin = params.get('MIN_MARGIN_DOLLARS', 0.15)
-        if takePosition in ['long', 'short'] and margin < min_margin:
-            self.logger.info(
-                f'seccode:{seccode} margin ${margin:.4f} below MIN_MARGIN_DOLLARS ${min_margin}, no-go'
-            )
-            takePosition = 'no-go'
-
         entryPrice = self.getEntryPrice(seccode, takePosition )
         client = self.tp.getClientId()
         byMarket = False
@@ -459,6 +448,18 @@ class Dolph:
 
         if entryPrice is None:
             takePosition == 'no-go'
+
+        # Minimum margin protection: margin must cover at least 3x
+        # the estimated round-trip transaction cost (commission + slippage)
+        elif takePosition in ['long', 'short']:
+            cost_per_share = 0.01 + entryPrice * 0.0002  # $0.01 commission + 0.02% slippage
+            min_margin = round(3 * cost_per_share, 4)
+            if margin < min_margin:
+                self.logger.info(
+                    f'seccode:{seccode} margin ${margin:.4f} below min ${min_margin:.4f} '
+                    f'(3x cost for ${entryPrice:.2f}), no-go'
+                )
+                takePosition = 'no-go'
 
         elif takePosition == 'long':
             exitPrice = entryPrice  + margin
