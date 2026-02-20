@@ -121,6 +121,7 @@ class TradingPlatform(ABC):
         self.monitoredOrders = []
         self.monitoredExitOrders = []
         self.counterPositions = []
+        self.position_closed_at = {}  # seccode → UTC datetime of last position close
         self.profitBalance = 0
         self.currentTradingHour = 0
         self.candlesUpdateThread = None
@@ -2264,6 +2265,10 @@ class IBTradingPlatform(TradingPlatform):
 
     def removeMonitoredPositionByExit(self, order):
         """ Interactive Brokers """
+        for p in self.monitoredPositions:
+            if order.id in (p.exit_tp_id, p.exit_sl_id):
+                self.position_closed_at[p.seccode] = datetime.datetime.now(datetime.timezone.utc)
+                log.info(f"Position closed for {p.seccode}, cooldown started")
         self.monitoredPositions = [
             p for p in self.monitoredPositions
             if order.id not in (p.exit_tp_id, p.exit_sl_id)
@@ -2286,6 +2291,7 @@ class IBTradingPlatform(TradingPlatform):
             log.warning(f"Orphaned position detected: {mp.seccode} "
                         f"(exit orders TP={mp.exit_tp_id} SL={mp.exit_sl_id} no longer active) "
                         f"- removing from monitoredPositions")
+            self.position_closed_at[mp.seccode] = datetime.datetime.now(datetime.timezone.utc)
             self.monitoredPositions.remove(mp)
 
     def set_exit_order_no_to_MonitoredPosition (self, stopOrder):

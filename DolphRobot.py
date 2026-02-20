@@ -318,6 +318,17 @@ class Dolph:
 
         elif not openPosition:
 
+            # Cooldown: prevent rapid-fire reopening after a position closes
+            cooldown_secs = security['params'].get('POSITION_COOLDOWN_SECONDS', 300)
+            closed_at = self.tp.position_closed_at.get(seccode)
+            if closed_at is not None:
+                elapsed = (dt.datetime.now(dt.timezone.utc) - closed_at).total_seconds()
+                if elapsed < cooldown_secs:
+                    self.logger.info(
+                        f'seccode:{seccode} cooldown active: {elapsed:.0f}s / {cooldown_secs}s since last close'
+                    )
+                    return 'no-go'
+
             takePosition = prediction_signal
             security['lastPositionTaken'] = takePosition
 

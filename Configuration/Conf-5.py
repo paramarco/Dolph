@@ -84,6 +84,8 @@ securities = [
             'BUYING_CLIMAX_TREND_LOOKBACK': 7,
             'BUYING_CLIMAX_EXTENSION': 0.0039342,
             'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
+            # Position Management
+            'POSITION_COOLDOWN_SECONDS': 300,
             # Final Decision Scoring
             'MIN_TOTAL_SCORE': 0.735,
             'MIN_CONFIDENCE': 0.294,
@@ -166,6 +168,8 @@ securities = [
             'BUYING_CLIMAX_TREND_LOOKBACK': 7,
             'BUYING_CLIMAX_EXTENSION': 0.005481285714285714,
             'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
+            # Position Management
+            'POSITION_COOLDOWN_SECONDS': 300,
             # Final Decision Scoring
             'MIN_TOTAL_SCORE': 0.735,
             'MIN_CONFIDENCE': 0.294,
@@ -248,6 +252,8 @@ securities = [
             'BUYING_CLIMAX_TREND_LOOKBACK': 7,
             'BUYING_CLIMAX_EXTENSION': 0.0067599999999999995,
             'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
+            # Position Management
+            'POSITION_COOLDOWN_SECONDS': 300,
             # Final Decision Scoring
             'MIN_TOTAL_SCORE': 0.735,
             'MIN_CONFIDENCE': 0.294,
@@ -330,6 +336,8 @@ securities = [
             'BUYING_CLIMAX_TREND_LOOKBACK': 10,
             'BUYING_CLIMAX_EXTENSION': 0.0031597999999999995,
             'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
+            # Position Management
+            'POSITION_COOLDOWN_SECONDS': 300,
             # Final Decision Scoring
             'MIN_TOTAL_SCORE': 0.735,
             'MIN_CONFIDENCE': 0.294,
@@ -412,6 +420,8 @@ securities = [
             'BUYING_CLIMAX_TREND_LOOKBACK': 13,
             'BUYING_CLIMAX_EXTENSION': 0.003933628571428571,
             'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
+            # Position Management
+            'POSITION_COOLDOWN_SECONDS': 300,
             # Final Decision Scoring
             'MIN_TOTAL_SCORE': 0.735,
             'MIN_CONFIDENCE': 0.294,
@@ -494,6 +504,8 @@ securities = [
             'BUYING_CLIMAX_TREND_LOOKBACK': 8,
             'BUYING_CLIMAX_EXTENSION': 0.0031597999999999995,
             'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
+            # Position Management
+            'POSITION_COOLDOWN_SECONDS': 300,
             # Final Decision Scoring
             'MIN_TOTAL_SCORE': 0.735,
             'MIN_CONFIDENCE': 0.294,
@@ -576,6 +588,8 @@ securities = [
             'BUYING_CLIMAX_TREND_LOOKBACK': 7,
             'BUYING_CLIMAX_EXTENSION': 0.0035467142857142854,
             'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
+            # Position Management
+            'POSITION_COOLDOWN_SECONDS': 300,
             # Final Decision Scoring
             'MIN_TOTAL_SCORE': 0.735,
             'MIN_CONFIDENCE': 0.294,
@@ -658,6 +672,8 @@ securities = [
             'BUYING_CLIMAX_TREND_LOOKBACK': 7,
             'BUYING_CLIMAX_EXTENSION': 0.0031597999999999995,
             'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
+            # Position Management
+            'POSITION_COOLDOWN_SECONDS': 300,
             # Final Decision Scoring
             'MIN_TOTAL_SCORE': 0.735,
             'MIN_CONFIDENCE': 0.294,
@@ -740,6 +756,8 @@ securities = [
             'BUYING_CLIMAX_TREND_LOOKBACK': 7,
             'BUYING_CLIMAX_EXTENSION': 0.0031597999999999995,
             'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
+            # Position Management
+            'POSITION_COOLDOWN_SECONDS': 300,
             # Final Decision Scoring
             'MIN_TOTAL_SCORE': 0.735,
             'MIN_CONFIDENCE': 0.294,
@@ -822,6 +840,8 @@ securities = [
             'BUYING_CLIMAX_TREND_LOOKBACK': 7,
             'BUYING_CLIMAX_EXTENSION': 0.0058682,
             'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
+            # Position Management
+            'POSITION_COOLDOWN_SECONDS': 300,
             # Final Decision Scoring
             'MIN_TOTAL_SCORE': 0.735,
             'MIN_CONFIDENCE': 0.294,
@@ -904,6 +924,8 @@ securities = [
             'BUYING_CLIMAX_TREND_LOOKBACK': 7,
             'BUYING_CLIMAX_EXTENSION': 0.0058682,
             'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
+            # Position Management
+            'POSITION_COOLDOWN_SECONDS': 300,
             # Final Decision Scoring
             'MIN_TOTAL_SCORE': 0.735,
             'MIN_CONFIDENCE': 0.294,
@@ -986,6 +1008,8 @@ securities = [
             'BUYING_CLIMAX_TREND_LOOKBACK': 7,
             'BUYING_CLIMAX_EXTENSION': 0.003933628571428571,
             'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
+            # Position Management
+            'POSITION_COOLDOWN_SECONDS': 300,
             # Final Decision Scoring
             'MIN_TOTAL_SCORE': 0.735,
             'MIN_CONFIDENCE': 0.294,

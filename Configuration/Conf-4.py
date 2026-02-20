@@ -77,6 +77,8 @@ _BASE_PARAMS = {
     # Final Decision Scoring
     'MIN_TOTAL_SCORE': 0.735,
     'MIN_CONFIDENCE': 0.294,
+    # Position Management
+    'POSITION_COOLDOWN_SECONDS': 300,
 }
 
 def _sec(code, decimals=2, timezone='America/New_York', currency='USD',
