@@ -917,6 +917,14 @@ class MinerviniClaude:
                 if quantity <= 0:
                     continue
 
+                # Mirror DolphRobot.evaluatePosition() min_margin check
+                min_abs_margin = 3 * (0.01 + entry_price * 0.0002)
+                if m_abs < min_abs_margin:
+                    continue
+
+                # Realistic IB transaction cost: $0.005/share, buy + sell
+                round_trip_cost = quantity * 0.005 * 2
+
                 # Expire resolved positions and update exposure
                 if track_constraints:
                     still_active = []
@@ -971,11 +979,11 @@ class MinerviniClaude:
 
                 # Determine outcome and close bar
                 if tp_first <= sl_first and tp_first <= lookahead:
-                    total_profit += quantity * m_abs - 2.0
+                    total_profit += quantity * m_abs - round_trip_cost
                     close_bar = entry_idx + 1 + tp_first
                     stats_tp += 1
                 elif sl_first < tp_first and sl_first <= lookahead:
-                    total_profit -= quantity * sl_coeff * m_abs + 2.0
+                    total_profit -= quantity * sl_coeff * m_abs + round_trip_cost
                     close_bar = entry_idx + 1 + sl_first
                     stats_sl += 1
                 else:
