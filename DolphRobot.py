@@ -320,7 +320,7 @@ class Dolph:
 
             # Cooldown: prevent rapid-fire reopening after a position closes
             # Use extended cooldown if scalp was detected (position closed in < 60s)
-            default_cooldown = security['params'].get('POSITION_COOLDOWN_SECONDS', 300)
+            . = security['params'].get('POSITION_COOLDOWN_SECONDS', 300)
             cooldown_secs = self.tp.position_scalp_cooldown.get(seccode, default_cooldown)
             closed_at = self.tp.position_closed_at.get(seccode)
             if closed_at is not None:
@@ -452,7 +452,7 @@ class Dolph:
         if entryPrice is None:
             takePosition = 'no-go'
 
-        # Minimum margin protection: margin must cover at least 3x
+        # Minimum margin protection: margin must cover at least 3xCosts, aka:
         # the estimated round-trip transaction cost (commission + slippage)
         if takePosition in ['long', 'short']:
             cost_per_share = 0.01 + entryPrice * 0.0002  # $0.01 commission + 0.02% slippage
