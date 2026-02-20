@@ -112,20 +112,22 @@ class RsiAndAtr:
     
             # Buy conditions: RSI was below 30, remained there, now increasing; EMA50 > EMA200 (bullish trend); Price > EMA50
             if rsi < 30 and ema50 > ema200:
-                log.info(f"{seccode}: predictor says long")
-                return 'long'  # Buy signal
-    
+                confidence = (30.0 - rsi) / 30.0
+                log.info(f"{seccode}: predictor says long (confidence={confidence:.4f})")
+                return {'signal': 'long', 'confidence': round(confidence, 4)}
+
             # Sell conditions: RSI was above 70, remained there, now decreasing; EMA50 < EMA200 (bearish trend); Price < EMA50
             if rsi > 70 and ema50 < ema200:
-                log.info(f"{seccode}: predictor says short")
-                return 'short'  # Sell signal
-            
+                confidence = (rsi - 70.0) / 30.0
+                log.info(f"{seccode}: predictor says short (confidence={confidence:.4f})")
+                return {'signal': 'short', 'confidence': round(confidence, 4)}
+
             log.info(f"{seccode}: predictor says nogo")
-            return 'no-go'
-       
-        except Exception as e:        
-            log.error(f"{seccode}: Failed : {e}", e)            
-            return 'no-go'
+            return {'signal': 'no-go', 'confidence': 0.0}
+
+        except Exception as e:
+            log.error(f"{seccode}: Failed : {e}", e)
+            return {'signal': 'no-go', 'confidence': 0.0}
 
 
     def _calculate_rsi(self, series, period=14):

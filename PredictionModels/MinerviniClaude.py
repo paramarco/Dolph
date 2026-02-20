@@ -111,11 +111,14 @@ class MinerviniClaude:
 
             phase = self._detect_phase(self.df)
 
-            signal = self._generate_signal(self.df, phase)
+            signal_result = self._generate_signal(self.df, phase)
+            signal = signal_result['signal']
+            confidence = signal_result['confidence']
 
             if signal not in ['long', 'short', 'no-go']:
                 log.error(f"{self.seccode}: invalid signal {signal}, forcing no-go")
                 signal = 'no-go'
+                confidence = 0.0
 
             self._adapt_margin(sec, phase, self.df)
 
@@ -133,15 +136,15 @@ class MinerviniClaude:
 
             log.info(
                 f"seccode={self.seccode} phase={phase}, signal={signal},"
-                f" margin={margin}, entryPrice={lastClosePrice},"
+                f" confidence={confidence:.4f}, margin={margin}, entryPrice={lastClosePrice},"
                 f" exitPrice={exitPrice}, UTC-time={utc_now.isoformat()}"
             )
 
-            return signal
+            return {'signal': signal, 'confidence': confidence}
 
         except Exception as e:
             log.error(f"{self.seccode}: MinerviniClaude failed: {e}")
-            return 'no-go'
+            return {'signal': 'no-go', 'confidence': 0.0}
 
     # =====================================================
     # DATA PREP
@@ -407,28 +410,25 @@ class MinerviniClaude:
         total_score = long_score + short_score
 
         if total_score == 0:
-            return 'no-go'
+            return {'signal': 'no-go', 'confidence': 0.0}
 
         confidence = abs(score_diff) / total_score
 
         # ---- Low energy filter ---- cm.MIN_TOTAL_SCORE = 1.5
         # Minimum intensity filter. Avoid trades when there is very little total energy.
         if total_score < p['MIN_TOTAL_SCORE']:
-            return 'no-go'
+            return {'signal': 'no-go', 'confidence': 0.0}
 
         # ---- Conflict filter ----  cm.MIN_CONFIDENCE = 0.6
         # Minimum conviction filter. Avoid trades when there is internal conflict.
         if confidence < p['MIN_CONFIDENCE']:
-            return 'no-go'
+            return {'signal': 'no-go', 'confidence': 0.0}
 
         # ---- Direction ----
         if score_diff > 0:
-            return 'long'
+            return {'signal': 'long', 'confidence': confidence}
         else:
-            return 'short'
-
-        log.error("returning no-go out of logic")
-        return 'no-go'
+            return {'signal': 'short', 'confidence': confidence}
 
 
     # =====================================================

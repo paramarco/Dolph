@@ -58,7 +58,7 @@ class RsiAndEmaAndChatGpt:
             df_sec = self.df[self.df['mnemonic'] == seccode].copy()
             if df_sec.empty:
                 log.info(f"{seccode}: no historical 1-minute data available.")
-                return 'no-go'
+                return {'signal': 'no-go', 'confidence': 0.0}
 
             # Resample to 5-minute candles
             df_5min = df_sec.resample('5T').agg({
@@ -71,7 +71,7 @@ class RsiAndEmaAndChatGpt:
             # Require at least 200 rows for EMA200
             if len(df_5min) < 200:
                 log.info(f"{seccode}: not enough 5-minute candles for EMA200 (have {len(df_5min)}).")
-                return 'no-go'
+                return {'signal': 'no-go', 'confidence': 0.0}
 
             # Compute indicators
             df_5min['RSI'] = self._calculate_rsi(df_5min['close'], 7)
@@ -81,7 +81,7 @@ class RsiAndEmaAndChatGpt:
 
             if df_5min.empty:
                 log.info(f"{seccode}: indicators not available.")
-                return 'no-go'
+                return {'signal': 'no-go', 'confidence': 0.0}
 
             # Use latest values
             rsi = df_5min['RSI'].iloc[-1]
@@ -91,19 +91,21 @@ class RsiAndEmaAndChatGpt:
 
             # Decision logic
             if rsi < 30 and ema50 > ema200:
-                log.info(f"{seccode}: predictor says long (5-min indicators)")
-                return 'long'
+                confidence = (30.0 - rsi) / 30.0
+                log.info(f"{seccode}: predictor says long (5-min indicators, confidence={confidence:.4f})")
+                return {'signal': 'long', 'confidence': round(confidence, 4)}
 
             if rsi > 70 and ema50 < ema200:
-                log.info(f"{seccode}: predictor says short (5-min indicators)")
-                return 'short'
+                confidence = (rsi - 70.0) / 30.0
+                log.info(f"{seccode}: predictor says short (5-min indicators, confidence={confidence:.4f})")
+                return {'signal': 'short', 'confidence': round(confidence, 4)}
 
             log.info(f"{seccode}: predictor says no-go (5-min indicators)")
-            return 'no-go'
+            return {'signal': 'no-go', 'confidence': 0.0}
 
         except Exception as e:
             log.error(f"{seccode}: Failed: {e}", e)
-            return 'no-go'
+            return {'signal': 'no-go', 'confidence': 0.0}
 
     def _calculate_rsi(self, series, period):
         delta = series.diff(1)

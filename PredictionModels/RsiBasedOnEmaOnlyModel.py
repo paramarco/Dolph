@@ -118,18 +118,20 @@ class RsiBasedOnEmaOnlyModel:
 
         log.info(f"RSI: {rsi}")
 
-        # Buy conditions: RSI < 30 (oversold), 
+        # Buy conditions: RSI < 30 (oversold),
         if rsi < 30:
-            log.info("predictor says long")
-            return 'long'  # Buy signal
-    
+            confidence = (30.0 - rsi) / 30.0
+            log.info(f"predictor says long (confidence={confidence:.4f})")
+            return {'signal': 'long', 'confidence': round(confidence, 4)}
+
         # Sell conditions: RSI > 70 (overbought)
         elif rsi > 70 :
-            log.info("predictor says short")
-            return 'short'  # Sell signal
+            confidence = (rsi - 70.0) / 30.0
+            log.info(f"predictor says short (confidence={confidence:.4f})")
+            return {'signal': 'short', 'confidence': round(confidence, 4)}
         log.info("predictor says nogo")
         # No clear signal to buy or sell
-        return 'no-go'
+        return {'signal': 'no-go', 'confidence': 0.0}
 
     def _calculate_rsi(self, series, period=14):
         delta = series.diff(1)

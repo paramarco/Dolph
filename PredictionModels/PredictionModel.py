@@ -1052,15 +1052,15 @@ class PeaksAndValleysModel:
         indexLastValley = fluctuation['valley_idx'][-1] if fluctuation['valley_idx'].any() else 0
    
         if indexLastPeak == indexPenultimate and indexLastPeak != indexLastValley :
-            status = 'long'
+            status = {'signal': 'long', 'confidence': 0.5}
         elif indexLastValley == indexPenultimate and indexLastPeak != indexLastValley :
-             status = 'short'
+             status = {'signal': 'short', 'confidence': 0.5}
         elif indexLastPeak == indexLastValley: #if in the same point thera peak and valley
-             status = 'no-go'     
+             status = {'signal': 'no-go', 'confidence': 0.0}
         else:
-             status = 'no-go' 
-             
-        #status = self.reviewForHigherfrequency(status, sec)             
+             status = {'signal': 'no-go', 'confidence': 0.0}
+
+        #status = self.reviewForHigherfrequency(status, sec)
         #FIXME test
         #status = 'long'
         return status

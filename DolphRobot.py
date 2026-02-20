@@ -277,39 +277,50 @@ class Dolph:
     #     return decision
     
     def isPredictionInOppositeDirection(self, prediction, security ) :
-        
+
+        # Support both dict and string format
+        if isinstance(prediction, dict):
+            pred_signal = prediction['signal']
+        else:
+            pred_signal = prediction
+
         inOppositeDirection = False
-        
-        if security['lastPositionTaken'] == 'long' and prediction == 'short':
+
+        if security['lastPositionTaken'] == 'long' and pred_signal == 'short':
             inOppositeDirection = True
-        
-        if security['lastPositionTaken'] == 'short' and prediction == 'long':
+
+        if security['lastPositionTaken'] == 'short' and pred_signal == 'long':
             inOppositeDirection = True
-        
+
         return inOppositeDirection
     
   
     def takeDecision(self, security, prediction ):
-            
+
         seccode = security['seccode']
         openPosition = self.tp.isPositionOpen( seccode )
-        takePosition = 'no-go' 
-        prediction = prediction[-1]
+        takePosition = 'no-go'
+        last_pred = prediction[-1]
+        # Support both new dict format and legacy string format
+        if isinstance(last_pred, dict):
+            prediction_signal = last_pred['signal']
+        else:
+            prediction_signal = last_pred
         #isBetterToClose = self.isBetterToClosePosition(security) if openPosition else False
-                
-        if openPosition and security['lastPositionTaken'] == prediction :
+
+        if openPosition and security['lastPositionTaken'] == prediction_signal :
 
             takePosition = 'no-go'
-                     
-        # elif openPosition and isBetterToClose:            
+
+        # elif openPosition and isBetterToClose:
         #     takePosition = 'close'
         #     security['lastPositionTaken'] = takePosition
-        
+
         elif not openPosition:
-            
-            takePosition = prediction
+
+            takePosition = prediction_signal
             security['lastPositionTaken'] = takePosition
-       
+
         self.logger.debug(f'{takePosition}')
         return takePosition
   
@@ -403,56 +414,75 @@ class Dolph:
 
 
 
-    def evaluatePosition (self, security):        
+    def evaluatePosition (self, security):
 
-        (longestPeriod, board, seccode, exitTimeSeconds, 
+        (longestPeriod, board, seccode, exitTimeSeconds,
          quantity, k, decimals, marketId, spread, correction, margin, exitTime ) = self.get_evaluation_parameters(security)
-            
+
         prediction = copy.deepcopy(security['predictions'][longestPeriod])
+
+        # Extract confidence from latest prediction
+        last_pred = prediction[-1] if prediction else None
+        if isinstance(last_pred, dict):
+            confidence = last_pred.get('confidence', 0.0)
+        else:
+            confidence = 0.0
+
         takePosition = self.takeDecision( security, prediction)
         entryPrice = self.getEntryPrice(seccode, takePosition )
         client = self.tp.getClientId()
         byMarket = False
         stoploss = entryPrice
         exitPrice = entryPrice
-        
+
         if entryPrice is None:
             takePosition == 'no-go'
-            
+
         elif takePosition == 'long':
             exitPrice = entryPrice  + margin
-            stoploss = entryPrice  - k * margin                
-            
+            stoploss = entryPrice  - k * margin
+
         elif takePosition == 'short':
             exitPrice = entryPrice  - margin
-            stoploss = entryPrice  + k * margin                
-       
+            stoploss = entryPrice  + k * margin
+
         position = tp.Position(
             takePosition, board, seccode, marketId,
-            quantity, entryPrice, exitPrice, stoploss, decimals, client, 
-            exitTime, correction, spread, byMarket 
+            quantity, entryPrice, exitPrice, stoploss, decimals, client,
+            exitTime, correction, spread, byMarket
         )
-        
-        if takePosition in ['long','short']:            
+
+        if takePosition in ['long','short']:
             if self.positionExceedsBalance(position):
-                position.takePosition = 'no-go' 
-        
-        self.logger.debug(f'decision: {position}')    
-            
-        return position
+                position.takePosition = 'no-go'
+
+        self.logger.debug(f'decision: {position}')
+
+        return position, confidence
     
     
     def takePosition (self):
-        
-        for sec in self.securities:            
-            
-            position = self.evaluatePosition(sec)            
-            action = position.takePosition            
+
+        # Phase 1: Evaluate all securities and collect (position, confidence) pairs
+        candidates = []
+        for sec in self.securities:
+
+            position, confidence = self.evaluatePosition(sec)
+            action = position.takePosition
             if action not in ['long','short','close','close-counterPosition']:
                 self.logger.info(f"seccode:{position.seccode} action={action}, nothing to do ...")
-                continue            
+                continue
+            candidates.append((position, confidence))
 
-            self.logger.info(f'seccode:{position.seccode} sending a {position} to the Trading platform ...')
+        # Phase 2: Sort by confidence descending (highest confidence first)
+        candidates.sort(key=lambda x: x[1], reverse=True)
+
+        # Phase 3: Execute positions in confidence order
+        for position, confidence in candidates:
+            self.logger.info(
+                f'seccode:{position.seccode} confidence={confidence:.4f} '
+                f'sending a {position} to the Trading platform ...'
+            )
             self.tp.processPosition(position)  
        
         
