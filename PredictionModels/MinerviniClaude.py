@@ -426,7 +426,7 @@ class MinerviniClaude:
             long_score += 0.8
 
         if context['divergence']:
-            long_score -= 0.7
+            short_score += 0.7
 
         if context['absorption']:
             short_score += 0.6
@@ -523,7 +523,7 @@ class MinerviniClaude:
             (df['close'] > df['close'].shift(div_lb)) &
             (df['volume'] < df['volume'].shift(div_lb))
         )
-        long_score[divergence] -= 0.7
+        short_score[divergence] += 0.7
 
         no_supply = (price_slope < 0) & (rel_volume < 0.7)
         long_score[no_supply & bullish] += 0.8
