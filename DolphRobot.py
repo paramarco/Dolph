@@ -452,10 +452,6 @@ class Dolph:
             exitTime, correction, spread, byMarket
         )
 
-        if takePosition in ['long','short']:
-            if self.positionExceedsBalance(position):
-                position.takePosition = 'no-go'
-
         self.logger.debug(f'decision: {position}')
 
         return position, confidence
@@ -477,13 +473,20 @@ class Dolph:
         # Phase 2: Sort by confidence descending (highest confidence first)
         candidates.sort(key=lambda x: x[1], reverse=True)
 
-        # Phase 3: Execute positions in confidence order
+        # Phase 3: Execute positions in confidence order, re-checking balance
         for position, confidence in candidates:
+            if position.takePosition in ['long', 'short']:
+                if self.positionExceedsBalance(position):
+                    self.logger.info(
+                        f'seccode:{position.seccode} confidence={confidence:.4f} '
+                        f'SKIPPED: {position.takePosition} side would exceed net_balance'
+                    )
+                    continue
             self.logger.info(
                 f'seccode:{position.seccode} confidence={confidence:.4f} '
                 f'sending a {position} to the Trading platform ...'
             )
-            self.tp.processPosition(position)  
+            self.tp.processPosition(position)
        
         
     def initDB (self):
