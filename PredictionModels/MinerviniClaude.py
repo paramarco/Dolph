@@ -323,6 +323,22 @@ class MinerviniClaude:
         # ---------------------------------------------------------
         return 'contraction'
 
+    def _detect_phase_vectorized(self, df, params):
+        """Vectorized phase detection for all bars. Returns boolean masks."""
+        bullish = (df['EMA_FAST'] > df['EMA_MID']) & (df['EMA_MID'] > df['EMA_SLOW'])
+        bearish = (df['EMA_FAST'] < df['EMA_MID']) & (df['EMA_MID'] < df['EMA_SLOW'])
+
+        expansion_mask = (
+            (df['ATR_slope'] > params['VCP_ATR_SLOPE_EXPANSION']) &
+            (df['BB_width_pctile'] > params['VCP_BB_WIDTH_PERCENTILE_EXPANSION'])
+        )
+        trend_mask = (
+            (df['ADX'] > params['VCP_ADX_TREND_THRESHOLD']) &
+            (bullish | bearish) &
+            ~expansion_mask
+        )
+        return expansion_mask, trend_mask, bullish, bearish
+
     # =====================================================
     # SIGNAL GENERATION
     # =====================================================
@@ -436,6 +452,99 @@ class MinerviniClaude:
         else:
             return {'signal': 'short', 'confidence': confidence, 'volume_contexts': active_contexts}
 
+    def _generate_signals_vectorized(self, df, params, expansion_mask, trend_mask, bullish, bearish):
+        """Vectorized signal generation for all bars. Returns int8 array: 0=no-go, 1=long, -1=short."""
+        long_score  = pd.Series(0.0, index=df.index)
+        short_score = pd.Series(0.0, index=df.index)
+
+        # -- Expansion signals --
+        deviation = (df['close'] - df['FVP']) / df['FVP']
+        exp_short = (
+            expansion_mask &
+            (deviation > params['EXPANSION_DEVIATION_THRESHOLD']) &
+            (df['RSI'] > params['EXPANSION_RSI_SHORT_MIN'])
+        )
+        exp_long = (
+            expansion_mask &
+            (deviation < -params['EXPANSION_DEVIATION_THRESHOLD']) &
+            (df['RSI'] < params['EXPANSION_RSI_LONG_MAX'])
+        )
+        short_score[exp_short] += 1.0
+        long_score[exp_long]   += 1.0
+
+        # -- Trend signals --
+        trend_long = (
+            trend_mask & bullish &
+            (df['+DI'] > df['-DI']) &
+            (df['RSI'] > params['TREND_RSI_LONG_MIN']) &
+            (df['RSI'] < params['TREND_RSI_LONG_MAX'])
+        )
+        trend_short = (
+            trend_mask & bearish &
+            (df['-DI'] > df['+DI']) &
+            (df['RSI'] > params['TREND_RSI_SHORT_MIN']) &
+            (df['RSI'] < params['TREND_RSI_SHORT_MAX'])
+        )
+        long_score[trend_long]   += 1.5
+        short_score[trend_short] += 1.5
+
+        # -- ADX trend structure --
+        adx_high = df['ADX'] > params['VCP_ADX_TREND_THRESHOLD']
+        long_score[adx_high & (df['+DI'] > df['-DI'])]  += 0.5
+        short_score[adx_high & (df['-DI'] > df['+DI'])] += 0.5
+
+        # -- Volume context (vectorized, no cooldown) --
+        vol_avg_win   = int(params['VOLUME_AVG_WINDOW'])
+        vol_slope_win = int(params['VOLUME_SLOPE_WINDOW'])
+        vol_avg     = df['volume'].rolling(vol_avg_win).mean()
+        rel_volume  = df['volume'] / vol_avg
+        candle_body = abs(df['close'] - df['open'])
+        rel_body    = candle_body / df['ATR']
+        price_slope = df['close'].diff(vol_slope_win)
+
+        absorption = (rel_volume > params['BIG_VOLUME_THRESHOLD']) & (rel_body < 0.5)
+        short_score[absorption] += 0.6
+
+        div_lb = int(params['DIVERGENCE_LOOKBACK'])
+        divergence = (
+            (df['close'] > df['close'].shift(div_lb)) &
+            (df['volume'] < df['volume'].shift(div_lb))
+        )
+        long_score[divergence] -= 0.7
+
+        no_supply = (price_slope < 0) & (rel_volume < 0.7)
+        long_score[no_supply & bullish] += 0.8
+
+        bc_lb       = int(params['BUYING_CLIMAX_LOOKBACK'])
+        bc_trend_lb = int(params['BUYING_CLIMAX_TREND_LOOKBACK'])
+        recent_high = df['high'].rolling(bc_lb).max().shift(1)
+        is_breakout = df['high'] >= recent_high
+        recent_mean = df['close'].rolling(bc_trend_lb).mean()
+        prior_mean  = df['close'].rolling(bc_trend_lb).mean().shift(bc_trend_lb)
+        trend_up    = recent_mean > prior_mean
+        ext         = (df['close'] - df['FVP']) / df['FVP']
+        is_overext  = ext > params['BUYING_CLIMAX_EXTENSION']
+        buying_climax = (
+            (rel_volume > params['EXTREME_VOLUME_THRESHOLD']) &
+            (rel_body > params['EXTREME_BODY_ATR_THRESHOLD']) &
+            is_breakout & trend_up & is_overext
+        )
+        short_score[buying_climax] += 1.0
+
+        # -- Final signal decision --
+        score_diff  = long_score - short_score
+        total_score = long_score + short_score
+        confidence  = pd.Series(0.0, index=df.index)
+        nonzero     = total_score > 0
+        confidence[nonzero] = abs(score_diff[nonzero]) / total_score[nonzero]
+
+        # 0 = no-go, 1 = long, -1 = short
+        signals = np.zeros(len(df), dtype=np.int8)
+        valid = (total_score >= params['MIN_TOTAL_SCORE']) & (confidence >= params['MIN_CONFIDENCE'])
+        signals[(valid & (score_diff > 0)).values]  =  1
+        signals[(valid & (score_diff < 0)).values]  = -1
+
+        return signals
 
     # =====================================================
     # MARGIN ADAPTATION
@@ -481,6 +590,21 @@ class MinerviniClaude:
         # Apply computed margin to security parameters
         sec['params']['positionMargin'] = float(m)
 
+    def _compute_margin_vectorized(self, df, params, expansion_mask, trend_mask):
+        """Vectorized margin computation for all bars. Returns numpy array of margin factors."""
+        margin_factor = np.full(len(df), params['MARGIN_CONTRACTION_FIXED'])
+
+        exp_raw     = (df['BB_width'] * params['MARGIN_EXPANSION_MULTIPLIER']).values
+        exp_clamped = np.clip(exp_raw, params['MARGIN_EXPANSION_MIN'], params['MARGIN_EXPANSION_MAX'])
+        exp_idx     = expansion_mask.values
+        margin_factor[exp_idx] = exp_clamped[exp_idx]
+
+        trend_raw     = (params['MARGIN_TREND_ATR_MULTIPLIER'] * df['ATR'] / df['close']).values
+        trend_clamped = np.clip(trend_raw, params['MARGIN_TREND_MIN'], params['MARGIN_TREND_MAX'])
+        trend_idx     = trend_mask.values
+        margin_factor[trend_idx] = trend_clamped[trend_idx]
+
+        return margin_factor
 
     # =====================================================
     # DB CALIBRATION (Coordinate Descent Param Optimization)
@@ -663,122 +787,13 @@ class MinerviniClaude:
                 return -np.inf
 
             # Step 2: Vectorized phase detection
-            bullish = (df['EMA_FAST'] > df['EMA_MID']) & (df['EMA_MID'] > df['EMA_SLOW'])
-            bearish = (df['EMA_FAST'] < df['EMA_MID']) & (df['EMA_MID'] < df['EMA_SLOW'])
-
-            expansion_mask = (
-                (df['ATR_slope'] > params['VCP_ATR_SLOPE_EXPANSION']) &
-                (df['BB_width_pctile'] > params['VCP_BB_WIDTH_PERCENTILE_EXPANSION'])
-            )
-            trend_mask = (
-                (df['ADX'] > params['VCP_ADX_TREND_THRESHOLD']) &
-                (bullish | bearish) &
-                ~expansion_mask
-            )
+            expansion_mask, trend_mask, bullish, bearish = self._detect_phase_vectorized(df, params)
 
             # Step 3: Vectorized signal scoring
-            long_score  = pd.Series(0.0, index=df.index)
-            short_score = pd.Series(0.0, index=df.index)
+            signals = self._generate_signals_vectorized(df, params, expansion_mask, trend_mask, bullish, bearish)
 
-            # -- Expansion signals --
-            deviation = (df['close'] - df['FVP']) / df['FVP']
-            exp_short = (
-                expansion_mask &
-                (deviation > params['EXPANSION_DEVIATION_THRESHOLD']) &
-                (df['RSI'] > params['EXPANSION_RSI_SHORT_MIN'])
-            )
-            exp_long = (
-                expansion_mask &
-                (deviation < -params['EXPANSION_DEVIATION_THRESHOLD']) &
-                (df['RSI'] < params['EXPANSION_RSI_LONG_MAX'])
-            )
-            short_score[exp_short] += 1.0
-            long_score[exp_long]   += 1.0
-
-            # -- Trend signals --
-            trend_long = (
-                trend_mask & bullish &
-                (df['+DI'] > df['-DI']) &
-                (df['RSI'] > params['TREND_RSI_LONG_MIN']) &
-                (df['RSI'] < params['TREND_RSI_LONG_MAX'])
-            )
-            trend_short = (
-                trend_mask & bearish &
-                (df['-DI'] > df['+DI']) &
-                (df['RSI'] > params['TREND_RSI_SHORT_MIN']) &
-                (df['RSI'] < params['TREND_RSI_SHORT_MAX'])
-            )
-            long_score[trend_long]   += 1.5
-            short_score[trend_short] += 1.5
-
-            # -- ADX trend structure --
-            adx_high = df['ADX'] > params['VCP_ADX_TREND_THRESHOLD']
-            long_score[adx_high & (df['+DI'] > df['-DI'])]  += 0.5
-            short_score[adx_high & (df['-DI'] > df['+DI'])] += 0.5
-
-            # -- Volume context (vectorized, no cooldown) --
-            vol_avg_win   = int(params['VOLUME_AVG_WINDOW'])
-            vol_slope_win = int(params['VOLUME_SLOPE_WINDOW'])
-            vol_avg     = df['volume'].rolling(vol_avg_win).mean()
-            rel_volume  = df['volume'] / vol_avg
-            candle_body = abs(df['close'] - df['open'])
-            rel_body    = candle_body / df['ATR']
-            price_slope = df['close'].diff(vol_slope_win)
-
-            absorption = (rel_volume > params['BIG_VOLUME_THRESHOLD']) & (rel_body < 0.5)
-            short_score[absorption] += 0.6
-
-            div_lb = int(params['DIVERGENCE_LOOKBACK'])
-            divergence = (
-                (df['close'] > df['close'].shift(div_lb)) &
-                (df['volume'] < df['volume'].shift(div_lb))
-            )
-            long_score[divergence] -= 0.7
-
-            no_supply = (price_slope < 0) & (rel_volume < 0.7)
-            long_score[no_supply & bullish] += 0.8
-
-            bc_lb       = int(params['BUYING_CLIMAX_LOOKBACK'])
-            bc_trend_lb = int(params['BUYING_CLIMAX_TREND_LOOKBACK'])
-            recent_high = df['high'].rolling(bc_lb).max().shift(1)
-            is_breakout = df['high'] >= recent_high
-            recent_mean = df['close'].rolling(bc_trend_lb).mean()
-            prior_mean  = df['close'].rolling(bc_trend_lb).mean().shift(bc_trend_lb)
-            trend_up    = recent_mean > prior_mean
-            ext         = (df['close'] - df['FVP']) / df['FVP']
-            is_overext  = ext > params['BUYING_CLIMAX_EXTENSION']
-            buying_climax = (
-                (rel_volume > params['EXTREME_VOLUME_THRESHOLD']) &
-                (rel_body > params['EXTREME_BODY_ATR_THRESHOLD']) &
-                is_breakout & trend_up & is_overext
-            )
-            short_score[buying_climax] += 1.0
-
-            # -- Final signal decision --
-            score_diff  = long_score - short_score
-            total_score = long_score + short_score
-            confidence  = pd.Series(0.0, index=df.index)
-            nonzero     = total_score > 0
-            confidence[nonzero] = abs(score_diff[nonzero]) / total_score[nonzero]
-
-            # 0 = no-go, 1 = long, -1 = short
-            signals = np.zeros(len(df), dtype=np.int8)
-            valid = (total_score >= params['MIN_TOTAL_SCORE']) & (confidence >= params['MIN_CONFIDENCE'])
-            signals[(valid & (score_diff > 0)).values]  =  1
-            signals[(valid & (score_diff < 0)).values]  = -1
-
-            # Step 4: Vectorized adaptive margin per bar
-            margin_factor = np.full(len(df), params['MARGIN_CONTRACTION_FIXED'])
-
-            exp_raw     = (df['BB_width'] * params['MARGIN_EXPANSION_MULTIPLIER']).values
-            exp_clamped = np.clip(exp_raw, params['MARGIN_EXPANSION_MIN'], params['MARGIN_EXPANSION_MAX'])
-            exp_idx     = expansion_mask.values
-            margin_factor[exp_idx] = exp_clamped[exp_idx]
-
-            trend_raw     = (params['MARGIN_TREND_ATR_MULTIPLIER'] * df['ATR'] / df['close']).values
-            trend_clamped = np.clip(trend_raw, params['MARGIN_TREND_MIN'], params['MARGIN_TREND_MAX'])
-            trend_idx     = trend_mask.values
-            margin_factor[trend_idx] = trend_clamped[trend_idx]
+            # Step 4: Vectorized adaptive margin
+            margin_factor = self._compute_margin_vectorized(df, params, expansion_mask, trend_mask)
 
             # Step 5: Trade simulation
             # Compute position size: quantity = (net_balance * factorPosition_Balance) / entry_price
