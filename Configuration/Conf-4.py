@@ -79,13 +79,43 @@ _BASE_PARAMS = {
     'MIN_CONFIDENCE': 0.294,
 }
 
-def _sec(code, decimals=2):
-    return {
+def _sec(code, decimals=2, timezone='America/New_York', currency='USD',
+         exchange='SMART', primary_exchange=None,
+         trading_times=(dt.time(9, 44), dt.time(15, 45)),
+         time2close=dt.time(16, 30)):
+    sec = {
         'seccode': code,
         'board': 'EQTY',
         'market': 'NASDAQ',
         'decimals': decimals,
         'id': 0,
+        'timezone': timezone,
+        'currency': currency,
+        'exchange': exchange,
+        'tradingTimes': trading_times,
+        'time2close': time2close,
+        'params': dict(_BASE_PARAMS),
+    }
+    if primary_exchange:
+        sec['primaryExchange'] = primary_exchange
+    return sec
+
+def _sec_eu(code, decimals=2, market='XETRA', timezone='Europe/Berlin',
+            currency='EUR', exchange='SMART', primary_exchange='IBIS',
+            trading_times=(dt.time(9, 0), dt.time(17, 30)),
+            time2close=dt.time(17, 25)):
+    return {
+        'seccode': code,
+        'board': 'EQTY',
+        'market': market,
+        'decimals': decimals,
+        'id': 0,
+        'timezone': timezone,
+        'currency': currency,
+        'exchange': exchange,
+        'primaryExchange': primary_exchange,
+        'tradingTimes': trading_times,
+        'time2close': time2close,
         'params': dict(_BASE_PARAMS),
     }
 
@@ -102,6 +132,11 @@ securities = [
     _sec('MSTR'),
     _sec('AMZN'),
     _sec('MSFT'),
+    # European stocks
+    _sec_eu('RHM'),
+    _sec_eu('SBX'),
+    _sec_eu('BBVA', market='BME', timezone='Europe/Madrid', primary_exchange='BME'),
+    _sec_eu('SAN', market='BME', timezone='Europe/Madrid', primary_exchange='BME'),
 ]
 
 logLevel = logging.DEBUG

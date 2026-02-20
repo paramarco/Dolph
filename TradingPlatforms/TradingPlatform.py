@@ -561,14 +561,19 @@ class TradingPlatform(ABC):
             #     logging.info(m)  
             #     return False            
             
-            ct = self.getTradingPlatformTime().time()  
-            if not (cm.tradingTimes[0] <= ct <= cm.tradingTimes[1]):
-                log.info(f'We are outside trading hours: {ct}...')  
+            sec = next((s for s in self.securities if s['seccode'] == position.seccode), {})
+            sec_tz = pytz.timezone(sec.get('timezone', 'America/New_York'))
+            sec_trading_times = sec.get('tradingTimes', cm.tradingTimes)
+
+            ct_utc = datetime.datetime.now(datetime.timezone.utc)
+            ct_in_sec_tz = ct_utc.astimezone(sec_tz).time()
+
+            if not (sec_trading_times[0] <= ct_in_sec_tz <= sec_trading_times[1]):
+                log.info(f'Outside trading hours for {position.seccode}: {ct_in_sec_tz}')
                 return False
-            
-            ct = self.getTradingPlatformTime()
-            if ct.weekday() in [calendar.SATURDAY, calendar.SUNDAY]:
-                log.info('we are on Saturday or Sunday ...')  
+
+            if ct_utc.astimezone(sec_tz).weekday() in [calendar.SATURDAY, calendar.SUNDAY]:
+                log.info(f'Weekend for {position.seccode}')
                 return False
     
             # Only check self.tc if it's relevant, e.g., for platforms that use tc
@@ -619,13 +624,15 @@ class TradingPlatform(ABC):
                      
 
     def cancelTimedoutExits(self):
-        """common"""        
-        tradingPlatformTime = self.getTradingPlatformTime()
-        current_time_only = tradingPlatformTime.time()
-        
+        """common"""
         for mp in self.monitoredPositions:
+            sec = next((s for s in self.securities if s['seccode'] == mp.seccode), {})
+            sec_tz = pytz.timezone(sec.get('timezone', 'America/New_York'))
+            sec_time2close = sec.get('time2close', getattr(cm, 'time2close', datetime.time(16, 30)))
+            current_time_in_sec_tz = datetime.datetime.now(datetime.timezone.utc).astimezone(sec_tz).time()
+
             for meo in self.monitoredExitOrders:
-                if mp.exit_tp_id == meo.id and current_time_only > cm.time2close and mp.exitOrderAlreadyCancelled == False:
+                if mp.exit_tp_id == meo.id and current_time_in_sec_tz > sec_time2close and mp.exitOrderAlreadyCancelled == False:
                     log.info(f'time-out exit detected, closing exit for {meo}')
                     self.closeExit(mp, meo)
                     break
@@ -1711,13 +1718,26 @@ class IBTradingPlatform(TradingPlatform):
                 return None
 
 
+    def _make_stock_contract(self, seccode):
+        """Create an IB Stock contract using per-security exchange/currency config."""
+        sec = next((s for s in self.securities if s['seccode'] == seccode), {})
+        exchange = sec.get('exchange', 'SMART')
+        currency = sec.get('currency', 'USD')
+        contract = Stock(seccode, exchange, currency)
+        primary_exchange = sec.get('primaryExchange')
+        if primary_exchange:
+            contract.primaryExchange = primary_exchange
+        return contract
+
     def subscribe_to_market_data(self):
         """ Interactive Brokers """
 
         self.symbol_to_bars = {}  # A dictionary to store symbol -> Bars mapping
-    
+
         for index, security in enumerate(self.securities):
-            contract = Stock(security['seccode'], 'SMART', 'USD')
+            contract = Stock(security['seccode'], security.get('exchange', 'SMART'), security.get('currency', 'USD'))
+            if security.get('primaryExchange'):
+                contract.primaryExchange = security['primaryExchange']
     
             # Request 1-minute bars with streaming updates
             bars = self.ib.reqHistoricalData(
@@ -1773,8 +1793,11 @@ class IBTradingPlatform(TradingPlatform):
 
 
         # --- Do not store the bar if we are currently outside_trading_time & VOLUME = 0 ---
-        current_time = self.getTradingPlatformTime().time()
-        outside_trading_time = not ( cm.tradingTimes[0] <= current_time <= cm.tradingTimes[1] )
+        sec = next((s for s in self.securities if s['seccode'] == symbol), {})
+        sec_tz = pytz.timezone(sec.get('timezone', 'America/New_York'))
+        sec_trading_times = sec.get('tradingTimes', cm.tradingTimes)
+        current_time_in_sec_tz = datetime.datetime.now(datetime.timezone.utc).astimezone(sec_tz).time()
+        outside_trading_time = not (sec_trading_times[0] <= current_time_in_sec_tz <= sec_trading_times[1])
 
         if outside_trading_time and bar.volume == 0:
             log.debug(f"Skipping bar for {symbol} because outside trading time and volume=0")
@@ -1868,7 +1891,7 @@ class IBTradingPlatform(TradingPlatform):
             chunk_days = 30
             duration = '1 M'
 
-        contract = Stock(seccode, 'SMART', 'USD')
+        contract = self._make_stock_contract(seccode)
         all_dfs = []
         chunk_end = until_utc
         chunk_num = 0
@@ -1938,8 +1961,8 @@ class IBTradingPlatform(TradingPlatform):
 
 
     def get_history(self, board, seccode, period, count, reset=True):
-        
-        contract = Stock(seccode, 'SMART', 'USD')
+
+        contract = self._make_stock_contract(seccode)
         end_dt = self.getTradingPlatformTime()
         duration = f'{period * count} D'  # assuming each period is one day
         
@@ -1964,10 +1987,10 @@ class IBTradingPlatform(TradingPlatform):
 
     def new_order(self, board, seccode, client, union, buysell, expdate, quantity, price, bymarket, usecredit):
         """Interactive Brokers"""
-    
+
         try:
             # Create IB contract for the stock
-            contract = Stock(seccode, 'SMART', 'USD')
+            contract = self._make_stock_contract(seccode)
     
             # Fetch market details for the security
             market_details = self.ib.reqMktData(contract, '', False, False)
@@ -2007,9 +2030,8 @@ class IBTradingPlatform(TradingPlatform):
 
     def newExitOrder(self, board, seccode, client, exit_action, quantity, trigger_price_sl, trigger_price_tp, correction, spread, bymarket, is_market):
         """ Interactive Brokers """
-        #TODO adapt Stock(seccode, 'SMART', 'USD') to other currencies 
         try:
-            contract = Stock(seccode, 'SMART', 'USD') # Create the contract for the stock
+            contract = self._make_stock_contract(seccode)
             utcInteger = int(datetime.datetime.now(timezone.utc).timestamp())
             oca_group = f"OCA_{seccode}_{utcInteger}"
 
@@ -2355,7 +2377,7 @@ class IBTradingPlatform(TradingPlatform):
         """
         try:
             # Define the contract
-            contract = Stock(seccode, "SMART", "USD")
+            contract = self._make_stock_contract(seccode)
 
             if not self.ib_loop or not self.ib_loop.is_running():
                 log.warning(f"IB event loop not running, cannot check market status for {seccode}")

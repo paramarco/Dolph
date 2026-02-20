@@ -816,9 +816,10 @@ class MinerviniClaude:
             lookahead = int(params['CALIBRATION_LOOKAHEAD_BARS'])
             n = len(df)
 
-            # Trading hours filter setup
-            ny_tz = cm.current_tz
-            trading_start, trading_end = getattr(cm, 'tradingTimes', (dt.time(9, 30), dt.time(16, 0)))
+            # Trading hours filter setup - per-security timezone
+            sec_tz = pytz.timezone(self.security.get('timezone', 'America/New_York'))
+            trading_start, trading_end = self.security.get('tradingTimes',
+                getattr(cm, 'tradingTimes', (dt.time(9, 30), dt.time(16, 0))))
             use_trading_hours = (cm.MODE == 'TEST_OFFLINE')
 
             # Exposure and position tracking for TEST_OFFLINE
@@ -850,7 +851,7 @@ class MinerviniClaude:
                 # Trading hours filter
                 if use_trading_hours:
                     bar_time = df.index[i]
-                    bar_ny = bar_time.tz_convert(ny_tz) if bar_time.tzinfo else bar_time
+                    bar_ny = bar_time.tz_convert(sec_tz) if bar_time.tzinfo else bar_time
                     if not (trading_start <= bar_ny.time() <= trading_end):
                         stats_skip_hours += 1
                         continue

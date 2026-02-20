@@ -930,8 +930,8 @@ class PeaksAndValleysModel:
         df = dataframe.copy()
         df['calcdatetime'] = dataframe.index
         
-        #TODO temporarily
-        df['calcdatetime'] = df['calcdatetime'].dt.tz_convert('America/New_York')
+        sec_tz = sec.get('timezone', 'America/New_York') if isinstance(sec, dict) else 'America/New_York'
+        df['calcdatetime'] = df['calcdatetime'].dt.tz_convert(sec_tz)
         #print(df['calcdatetime'])
         #print(df.index)
         

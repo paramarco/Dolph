@@ -72,6 +72,9 @@ class DataServer:
                     market text COLLATE pg_catalog."default",
                     alg_parameters jsonb,
                     platform text COLLATE pg_catalog."default",
+                    timezone text DEFAULT 'America/New_York',
+                    currency text DEFAULT 'USD',
+                    exchange text DEFAULT 'SMART',
                     CONSTRAINT security_pkey PRIMARY KEY (id),
                     CONSTRAINT unique_code UNIQUE (code)
                 );
@@ -847,13 +850,19 @@ class DataServer:
             else:
                 period_val, decimals_val, market_val, platform_val = 1, 2, 'NASDAQ', None
 
+            # Get per-security market metadata from config
+            sec_cfg = next((s for s in self.securities if s['seccode'] == seccode), {})
+            tz_val = sec_cfg.get('timezone', 'America/New_York')
+            currency_val = sec_cfg.get('currency', 'USD')
+            exchange_val = sec_cfg.get('exchange', 'SMART')
+
             # Insert with complete fields from reference
             insert_query = """
-                INSERT INTO security (code, board, period, decimals, market, platform)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                INSERT INTO security (code, board, period, decimals, market, platform, timezone, currency, exchange)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
             """
-            cursor.execute(insert_query, (seccode, board, period_val, decimals_val, market_val, platform_val))
+            cursor.execute(insert_query, (seccode, board, period_val, decimals_val, market_val, platform_val, tz_val, currency_val, exchange_val))
             new_id = cursor.fetchone()[0]
                         
             # Confirmar la transacción
@@ -1431,8 +1440,9 @@ class DataServer:
                 df.dropna(subset=['timestamp'], inplace=True)            
 
             # Ensure timestamps are in UTC
+            sec_tz = security.get('timezone', 'America/New_York')
             if df['timestamp'].dt.tz is None:
-                df['timestamp'] = df['timestamp'].dt.tz_localize('US/Eastern')  # Adjust source timezone
+                df['timestamp'] = df['timestamp'].dt.tz_localize(sec_tz)
             df['timestamp'] = df['timestamp'].dt.tz_convert('UTC')
             df.set_index('timestamp', inplace=True)            
             
@@ -1558,11 +1568,11 @@ class DataServer:
                 if alpaca_ticker:  # Only process entries with a valid AlpacaTicker
                     query_insert = """
                         INSERT INTO security
-                        (code, period, board, decimals, market, alg_parameters, platform)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        (code, period, board, decimals, market, alg_parameters, platform, timezone, currency, exchange)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (code) DO NOTHING;
                     """
-        
+
                     cursor.execute(query_insert, (
                         alpaca_ticker,
                         period,
@@ -1570,7 +1580,10 @@ class DataServer:
                         decimals,
                         market,
                         json.dumps(alg_parameters),  # Convert to JSONB format
-                        json.dumps(platform)         # Convert to JSONB format
+                        json.dumps(platform),        # Convert to JSONB format
+                        'America/New_York',
+                        'USD',
+                        'SMART',
                     ))
         
             # Commit the changes
@@ -1728,11 +1741,11 @@ class DataServer:
                 if IB_ticker:  # Only process entries with a valid Interactive Brokers tickers
                     query_insert = """
                         INSERT INTO security
-                        (code, period, board, decimals, market, alg_parameters, platform)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        (code, period, board, decimals, market, alg_parameters, platform, timezone, currency, exchange)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (code) DO NOTHING;
                     """
-        
+
                     cursor.execute(query_insert, (
                         IB_ticker,
                         period,
@@ -1740,7 +1753,10 @@ class DataServer:
                         decimals,
                         market,
                         json.dumps(alg_parameters),  # Convert to JSONB format
-                        json.dumps(platform)         # Convert to JSONB format
+                        json.dumps(platform),        # Convert to JSONB format
+                        'America/New_York',
+                        'USD',
+                        'SMART',
                     ))
         
             # Commit the changes
