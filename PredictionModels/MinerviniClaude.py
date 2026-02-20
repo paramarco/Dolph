@@ -922,8 +922,8 @@ class MinerviniClaude:
                 if m_abs < min_abs_margin:
                     continue
 
-                # Realistic IB transaction cost: $0.005/share, buy + sell
-                round_trip_cost = quantity * 0.005 * 2
+                # Realistic IB transaction cost: max($1.00, qty × $0.005) per side
+                round_trip_cost = max(1.0, quantity * 0.005) * 2
 
                 # Expire resolved positions and update exposure
                 if track_constraints:
