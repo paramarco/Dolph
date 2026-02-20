@@ -1007,7 +1007,7 @@ between_time = (
     current_tz.localize(dt.datetime.strptime('07:00', '%H:%M')).time(),
     current_tz.localize(dt.datetime.strptime('23:40', '%H:%M')).time()
 )
-tradingTimes = (dt.time(9, 44), dt.time(15, 45))
+tradingTimes = (dt.time(9, 46), dt.time(15, 45))
 
 
 numTestSample = 500

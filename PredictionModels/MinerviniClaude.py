@@ -223,7 +223,7 @@ class MinerviniClaude:
         ma  = df['close'].rolling(p['BB_WINDOW']).mean()                # cm.BB_WINDOW = 20
         std = df['close'].rolling(p['BB_WINDOW']).std()                 # cm.BB_WINDOW = 20
         # Normalized width (volatility relative to price level)
-        df['BB_width'] = (p['BB_STD'] * std) / ma                       # cm.BB_STD = 2
+        df['BB_width'] = (p['BB_STD'] * std) / ma.replace(0, np.nan)      # cm.BB_STD = 2
         # Percentile of BB width over rolling window                    # cm.BB_PERCENTILE_WINDOW = 100
         df['BB_width_pctile'] = df['BB_width'].rolling(p['BB_PERCENTILE_WINDOW']).apply(
             lambda x: pd.Series(x).rank(pct=True).iloc[-1]
@@ -245,7 +245,7 @@ class MinerviniClaude:
         loss = -delta.clip(upper=0)
         avg_gain = gain.ewm(alpha=1/period).mean()
         avg_loss = loss.ewm(alpha=1/period).mean()
-        rs = avg_gain / avg_loss
+        rs = avg_gain / avg_loss.replace(0, np.nan)
         return 100 - (100 / (1 + rs))
 
     def _atr(self, df, period):
@@ -265,10 +265,11 @@ class MinerviniClaude:
 
         tr = self._atr(df, period)
 
-        plus_di = 100 * (plus_dm.rolling(period).sum() / tr)
-        minus_di = 100 * (minus_dm.rolling(period).sum() / tr)
+        plus_di = 100 * (plus_dm.rolling(period).sum() / tr.replace(0, np.nan))
+        minus_di = 100 * (minus_dm.rolling(period).sum() / tr.replace(0, np.nan))
 
-        dx = (abs(plus_di - minus_di) / (plus_di + minus_di)) * 100
+        di_sum = plus_di + minus_di
+        dx = (abs(plus_di - minus_di) / di_sum.replace(0, np.nan)) * 100
         adx = dx.rolling(period).mean()
 
         return adx, plus_di, minus_di
@@ -458,7 +459,7 @@ class MinerviniClaude:
         short_score = pd.Series(0.0, index=df.index)
 
         # -- Expansion signals --
-        deviation = (df['close'] - df['FVP']) / df['FVP']
+        deviation = (df['close'] - df['FVP']) / df['FVP'].replace(0, np.nan)
         exp_short = (
             expansion_mask &
             (deviation > params['EXPANSION_DEVIATION_THRESHOLD']) &
@@ -497,9 +498,9 @@ class MinerviniClaude:
         vol_avg_win   = int(params['VOLUME_AVG_WINDOW'])
         vol_slope_win = int(params['VOLUME_SLOPE_WINDOW'])
         vol_avg     = df['volume'].rolling(vol_avg_win).mean()
-        rel_volume  = df['volume'] / vol_avg
+        rel_volume  = df['volume'] / vol_avg.replace(0, np.nan)
         candle_body = abs(df['close'] - df['open'])
-        rel_body    = candle_body / df['ATR']
+        rel_body    = candle_body / df['ATR'].replace(0, np.nan)
         price_slope = df['close'].diff(vol_slope_win)
 
         absorption = (rel_volume > params['BIG_VOLUME_THRESHOLD']) & (rel_body < 0.5)
@@ -522,7 +523,7 @@ class MinerviniClaude:
         recent_mean = df['close'].rolling(bc_trend_lb).mean()
         prior_mean  = df['close'].rolling(bc_trend_lb).mean().shift(bc_trend_lb)
         trend_up    = recent_mean > prior_mean
-        ext         = (df['close'] - df['FVP']) / df['FVP']
+        ext         = (df['close'] - df['FVP']) / df['FVP'].replace(0, np.nan)
         is_overext  = ext > params['BUYING_CLIMAX_EXTENSION']
         buying_climax = (
             (rel_volume > params['EXTREME_VOLUME_THRESHOLD']) &
@@ -599,7 +600,7 @@ class MinerviniClaude:
         exp_idx     = expansion_mask.values
         margin_factor[exp_idx] = exp_clamped[exp_idx]
 
-        trend_raw     = (params['MARGIN_TREND_ATR_MULTIPLIER'] * df['ATR'] / df['close']).values
+        trend_raw     = (params['MARGIN_TREND_ATR_MULTIPLIER'] * df['ATR'] / df['close'].replace(0, np.nan)).values
         trend_clamped = np.clip(trend_raw, params['MARGIN_TREND_MIN'], params['MARGIN_TREND_MAX'])
         trend_idx     = trend_mask.values
         margin_factor[trend_idx] = trend_clamped[trend_idx]
@@ -738,7 +739,7 @@ class MinerviniClaude:
         bb_win = int(params['BB_WINDOW'])
         ma  = df['close'].rolling(bb_win).mean()
         std = df['close'].rolling(bb_win).std()
-        df['BB_width'] = (params['BB_STD'] * std) / ma
+        df['BB_width'] = (params['BB_STD'] * std) / ma.replace(0, np.nan)
 
         # Fast BB_width percentile using numpy
         bb_vals = df['BB_width'].values
@@ -954,7 +955,8 @@ class MinerviniClaude:
             return total_profit
 
         except Exception as e:
-            log.error(f"{self.seccode}: simulation error: {e}")
+            import traceback
+            log.error(f"{self.seccode}: simulation error: {e}\n{traceback.format_exc()}")
             return -np.inf
 
 
