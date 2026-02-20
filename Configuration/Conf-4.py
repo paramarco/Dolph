@@ -135,8 +135,8 @@ securities = [
     # European stocks
     _sec_eu('RHM'),
     _sec_eu('SBX'),
-    _sec_eu('BBVA', market='BME', timezone='Europe/Madrid', primary_exchange='BME'),
-    _sec_eu('SAN', market='BME', timezone='Europe/Madrid', primary_exchange='BME'),
+    _sec_eu('BBVA', market='BME', timezone='Europe/Madrid', primary_exchange='BM'),
+    _sec_eu('SAN', market='BME', timezone='Europe/Madrid', primary_exchange='BM'),
 ]
 
 logLevel = logging.DEBUG
