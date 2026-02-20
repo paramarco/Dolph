@@ -354,6 +354,12 @@ class MinerviniClaude:
         bearish = latest['EMA_FAST'] < latest['EMA_MID'] < latest['EMA_SLOW']
 
         # ---------------------------------------------------------
+        # CONTRACTION PHASE: low-volatility compression, wait for breakout
+        # ---------------------------------------------------------
+        if phase == 'contraction':
+            return {'signal': 'no-go', 'confidence': 0.0, 'volume_contexts': []}
+
+        # ---------------------------------------------------------
         # EXPANSION PHASE
         #   Mean-reversion relative to Fair Value Price (FVP)
         #   Entry when price deviates significantly from center
@@ -431,6 +437,15 @@ class MinerviniClaude:
         if context['absorption']:
             short_score += 0.6
 
+        if context['trust']:
+            if latest['close'] > latest['open']:
+                long_score += 0.5
+            else:
+                short_score += 0.5
+
+        if context['stopping_volume']:
+            long_score += 0.6
+
         # =============================
         # FINAL DECISION
         # =============================
@@ -447,12 +462,16 @@ class MinerviniClaude:
 
         # ---- Low energy filter ---- cm.MIN_TOTAL_SCORE = 1.5
         # Minimum intensity filter. Avoid trades when there is very little total energy.
-        if total_score < p['MIN_TOTAL_SCORE']:
+        # Floor minimum prevents calibration from over-relaxing this threshold.
+        min_score = max(p['MIN_TOTAL_SCORE'], 0.50)
+        if total_score < min_score:
             return {'signal': 'no-go', 'confidence': 0.0, 'volume_contexts': active_contexts}
 
         # ---- Conflict filter ----  cm.MIN_CONFIDENCE = 0.6
         # Minimum conviction filter. Avoid trades when there is internal conflict.
-        if confidence < p['MIN_CONFIDENCE']:
+        # Floor minimum prevents calibration from over-relaxing this threshold.
+        min_conf = max(p['MIN_CONFIDENCE'], 0.15)
+        if confidence < min_conf:
             return {'signal': 'no-go', 'confidence': 0.0, 'volume_contexts': active_contexts}
 
         # ---- Direction ----
@@ -528,6 +547,21 @@ class MinerviniClaude:
         no_supply = (price_slope < 0) & (rel_volume < 0.7)
         long_score[no_supply & bullish] += 0.8
 
+        # -- Trust: high volume + big body = convicted move, reinforce direction --
+        trust = (rel_body > params['BIG_BODY_ATR_THRESHOLD']) & (rel_volume > params['BIG_VOLUME_THRESHOLD'])
+        bullish_candle = df['close'] > df['open']
+        long_score[trust & bullish_candle]   += 0.5
+        short_score[trust & ~bullish_candle] += 0.5
+
+        # -- Stopping volume: extreme volume + bearish candle closing near high = exhaustion --
+        candle_range = df['high'] - df['low']
+        stopping_vol = (
+            (rel_volume > params['EXTREME_VOLUME_THRESHOLD']) &
+            (df['close'] < df['open']) &
+            (df['close'] > df['low'] + candle_range * 0.3)
+        )
+        long_score[stopping_vol] += 0.6
+
         bc_lb       = int(params['BUYING_CLIMAX_LOOKBACK'])
         bc_trend_lb = int(params['BUYING_CLIMAX_TREND_LOOKBACK'])
         recent_high = df['high'].rolling(bc_lb).max().shift(1)
@@ -551,9 +585,14 @@ class MinerviniClaude:
         nonzero     = total_score > 0
         confidence[nonzero] = abs(score_diff[nonzero]) / total_score[nonzero]
 
+        # Contraction phase = no-go (wait for breakout)
+        contraction_mask = ~expansion_mask & ~trend_mask
+        min_conf  = max(params['MIN_CONFIDENCE'], 0.15)
+        min_score = max(params['MIN_TOTAL_SCORE'], 0.50)
+
         # 0 = no-go, 1 = long, -1 = short
         signals = np.zeros(len(df), dtype=np.int8)
-        valid = (total_score >= params['MIN_TOTAL_SCORE']) & (confidence >= params['MIN_CONFIDENCE'])
+        valid = (~contraction_mask) & (total_score >= min_score) & (confidence >= min_conf)
         signals[(valid & (score_diff > 0)).values]  =  1
         signals[(valid & (score_diff < 0)).values]  = -1
 
