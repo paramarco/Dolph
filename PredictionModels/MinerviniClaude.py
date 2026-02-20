@@ -379,7 +379,15 @@ class MinerviniClaude:
         #   Requires EMA alignment + DI confirmation + RSI filter
         # ---------------------------------------------------------
         if phase == 'trend':
-            # Bullish Trend Continuation
+            # Base score: confirmed trend phase (ADX + EMA alignment) deserves
+            # a baseline contribution so that trend structure + this base
+            # can reach MIN_TOTAL_SCORE even when RSI is outside the window.
+            if bullish:
+                long_score += 0.5
+            elif bearish:
+                short_score += 0.5
+
+            # Bullish Trend Continuation (RSI-confirmed bonus)
             #   cm.TREND_RSI_LONG_MIN = 40
             #   cm.TREND_RSI_LONG_MAX = 70
             if (
@@ -388,7 +396,7 @@ class MinerviniClaude:
             ):
                 long_score += 1.5
 
-            # Bearish Trend Continuation
+            # Bearish Trend Continuation (RSI-confirmed bonus)
             #   cm.TREND_RSI_SHORT_MIN = 30
             #   cm.TREND_RSI_SHORT_MAX = 60
             if (
@@ -473,7 +481,11 @@ class MinerviniClaude:
         short_score[exp_short] += 1.0
         long_score[exp_long]   += 1.0
 
-        # -- Trend signals --
+        # -- Trend phase base score (EMA alignment confirmation) --
+        long_score[trend_mask & bullish]   += 0.5
+        short_score[trend_mask & bearish]  += 0.5
+
+        # -- Trend signals (RSI-confirmed bonus) --
         trend_long = (
             trend_mask & bullish &
             (df['+DI'] > df['-DI']) &
