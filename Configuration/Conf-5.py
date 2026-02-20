@@ -86,7 +86,7 @@ securities = [
             'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
             # Position Management
             'POSITION_COOLDOWN_SECONDS': 300,
-            'MIN_MARGIN_DOLLARS': 0.15,
+            'MIN_MARGIN_DOLLARS': 0.05,
             # Final Decision Scoring
             'MIN_TOTAL_SCORE': 0.735,
             'MIN_CONFIDENCE': 0.294,
@@ -171,7 +171,7 @@ securities = [
             'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
             # Position Management
             'POSITION_COOLDOWN_SECONDS': 300,
-            'MIN_MARGIN_DOLLARS': 0.15,
+            'MIN_MARGIN_DOLLARS': 0.05,
             # Final Decision Scoring
             'MIN_TOTAL_SCORE': 0.735,
             'MIN_CONFIDENCE': 0.294,
@@ -256,7 +256,7 @@ securities = [
             'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
             # Position Management
             'POSITION_COOLDOWN_SECONDS': 300,
-            'MIN_MARGIN_DOLLARS': 0.15,
+            'MIN_MARGIN_DOLLARS': 0.05,
             # Final Decision Scoring
             'MIN_TOTAL_SCORE': 0.735,
             'MIN_CONFIDENCE': 0.294,
@@ -341,7 +341,7 @@ securities = [
             'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
             # Position Management
             'POSITION_COOLDOWN_SECONDS': 300,
-            'MIN_MARGIN_DOLLARS': 0.15,
+            'MIN_MARGIN_DOLLARS': 0.05,
             # Final Decision Scoring
             'MIN_TOTAL_SCORE': 0.735,
             'MIN_CONFIDENCE': 0.294,
@@ -426,7 +426,7 @@ securities = [
             'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
             # Position Management
             'POSITION_COOLDOWN_SECONDS': 300,
-            'MIN_MARGIN_DOLLARS': 0.15,
+            'MIN_MARGIN_DOLLARS': 0.05,
             # Final Decision Scoring
             'MIN_TOTAL_SCORE': 0.735,
             'MIN_CONFIDENCE': 0.294,
@@ -511,7 +511,7 @@ securities = [
             'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
             # Position Management
             'POSITION_COOLDOWN_SECONDS': 300,
-            'MIN_MARGIN_DOLLARS': 0.15,
+            'MIN_MARGIN_DOLLARS': 0.05,
             # Final Decision Scoring
             'MIN_TOTAL_SCORE': 0.735,
             'MIN_CONFIDENCE': 0.294,
@@ -596,7 +596,7 @@ securities = [
             'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
             # Position Management
             'POSITION_COOLDOWN_SECONDS': 300,
-            'MIN_MARGIN_DOLLARS': 0.15,
+            'MIN_MARGIN_DOLLARS': 0.05,
             # Final Decision Scoring
             'MIN_TOTAL_SCORE': 0.735,
             'MIN_CONFIDENCE': 0.294,
@@ -681,7 +681,7 @@ securities = [
             'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
             # Position Management
             'POSITION_COOLDOWN_SECONDS': 300,
-            'MIN_MARGIN_DOLLARS': 0.15,
+            'MIN_MARGIN_DOLLARS': 0.05,
             # Final Decision Scoring
             'MIN_TOTAL_SCORE': 0.735,
             'MIN_CONFIDENCE': 0.294,
@@ -766,7 +766,7 @@ securities = [
             'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
             # Position Management
             'POSITION_COOLDOWN_SECONDS': 300,
-            'MIN_MARGIN_DOLLARS': 0.15,
+            'MIN_MARGIN_DOLLARS': 0.05,
             # Final Decision Scoring
             'MIN_TOTAL_SCORE': 0.735,
             'MIN_CONFIDENCE': 0.294,
@@ -851,7 +851,7 @@ securities = [
             'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
             # Position Management
             'POSITION_COOLDOWN_SECONDS': 300,
-            'MIN_MARGIN_DOLLARS': 0.15,
+            'MIN_MARGIN_DOLLARS': 0.05,
             # Final Decision Scoring
             'MIN_TOTAL_SCORE': 0.735,
             'MIN_CONFIDENCE': 0.294,
@@ -936,7 +936,7 @@ securities = [
             'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
             # Position Management
             'POSITION_COOLDOWN_SECONDS': 300,
-            'MIN_MARGIN_DOLLARS': 0.15,
+            'MIN_MARGIN_DOLLARS': 0.05,
             # Final Decision Scoring
             'MIN_TOTAL_SCORE': 0.735,
             'MIN_CONFIDENCE': 0.294,
@@ -1021,7 +1021,7 @@ securities = [
             'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
             # Position Management
             'POSITION_COOLDOWN_SECONDS': 300,
-            'MIN_MARGIN_DOLLARS': 0.15,
+            'MIN_MARGIN_DOLLARS': 0.05,
             # Final Decision Scoring
             'MIN_TOTAL_SCORE': 0.735,
             'MIN_CONFIDENCE': 0.294,

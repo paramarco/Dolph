@@ -79,7 +79,7 @@ _BASE_PARAMS = {
     'MIN_CONFIDENCE': 0.294,
     # Position Management
     'POSITION_COOLDOWN_SECONDS': 300,
-    'MIN_MARGIN_DOLLARS': 0.15,
+    'MIN_MARGIN_DOLLARS': 0.05,
 }
 
 def _sec(code, decimals=2, timezone='America/New_York', currency='USD',
