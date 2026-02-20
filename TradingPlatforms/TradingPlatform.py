@@ -122,6 +122,8 @@ class TradingPlatform(ABC):
         self.monitoredExitOrders = []
         self.counterPositions = []
         self.position_closed_at = {}  # seccode → UTC datetime of last position close
+        self.position_entry_filled_at = {}  # seccode → UTC datetime of entry fill
+        self.position_scalp_cooldown = {}  # seccode → extended cooldown seconds (set on quick close)
         self.profitBalance = 0
         self.currentTradingHour = 0
         self.candlesUpdateThread = None
@@ -428,6 +430,7 @@ class TradingPlatform(ABC):
                     
                 elif not monitoredPosition.exitOrderRequested:
                     log.info(f'Order is Filled-Monitored wo exitOrderRequested: {repr(order.id)}')
+                    self.position_entry_filled_at[monitoredPosition.seccode] = datetime.datetime.now(datetime.timezone.utc)
                     self.triggerExitOrder(order, monitoredPosition)                
                 else:
                     self.removeMonitoredPositionByExit(order)
@@ -2267,8 +2270,19 @@ class IBTradingPlatform(TradingPlatform):
         """ Interactive Brokers """
         for p in self.monitoredPositions:
             if order.id in (p.exit_tp_id, p.exit_sl_id):
-                self.position_closed_at[p.seccode] = datetime.datetime.now(datetime.timezone.utc)
-                log.info(f"Position closed for {p.seccode}, cooldown started")
+                close_time = datetime.datetime.now(datetime.timezone.utc)
+                self.position_closed_at[p.seccode] = close_time
+                entry_time = self.position_entry_filled_at.get(p.seccode)
+                if entry_time:
+                    duration = (close_time - entry_time).total_seconds()
+                    if duration < 60:
+                        self.position_scalp_cooldown[p.seccode] = 1800
+                        log.info(f"Position closed for {p.seccode} in {duration:.0f}s (scalp detected), cooldown 1800s")
+                    else:
+                        self.position_scalp_cooldown.pop(p.seccode, None)
+                        log.info(f"Position closed for {p.seccode} after {duration:.0f}s, normal cooldown")
+                else:
+                    log.info(f"Position closed for {p.seccode}, cooldown started")
         self.monitoredPositions = [
             p for p in self.monitoredPositions
             if order.id not in (p.exit_tp_id, p.exit_sl_id)
@@ -2288,10 +2302,14 @@ class IBTradingPlatform(TradingPlatform):
                 if not tp_active and not sl_active:
                     orphaned.append(mp)
         for mp in orphaned:
+            close_time = datetime.datetime.now(datetime.timezone.utc)
+            entry_time = self.position_entry_filled_at.get(mp.seccode)
+            if entry_time and (close_time - entry_time).total_seconds() < 60:
+                self.position_scalp_cooldown[mp.seccode] = 1800
             log.warning(f"Orphaned position detected: {mp.seccode} "
                         f"(exit orders TP={mp.exit_tp_id} SL={mp.exit_sl_id} no longer active) "
                         f"- removing from monitoredPositions")
-            self.position_closed_at[mp.seccode] = datetime.datetime.now(datetime.timezone.utc)
+            self.position_closed_at[mp.seccode] = close_time
             self.monitoredPositions.remove(mp)
 
     def set_exit_order_no_to_MonitoredPosition (self, stopOrder):

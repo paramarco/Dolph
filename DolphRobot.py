@@ -319,13 +319,16 @@ class Dolph:
         elif not openPosition:
 
             # Cooldown: prevent rapid-fire reopening after a position closes
-            cooldown_secs = security['params'].get('POSITION_COOLDOWN_SECONDS', 300)
+            # Use extended cooldown if scalp was detected (position closed in < 60s)
+            default_cooldown = security['params'].get('POSITION_COOLDOWN_SECONDS', 300)
+            cooldown_secs = self.tp.position_scalp_cooldown.get(seccode, default_cooldown)
             closed_at = self.tp.position_closed_at.get(seccode)
             if closed_at is not None:
                 elapsed = (dt.datetime.now(dt.timezone.utc) - closed_at).total_seconds()
                 if elapsed < cooldown_secs:
+                    scalp_tag = ' [scalp penalty]' if cooldown_secs > default_cooldown else ''
                     self.logger.info(
-                        f'seccode:{seccode} cooldown active: {elapsed:.0f}s / {cooldown_secs}s since last close'
+                        f'seccode:{seccode} cooldown active: {elapsed:.0f}s / {cooldown_secs}s since last close{scalp_tag}'
                     )
                     return 'no-go'
 
