@@ -162,6 +162,8 @@ MODE = 'TEST_OFFLINE' # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' 
 periods = ['1Min'] #periods = ['1Min','30Min']
 numDaysHistCandles = 89
 
+calibrationPauseSeconds = 900  # 15 min
+
 simulation_net_balance = 29000
 
 current_tz = pytz.timezone('America/New_York')

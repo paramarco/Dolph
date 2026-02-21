@@ -17,7 +17,7 @@ securities = [
         'currency': 'USD',
         'exchange': 'SMART',
         'tradingTimes': (dt.time(9, 44), dt.time(15, 45)),
-        'time2close': dt.time(16, 30),
+        'time2close': dt.time(15, 53),
         'params': {
             'algorithm': 'MinerviniClaude',
             'entryByMarket': True,
@@ -102,7 +102,7 @@ securities = [
         'currency': 'USD',
         'exchange': 'SMART',
         'tradingTimes': (dt.time(9, 44), dt.time(15, 45)),
-        'time2close': dt.time(16, 30),
+        'time2close': dt.time(15, 53),
         'params': {
             'algorithm': 'MinerviniClaude',
             'entryByMarket': True,
@@ -187,7 +187,7 @@ securities = [
         'currency': 'USD',
         'exchange': 'SMART',
         'tradingTimes': (dt.time(9, 44), dt.time(15, 45)),
-        'time2close': dt.time(16, 30),
+        'time2close': dt.time(15, 53),
         'params': {
             'algorithm': 'MinerviniClaude',
             'entryByMarket': True,
@@ -272,7 +272,7 @@ securities = [
         'currency': 'USD',
         'exchange': 'SMART',
         'tradingTimes': (dt.time(9, 44), dt.time(15, 45)),
-        'time2close': dt.time(16, 30),
+        'time2close': dt.time(15, 53),
         'params': {
             'algorithm': 'MinerviniClaude',
             'entryByMarket': True,
@@ -357,7 +357,7 @@ securities = [
         'currency': 'USD',
         'exchange': 'SMART',
         'tradingTimes': (dt.time(9, 44), dt.time(15, 45)),
-        'time2close': dt.time(16, 30),
+        'time2close': dt.time(15, 53),
         'params': {
             'algorithm': 'MinerviniClaude',
             'entryByMarket': True,
@@ -442,7 +442,7 @@ securities = [
         'currency': 'USD',
         'exchange': 'SMART',
         'tradingTimes': (dt.time(9, 44), dt.time(15, 45)),
-        'time2close': dt.time(16, 30),
+        'time2close': dt.time(15, 53),
         'params': {
             'algorithm': 'MinerviniClaude',
             'entryByMarket': True,
@@ -527,7 +527,7 @@ securities = [
         'currency': 'USD',
         'exchange': 'SMART',
         'tradingTimes': (dt.time(9, 44), dt.time(15, 45)),
-        'time2close': dt.time(16, 30),
+        'time2close': dt.time(15, 53),
         'params': {
             'algorithm': 'MinerviniClaude',
             'entryByMarket': True,
@@ -612,7 +612,7 @@ securities = [
         'currency': 'USD',
         'exchange': 'SMART',
         'tradingTimes': (dt.time(9, 44), dt.time(15, 45)),
-        'time2close': dt.time(16, 30),
+        'time2close': dt.time(15, 53),
         'params': {
             'algorithm': 'MinerviniClaude',
             'entryByMarket': True,
@@ -697,7 +697,7 @@ securities = [
         'currency': 'USD',
         'exchange': 'SMART',
         'tradingTimes': (dt.time(9, 44), dt.time(15, 45)),
-        'time2close': dt.time(16, 30),
+        'time2close': dt.time(15, 53),
         'params': {
             'algorithm': 'MinerviniClaude',
             'entryByMarket': True,
@@ -782,7 +782,7 @@ securities = [
         'currency': 'USD',
         'exchange': 'SMART',
         'tradingTimes': (dt.time(9, 44), dt.time(15, 45)),
-        'time2close': dt.time(16, 30),
+        'time2close': dt.time(15, 53),
         'params': {
             'algorithm': 'MinerviniClaude',
             'entryByMarket': True,
@@ -867,7 +867,7 @@ securities = [
         'currency': 'USD',
         'exchange': 'SMART',
         'tradingTimes': (dt.time(9, 44), dt.time(15, 45)),
-        'time2close': dt.time(16, 30),
+        'time2close': dt.time(15, 53),
         'params': {
             'algorithm': 'MinerviniClaude',
             'entryByMarket': True,
@@ -952,7 +952,7 @@ securities = [
         'currency': 'USD',
         'exchange': 'SMART',
         'tradingTimes': (dt.time(9, 44), dt.time(15, 45)),
-        'time2close': dt.time(16, 30),
+        'time2close': dt.time(15, 53),
         'params': {
             'algorithm': 'MinerviniClaude',
             'entryByMarket': True,

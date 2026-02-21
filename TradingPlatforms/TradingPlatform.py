@@ -1584,50 +1584,9 @@ class AlpacaTradingPlatform(TradingPlatform):
 
 ##############################################################################
 
-# class IB_eventLoopTask:
-    
-#     def __init__(self, tp):
-#         self._running = True
-#         self.tp = tp
-#         log.debug('IB_eventLoopTask Thread initialized...')
-
-
-#     def terminate(self):
-#         self._running = False
-#         log.debug('thread IB_eventLoopTask terminated...')
-        
-        
-#     def run(self, securities):
-#         log.debug('Running thread IB_eventLoopTask...')
-
-        
-#         self.tp.ib = IB()
-#         self.tp.ib.errorEvent += self.tp.on_error
-#         #self.tp,ib.orderStatusEvent += self.onOrderStatus
-        
-#         # Connect to the IB gateway or TWS
-#         log.info('connecting to Interactive Brokers...')            
-#         self.tp.ib.connect(self.host, self.port, clientId=self.client_id)
-#         self.connected = True  
-        
-#         log.info("subscribing to Market data...")
-#         self.tp.subscribe_to_market_data()        
-        
-#         log.info("Starting the IB loop...")   
-#         self.tp.ib.run()
-        
-        # loop = asyncio.new_event_loop()
-        # asyncio.set_event_loop(loop)
-        # try:
-        #     loop.run_until_complete(self.tp.ib.run())
-        # except Exception as e:
-        #     log.error(f"Error in IB loop: {e}")
-        # finally:
-        #     loop.close()
-
-
 
 class IB_OrderStatusTask:
+    """ Interactive Brokers (IB) handling of events"""
 
     def __init__(self, tp):
 
@@ -1643,6 +1602,7 @@ class IB_OrderStatusTask:
 
         
     def run(self):
+        """ Interactive Brokers (IB) handling of events"""
 
         time.sleep(15)
         log.info('starting ordersStatusUpdate Thread ...')                
@@ -1672,8 +1632,6 @@ class IB_OrderStatusTask:
             # Sleep for 5 seconds before the next poll
             time.sleep(5)
 
-
-
 # Handling Interactive Brokers (IB) Statuses
 #
 #     Submitted: The order has been sent to the exchange or venue and is waiting for execution.
@@ -1687,8 +1645,6 @@ class IB_OrderStatusTask:
 #     Rejected: The order was rejected and will not be executed.
 #     Stopped: The order is halted and cannot proceed to execution.
 #     PendingReplace: The order is being modified with new parameters.
-
-
 class IBTradingPlatform(TradingPlatform):
 
     def __init__(self, onCounterPosition):

@@ -104,6 +104,8 @@ statusOrderOthers = ['PartiallyFilled','Inactive','PendingCancel', "linkwait","t
 statusExitOrderExecuted = ['tp_executed', 'sl_executed','matched','triggered']
 statusExitOrderFilled = ['filled','Filled']
 
+calibrationPauseSeconds = 900  # 15 min
+
 ########### default-fallback values ##########################################
 factorPosition_Balance = 0.3
 factorMargin_Position  = 0.0035

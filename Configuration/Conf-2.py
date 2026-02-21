@@ -6,88 +6,146 @@ import logging
 from Configuration import TradingPlatfomSettings as tps
 
 platform = tps.platform
-securities = []
+
+# INTC base params used as starting point for all securities (calibration will optimize)
+_BASE_PARAMS = {
+    'algorithm': 'MinerviniClaude',
+    'entryByMarket': True,
+    'exitTimeSeconds': 11400,
+    'entryTimeSeconds': 3600,
+    'minNumPastSamples': 51,
+    'positionMargin': 0.003,
+    'stopLossCoefficient': 25,
+    'period': '1Min',
+    # VCP
+    'VCP_ATR_SLOPE_EXPANSION': 0.1620308857142857,
+    'VCP_BB_WIDTH_PERCENTILE_EXPANSION': 0.24499999999999997,
+    'VCP_ADX_TREND_THRESHOLD': 13,
+    # Indicator Periods
+    'EMA_FAST': 14,
+    'EMA_MID': 16,
+    'EMA_SLOW': 24,
+    'RSI_PERIOD': 23,
+    'ATR_PERIOD': 19,
+    'ATR_SLOPE_WINDOW': 5,
+    'ADX_PERIOD': 13,
+    'BB_WINDOW': 10,
+    'BB_STD': 1,
+    'BB_PERCENTILE_WINDOW': 49,
+    'FVP_WINDOW': 47,
+    # Expansion Phase Thresholds
+    'EXPANSION_DEVIATION_THRESHOLD': 0.000245,
+    'EXPANSION_RSI_SHORT_MIN': 20,
+    'EXPANSION_RSI_LONG_MAX': 50,
+    # Trend Phase Thresholds
+    'TREND_RSI_LONG_MIN': 20,
+    'TREND_RSI_LONG_MAX': 95,
+    'TREND_RSI_SHORT_MIN': 15,
+    'TREND_RSI_SHORT_MAX': 60,
+    # Margin Adaptation Parameters
+    'MARGIN_CONTRACTION_FIXED': 0.0015,
+    'MARGIN_EXPANSION_MULTIPLIER': 1.5,
+    'MARGIN_EXPANSION_MIN': 0.002,
+    'MARGIN_EXPANSION_MAX': 0.008,
+    'MARGIN_TREND_ATR_MULTIPLIER': 2.0,
+    'MARGIN_TREND_MIN': 0.002,
+    'MARGIN_TREND_MAX': 0.006,
+    # Calibration Parameters (3 months lookback for TEST_OFFLINE)
+    'CALIBRATION_LOOKBACK_DAYS': 90,
+    'CALIBRATION_LIMIT_RESULTS': 40000,
+    'CALIBRATION_MIN_ROWS': 1000,
+    'CALIBRATION_MARGIN_MIN': 0.001,
+    'CALIBRATION_MARGIN_MAX': 0.006,
+    'CALIBRATION_MARGIN_STEPS': 10,
+    # Calibration Simulation Parameters
+    'CALIBRATION_LOOKAHEAD_BARS': 60,
+    'CALIBRATION_STOPLOSS_MULTIPLIER': 5.0,
+    'CALIBRATION_DEFAULT_MARGIN': 0.003,
+    # Volume Analysis Parameters
+    'VOLUME_AVG_WINDOW': 13,
+    'VOLUME_SLOPE_WINDOW': 4,
+    'BIG_VOLUME_THRESHOLD': 1.638,
+    'EXTREME_VOLUME_THRESHOLD': 2.7001,
+    'BIG_BODY_ATR_THRESHOLD': 0.588,
+    'EXTREME_BODY_ATR_THRESHOLD': 3.157142857142857,
+    'DIVERGENCE_LOOKBACK': 10,
+    # Buying Climax
+    'BUYING_CLIMAX_LOOKBACK': 10,
+    'BUYING_CLIMAX_TREND_LOOKBACK': 7,
+    'BUYING_CLIMAX_EXTENSION': 0.005481285714285714,
+    'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
+    # Final Decision Scoring
+    'MIN_TOTAL_SCORE': 0.735,
+    'MIN_CONFIDENCE': 0.294,
+    # Position Management
+    'POSITION_COOLDOWN_SECONDS': 300,
+}
+
+def _sec_eu(code, decimals=2, market='XETRA', timezone='Europe/Berlin',
+            currency='EUR', exchange='SMART', primary_exchange='IBIS',
+            trading_times=(dt.time(9, 46), dt.time(15, 40)),
+            time2close=dt.time(15, 45)):
+    return {
+        'seccode': code,
+        'board': 'EQTY',
+        'market': market,
+        'decimals': decimals,
+        'id': 0,
+        'timezone': timezone,
+        'currency': currency,
+        'exchange': exchange,
+        'primaryExchange': primary_exchange,
+        'tradingTimes': trading_times,
+        'time2close': time2close,
+        'params': dict(_BASE_PARAMS),
+    }
+
 securities = [
-    {
-        'seccode': 'AAPL'
-        ,'board': 'EQTY'
-        ,'market': 'NASDAQ'
-        ,'decimals' : 2 
-        ,'id' : 0
-        ,'params': {
-            'algorithm': 'RsiAndAtr',
-            'entryByMarket': False,
-            'exitTimeSeconds': 11400,
-            'entryTimeSeconds': 3600,
-            'minNumPastSamples': 51
-            ,"positionMargin": 0.002 
-            ,"stopLossCoefficient": 2 
-            ,"acceptableTrainingError": 0.000192
-            ,'period': '1Min'
-            ,'rsiCoeff': '14'
-        }
-    }
-    ,{
-        'seccode': 'INTC'       
-        ,'board': 'EQTY'
-        ,'market': 'NASDAQ'
-        ,'decimals' : 2
-        ,'id' : 0
-        ,'params': {
-            'algorithm': 'RsiAndAtr',
-            'entryByMarket': False,
-            'exitTimeSeconds': 11400,
-            'entryTimeSeconds': 3600,
-            'minNumPastSamples': 51
-            ,"longPositionMargin": 0.002 
-            ,"shortPositionMargin": 0.001 
-            ,"stopLossCoefficient": 2 
-            ,"acceptableTrainingError": 0.000192
-            ,'period': '1Min'
-            ,'rsiCoeff': '14'
-        }
-    }
-    ,{
-        'seccode': 'NVDA'        
-        ,'board': 'EQTY'
-        ,'market': 'NASDAQ'
-        ,'decimals' : 2
-        ,'id' : 0
-        ,'params': {
-            'algorithm': 'RsiAndAtr',
-            'entryByMarket': False,
-            'exitTimeSeconds': 11400,
-            'entryTimeSeconds': 3600,
-            'minNumPastSamples': 51
-            ,"longPositionMargin": 0.002 
-            ,"shortPositionMargin": 0.001
-            ,"stopLossCoefficient": 2 
-            ,"acceptableTrainingError": 0.000192
-            ,'period': '1Min'
-            ,'rsiCoeff': '14'
-        }
-    }
+    # Germany - XETRA
+    _sec_eu('RHM'),
+    _sec_eu('SBX'),
+    _sec_eu('IFX'),      # Infineon Technologies - semiconductor, beta 1.83
+    _sec_eu('DBK'),      # Deutsche Bank - banking, beta 1.46
+    _sec_eu('ENR'),      # Siemens Energy - energy, beta 1.60-1.81
+    # Spain - BME
+    _sec_eu('BBVA', market='BME', timezone='Europe/Madrid', primary_exchange='BM'),
+    _sec_eu('SAN', market='BME', timezone='Europe/Madrid', primary_exchange='BM'),
+    # France - Euronext Paris
+    _sec_eu('GLE', market='SBF', timezone='Europe/Paris', primary_exchange='SBF'),      # Societe Generale - banking, beta 1.39
+    _sec_eu('STMPA', market='SBF', timezone='Europe/Paris', primary_exchange='SBF'),    # STMicroelectronics - semiconductor, beta 1.22
+    # Italy - Borsa Italiana
+    _sec_eu('UCG', market='BVME', timezone='Europe/Rome', primary_exchange='BVME'),     # UniCredit - banking, beta 1.28
+    _sec_eu('STLAM', market='BVME', timezone='Europe/Rome', primary_exchange='BVME'),   # Stellantis - automotive, beta 1.56
+    # UK - London Stock Exchange
+    _sec_eu('BARC', market='LSE', timezone='Europe/London', currency='GBP',
+            primary_exchange='LSE',
+            trading_times=(dt.time(9, 46), dt.time(15, 40)), 
+            time2close=dt.time(15, 45)),  # Barclays - banking, beta 1.98
 ]
-logLevel = logging.DEBUG 
+
+logLevel = logging.DEBUG
 #logLevel = logging.INFO
-#MODE = 'OPERATIONAL' # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL' | 'INIT_DB'
-MODE = 'OPERATIONAL'
+MODE = 'TEST_OFFLINE' # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL' | 'INIT_DB'
 periods = ['1Min'] #periods = ['1Min','30Min']
+numDaysHistCandles = 89
+
+calibrationPauseSeconds = 900  # 15 min
+
+simulation_net_balance = 29000
 
 current_tz = pytz.timezone('America/New_York')
-# Localize the 'since' and 'until' datetime objects to the specified timezone
-since = current_tz.localize(dt.datetime(year=2023, month=12, day=11, hour=10, minute=0))
-until = current_tz.localize(dt.datetime(year=2024, month=11, day=1, hour=10, minute=0))
-#until = current_tz.localize(dt.datetime.now())
+# 3 months ago to now
+since = current_tz.localize(dt.datetime.now() - dt.timedelta(days=numDaysHistCandles))
+until = current_tz.localize(dt.datetime.now())
 between_time = (
     current_tz.localize(dt.datetime.strptime('07:00', '%H:%M')).time(),
     current_tz.localize(dt.datetime.strptime('23:40', '%H:%M')).time()
 )
-tradingTimes = (dt.time(9, 30), dt.time(15, 45))
+tradingTimes = (dt.time(9, 46), dt.time(15, 45))
 
 numTestSample = 500
-TrainingHour = 10  # 10:00 
-currentTestIndex = 0  
+TrainingHour = 10  # 10:00
+currentTestIndex = 0
 
 db_connection_params = {
     "dbname" : "dolph_db",
@@ -95,7 +153,7 @@ db_connection_params = {
     "password" : "dolph_password",
     "host" : "127.0.0.1",
     "port" : 4713,
-    "sslmode" : "disable"    
+    "sslmode" : "disable"
 }
 
 transaqConnectorPort = 13000
@@ -109,13 +167,12 @@ statusExitOrderExecuted = ['tp_executed', 'sl_executed','matched','triggered']
 statusExitOrderFilled = ['filled','Filled']
 
 ########### default-fallback values ##########################################
-factorPosition_Balance = 0.3
-factorMargin_Position  = 0.001
-entryTimeSeconds = 60
+factorPosition_Balance = 0.23
+factorMargin_Position  = 0.0035
+entryTimeSeconds = 3600
 exitTimeSeconds = 11400  # 190 * 60
-stopLossCoefficient = 1
+stopLossCoefficient = 20
 correction = 0.0
 spread = 0.0
-time2close = dt.time(15, 46)  # Definido como 16:30 (4:30 PM)
 
 openaikey = platform['secrets']['openaikey']

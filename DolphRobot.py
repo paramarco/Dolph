@@ -320,7 +320,7 @@ class Dolph:
 
             # Cooldown: prevent rapid-fire reopening after a position closes
             # Use extended cooldown if scalp was detected (position closed in < 60s)
-            . = security['params'].get('POSITION_COOLDOWN_SECONDS', 300)
+            default_cooldown = security['params'].get('POSITION_COOLDOWN_SECONDS', 300)
             cooldown_secs = self.tp.position_scalp_cooldown.get(seccode, default_cooldown)
             closed_at = self.tp.position_closed_at.get(seccode)
             if closed_at is not None:
@@ -588,8 +588,16 @@ def main():
                 dolph.ds.saveSecurityParamsToDB(dolph.securities)
                 for sec in dolph.securities:
                     dolph.logger.info(f"Calibrated {sec['seccode']}: {sec['params']}")
-                dolph.logger.info("All calibrated params saved to DB. Exiting.")
-                sys.exit(0)
+                dolph.logger.info("All calibrated params saved to DB.")
+                # Clear models and cache to force fresh calibration next round
+                for sec in dolph.securities:
+                    sec['models'] = {}
+                import PredictionModels.MinerviniClaude as mc
+                mc.MinerviniClaude._calibration_cache.clear()
+                pause = getattr(cm, 'calibrationPauseSeconds', 900)
+                dolph.logger.info(f"Sleeping {pause}s before next calibration round...")
+                time.sleep(pause)
+                continue  # vuelve al inicio del while True
 
             dolph.logger.info(f"[Iter {iteration}] Step 3/3: Take Position")
             dolph.takePosition()
