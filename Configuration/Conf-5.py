@@ -21,7 +21,7 @@ securities = [
         'params': {
             'algorithm': 'MinerviniClaude',
             'entryByMarket': True,
-            'exitTimeSeconds': 36000,
+            'exitTimeSeconds': 11400,
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51,
             'positionMargin': 0.0017149999999999997,
@@ -106,7 +106,7 @@ securities = [
         'params': {
             'algorithm': 'MinerviniClaude',
             'entryByMarket': True,
-            'exitTimeSeconds': 36000,
+            'exitTimeSeconds': 11400,
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51,
             'positionMargin': 0.0017149999999999997,
@@ -191,7 +191,7 @@ securities = [
         'params': {
             'algorithm': 'MinerviniClaude',
             'entryByMarket': True,
-            'exitTimeSeconds': 36000,
+            'exitTimeSeconds': 11400,
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51,
             'positionMargin': 0.0017149999999999997,
@@ -276,7 +276,7 @@ securities = [
         'params': {
             'algorithm': 'MinerviniClaude',
             'entryByMarket': True,
-            'exitTimeSeconds': 36000,
+            'exitTimeSeconds': 11400,
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51,
             'positionMargin': 0.003,
@@ -361,7 +361,7 @@ securities = [
         'params': {
             'algorithm': 'MinerviniClaude',
             'entryByMarket': True,
-            'exitTimeSeconds': 36000,
+            'exitTimeSeconds': 11400,
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51,
             'positionMargin': 0.003,
@@ -446,7 +446,7 @@ securities = [
         'params': {
             'algorithm': 'MinerviniClaude',
             'entryByMarket': True,
-            'exitTimeSeconds': 36000,
+            'exitTimeSeconds': 11400,
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51,
             'positionMargin': 0.003,
@@ -531,7 +531,7 @@ securities = [
         'params': {
             'algorithm': 'MinerviniClaude',
             'entryByMarket': True,
-            'exitTimeSeconds': 36000,
+            'exitTimeSeconds': 11400,
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51,
             'positionMargin': 0.0017149999999999997,
@@ -616,7 +616,7 @@ securities = [
         'params': {
             'algorithm': 'MinerviniClaude',
             'entryByMarket': True,
-            'exitTimeSeconds': 36000,
+            'exitTimeSeconds': 11400,
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51,
             'positionMargin': 0.0017149999999999997,
@@ -701,7 +701,7 @@ securities = [
         'params': {
             'algorithm': 'MinerviniClaude',
             'entryByMarket': True,
-            'exitTimeSeconds': 36000,
+            'exitTimeSeconds': 11400,
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51,
             'positionMargin': 0.003,
@@ -786,7 +786,7 @@ securities = [
         'params': {
             'algorithm': 'MinerviniClaude',
             'entryByMarket': True,
-            'exitTimeSeconds': 36000,
+            'exitTimeSeconds': 11400,
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51,
             'positionMargin': 0.0017149999999999997,
@@ -871,7 +871,7 @@ securities = [
         'params': {
             'algorithm': 'MinerviniClaude',
             'entryByMarket': True,
-            'exitTimeSeconds': 36000,
+            'exitTimeSeconds': 11400,
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51,
             'positionMargin': 0.0017149999999999997,
@@ -956,7 +956,7 @@ securities = [
         'params': {
             'algorithm': 'MinerviniClaude',
             'entryByMarket': True,
-            'exitTimeSeconds': 36000,
+            'exitTimeSeconds': 11400,
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51,
             'positionMargin': 0.0017149999999999997,
@@ -1073,7 +1073,7 @@ statusExitOrderFilled = ['filled','Filled']
 factorPosition_Balance = 0.23
 factorMargin_Position  = 0.0035
 entryTimeSeconds = 3600
-exitTimeSeconds = 36000
+exitTimeSeconds = 11400  # 190 * 60
 stopLossCoefficient = 20
 correction = 0.0
 spread = 0.0

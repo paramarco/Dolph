@@ -17,7 +17,7 @@ securities = [
         ,'params': {
             'algorithm': 'RsiBasedOnEmaOnlyModel',
             'entryByMarket': False,
-            'exitTimeSeconds': 36000,
+            'exitTimeSeconds': 11400,
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51
             ,"positionMargin": 0.0035 
@@ -35,7 +35,7 @@ securities = [
         ,'params': {
             'algorithm': 'RsiBasedOnEmaOnlyModel',
             'entryByMarket': False,
-            'exitTimeSeconds': 36000,
+            'exitTimeSeconds': 11400,
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51
             ,"longPositionMargin": 0.0035 
@@ -54,7 +54,7 @@ securities = [
         ,'params': {
             'algorithm': 'RsiBasedOnEmaOnlyModel',
             'entryByMarket': False,
-            'exitTimeSeconds': 36000,
+            'exitTimeSeconds': 11400,
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51
             ,"longPositionMargin": 0.0035 
@@ -108,7 +108,7 @@ statusExitOrderFilled = ['filled','Filled']
 factorPosition_Balance = 0.3
 factorMargin_Position  = 0.0035
 entryTimeSeconds = 300
-exitTimeSeconds = 36000
+exitTimeSeconds = 11400  # 190 * 60
 stopLossCoefficient = 3
 correction = 0.0
 spread = 0.0

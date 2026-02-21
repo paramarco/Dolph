@@ -129,7 +129,8 @@ class TradingPlatform(ABC):
         self.candlesUpdateThread = None
         self.candlesUpdateTask = None
         self.fmt = "%d.%m.%Y %H:%M:%S"
-        
+        self._market_close_order_ids = set()
+
         if self.MODE != 'TEST_OFFLINE':
             self.loadMonitoredPositions()
 
@@ -627,19 +628,71 @@ class TradingPlatform(ABC):
                 self.monitoredPositions = [p for p in self.monitoredPositions if p.entry_id != mo.id]
                      
 
+    def getLastPredictionSignal(self, seccode):
+        """common - returns the signal of the last prediction for the given security, or None"""
+        sec = next((s for s in self.securities if s['seccode'] == seccode), {})
+        longestPeriod = self.periods[-1] if self.periods else None
+        predictions = sec.get('predictions', {}).get(longestPeriod, []) if longestPeriod else []
+        if not predictions:
+            return None
+        last_pred = predictions[-1]
+        return last_pred.get('signal', 'no-go') if isinstance(last_pred, dict) else last_pred
+
+
+    def isMarketCloseOrder(self, order):
+        """common - returns True if the order is a market-close order sent by closeExit (skip processing)"""
+        if order.id not in self._market_close_order_ids:
+            return False
+        if order.status in cm.statusOrderExecuted or order.status in cm.statusOrderCanceled:
+            self._market_close_order_ids.discard(order.id)
+            log.info(f'market close order {order.id} finished with status: {order.status}')
+        return True
+
+
     def cancelTimedoutExits(self):
         """common"""
-        for mp in self.monitoredPositions:
+        positions_to_close = []
+
+        for mp in list(self.monitoredPositions):
+            if mp.exitOrderAlreadyCancelled:
+                continue
+
             sec = next((s for s in self.securities if s['seccode'] == mp.seccode), {})
             sec_tz = pytz.timezone(sec.get('timezone', 'America/New_York'))
             sec_time2close = sec.get('time2close', getattr(cm, 'time2close', datetime.time(16, 30)))
-            current_time_in_sec_tz = datetime.datetime.now(datetime.timezone.utc).astimezone(sec_tz).time()
+            now_utc = datetime.datetime.now(datetime.timezone.utc)
+            current_time_in_sec_tz = now_utc.astimezone(sec_tz).time()
 
-            for meo in self.monitoredExitOrders:
-                if mp.exit_tp_id == meo.id and current_time_in_sec_tz > sec_time2close and mp.exitOrderAlreadyCancelled == False:
-                    log.info(f'time-out exit detected, closing exit for {meo}')
-                    self.closeExit(mp, meo)
-                    break
+            should_close = False
+            reason = ''
+
+            # Condition 1: current time in security's timezone exceeds time2close
+            if current_time_in_sec_tz > sec_time2close:
+                should_close = True
+                reason = (f'time2close exceeded ({current_time_in_sec_tz} > {sec_time2close} '
+                          f'in {sec.get("timezone", "America/New_York")})')
+
+            # Condition 2: position open > exitTimeSeconds AND last prediction no longer supports direction
+            if not should_close:
+                exit_timeout = sec.get('params', {}).get('exitTimeSeconds', cm.exitTimeSeconds)
+                entry_time = self.position_entry_filled_at.get(mp.seccode)
+                if entry_time is not None:
+                    seconds_open = (now_utc - entry_time).total_seconds()
+                    if seconds_open > exit_timeout:
+                        pred_signal = self.getLastPredictionSignal(mp.seccode)
+                        if pred_signal is not None and pred_signal != mp.takePosition:
+                            should_close = True
+                            reason = (f'open {seconds_open/60:.0f}min > {exit_timeout/60:.0f}min, '
+                                      f'prediction={pred_signal} != position={mp.takePosition}')
+
+            if should_close:
+                meo = next((o for o in self.monitoredExitOrders if o.id == mp.exit_tp_id), None)
+                if meo is not None:
+                    log.info(f'closing position for {mp.seccode}: {reason}')
+                    positions_to_close.append((mp, meo))
+
+        for mp, meo in positions_to_close:
+            self.closeExit(mp, meo)
 
 
     def updatePortfolioPerformance(self, status):
@@ -1092,22 +1145,23 @@ class OrderStatusUpdateTask:
                 orders = list( self.tp.api.list_orders(status='all') )  # Fetches open orders; you can adjust the status as needed ('open', 'closed', etc.)
              
                 for order_data in orders:
-                    #order = Order(order_data)
                     order = OrderAlpaca(order_data._raw)
+                    if self.tp.isMarketCloseOrder(order):
+                        continue
                     # Process regular orders (market/limit)
                     if order.type in ['limit', 'market']:
-                        self.tp.processEntryOrderStatus(order)  
+                        self.tp.processEntryOrderStatus(order)
                     # Process stop or stop-limit orders
                     elif order.type in ['stop', 'stop_limit']:
-                        self.tp.processExitOrderStatus(order)  
+                        self.tp.processExitOrderStatus(order)
                     else:
-                        log.error(f"Unknown Order type : {order}")                        
-            
+                        log.error(f"Unknown Order type : {order}")
+
             except Exception as e:
                 log.error(f"Failed to poll order updates: {e}")
-            
+
             self.tp.cancelTimedoutEntries()
-            #self.tp.cancelTimedoutExits()   
+            self.tp.cancelTimedoutExits()
             # Sleep for 5 seconds before the next poll
             time.sleep(5) 
 
@@ -1406,8 +1460,28 @@ class AlpacaTradingPlatform(TradingPlatform):
         """ Alpaca """
 
         try:
+            # Cancel the pending exit order
             res = self.cancelExitOrder(meo.id)
             log.debug(repr(res))
+
+            # Send market order to close the position
+            exit_action = "sell" if mp.takePosition == "long" else "buy"
+            close_res = self.api.submit_order(
+                symbol=mp.seccode, qty=mp.quantity,
+                side=exit_action, type='market', time_in_force='gtc'
+            )
+
+            if close_res is not None:
+                self._market_close_order_ids.add(close_res.id)
+                log.info(f'exit by market successfully processed for {mp.seccode}, close_order_id={close_res.id}')
+            else:
+                log.error(f"Failed to create market order for closing position {mp.seccode}")
+
+            # Clean up monitored structures
+            if meo in self.monitoredExitOrders:
+                self.monitoredExitOrders.remove(meo)
+            self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_tp_id != meo.id]
+
             mp.exitOrderAlreadyCancelled = True
 
         except Exception as e:
@@ -1580,6 +1654,8 @@ class IB_OrderStatusTask:
                 trades = self.tp.ib.trades()
                 for trade in trades:
                     order = OrderIB(trade)
+                    if self.tp.isMarketCloseOrder(order):
+                        continue
                     if order.type in ['MKT']:  # IB uses 'LMT' for limit and 'MKT' for market orders
                         self.tp.processEntryOrderStatus(order)
                     elif order.type in ['STP', 'LMT', 'STP LMT']:
@@ -1588,9 +1664,9 @@ class IB_OrderStatusTask:
                         log.error(f"Unknown Order type : {order}")
             except Exception as e:
                 log.error(f"Failed to poll order updates: {e}")
-            
+
             self.tp.cancelTimedoutEntries()
-            #self.tp.cancelTimedoutExits()
+            self.tp.cancelTimedoutExits()
             self.tp.reconcileOrphanedPositions()
 
             # Sleep for 5 seconds before the next poll
@@ -1857,8 +1933,12 @@ class IBTradingPlatform(TradingPlatform):
 
     def onOrderStatus(self, trade: Trade):
         """ Interactive Brokers """
-        
+
         order = OrderIB(trade)
+
+        if self.isMarketCloseOrder(order):
+            return
+
         # Process regular or stop orders
         if order.type in ['MKT']:
             self.processEntryOrderStatus(order)
@@ -2126,11 +2206,12 @@ class IBTradingPlatform(TradingPlatform):
             if res is None:
                 log.error("Failed to create market order for closing position")
             elif res.status in cm.statusOrderForwarding or res.status in cm.statusOrderExecuted:
-                log.info(f'exit by market successfully processed for {mp.seccode}')
+                self._market_close_order_ids.add(res.id)
+                log.info(f'exit by market successfully processed for {mp.seccode}, close_order_id={res.id}')
             else:
                 log.error(f'exit by market failed with status: {res.status}')
 
-            # Clean up
+            # Clean up monitored structures before the MKT order events fire
             if meo in self.monitoredExitOrders:
                 self.monitoredExitOrders.remove(meo)
             self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_tp_id != meo.id]
