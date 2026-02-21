@@ -1037,7 +1037,7 @@ numDaysHistCandles = 3
 current_tz = pytz.timezone('America/New_York')
 # Localize the 'since' and 'until' datetime objects to the specified timezone
 since = current_tz.localize(dt.datetime.now() - dt.timedelta(days=numDaysHistCandles))
-until = current_tz.localize(dt.datetime(year=2026, month=2, day=18, hour=10, minute=0))
+until = current_tz.localize(dt.datetime.now())
 #until = current_tz.localize(dt.datetime.now())
 between_time = (
     current_tz.localize(dt.datetime.strptime('07:00', '%H:%M')).time(),
