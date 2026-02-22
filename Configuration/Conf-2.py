@@ -130,6 +130,8 @@ periods = ['1Min'] #periods = ['1Min','30Min']
 numDaysHistCandles = 89
 
 calibrationPauseSeconds = 900  # 15 min
+calibration_timezone = 'Europe/Berlin'
+calibration_active_hours = (0, 8)
 
 simulation_net_balance = 29000
 

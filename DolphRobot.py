@@ -193,10 +193,15 @@ class Dolph:
 
     def dataAcquisition(self):
 
+        self.logger.info(f" Step 1/3: Data Acquisition")
+
         if self.MODE == 'TEST_OFFLINE':
             self.logger.info("TEST_OFFLINE mode: skipping dataAcquisition (calibration reads DB directly)")
             return
+        
         self.ds.syncData( self.data )
+
+        self.logger.info(f" Step 1/3: ✓ COMPLETED")
 
 
     def _getPredictionModel(self, sec, period):
@@ -219,16 +224,59 @@ class Dolph:
             self._getPredictionModel(sec, period )            
 
 
-    def predict( self ):
+    def _check_calibration_window(self):
+        """Return True if within calibration active hours, else sleep until next window."""
+        import pytz
+        cal_tz = pytz.timezone(getattr(cm, 'calibration_timezone', 'America/New_York'))
+        now_local = dt.datetime.now(cal_tz)
+        start_h, end_h = getattr(cm, 'calibration_active_hours', (0, 24))
+        if start_h <= now_local.hour < end_h:
+            return True
+        tomorrow_start = (now_local + dt.timedelta(days=1)).replace(
+            hour=start_h, minute=0, second=0, microsecond=0)
+        sleep_secs = (tomorrow_start - now_local).total_seconds()
+        self.logger.info(
+            f"Outside calibration window ({start_h}:00-{end_h}:00 {cal_tz}), "
+            f"current={now_local.strftime('%H:%M')}, sleeping {sleep_secs:.0f}s")
+        time.sleep(sleep_secs)
+        return False
+
+    def _post_calibration(self):
+        """Save calibrated params to DB, clear cache, sleep before next round."""
+        self.logger.info("TEST_OFFLINE calibration complete, saving params to DB...")
+        self.ds.saveSecurityParamsToDB(self.securities)
+        for sec in self.securities:
+            self.logger.info(f"Calibrated {sec['seccode']}: {sec['params']}")
+        self.logger.info("All calibrated params saved to DB.")
+        for sec in self.securities:
+            sec['models'] = {}
+        import PredictionModels.MinerviniClaude as mc
+        mc.MinerviniClaude._calibration_cache.clear()
+        pause = getattr(cm, 'calibrationPauseSeconds', 900)
+        self.logger.info(f"Sleeping {pause}s before next calibration round...")
+        time.sleep(pause)
+
+    def predict(self):
+
+        self.logger.info(f" Step 2/3: Predict")
+
+        if self.MODE == 'TEST_OFFLINE':
+            if not self._check_calibration_window():
+                return
 
         for period in self.periods:
             for sec in self.securities:
                 self.loadModel(sec, period)
                 if self.MODE == 'TEST_OFFLINE':
-                    continue  # calibration happens in loadModel, no prediction needed
-                prediction = sec['models'][period].predict( self.data[period], sec, period )
-                self.storePrediction( sec, prediction, period)
+                    continue
+                prediction = sec['models'][period].predict(self.data[period], sec, period)
+                self.storePrediction(sec, prediction, period)
+
+        if self.MODE == 'TEST_OFFLINE':
+            self._post_calibration()
         
+        self.logger.info(f" Step 2/3: ✓ COMPLETED")
+
    
     def displayPredictions (self):
         
@@ -485,6 +533,11 @@ class Dolph:
     
     def takePosition (self):
 
+        if self.MODE == 'TEST_OFFLINE':
+            return
+
+        self.logger.info(f" Step 3/3: Take Position")
+
         # Phase 1: Evaluate all securities and collect (position, confidence) pairs
         candidates = []
         for sec in self.securities:
@@ -513,6 +566,9 @@ class Dolph:
                 f'sending a {position} to the Trading platform ...'
             )
             self.tp.processPosition(position)
+
+        self.logger.info(f" Step 3/3: ✓ COMPLETED")
+
        
         
     def initDB (self):
@@ -575,33 +631,11 @@ def main():
             dolph.logger.info(f"MAIN LOOP ITERATION {iteration} - START")
             dolph.logger.info(f"{'='*60}")
             
-            dolph.logger.info(f"[Iter {iteration}] Step 1/3: Data Acquisition")
             dolph.dataAcquisition()
-            dolph.logger.info(f"[Iter {iteration}] Step 1/3: ✓ COMPLETED")
             
-            dolph.logger.info(f"[Iter {iteration}] Step 2/3: Predict")
             dolph.predict()
-            dolph.logger.info(f"[Iter {iteration}] Step 2/3: ✓ COMPLETED")
 
-            if dolph.MODE == 'TEST_OFFLINE':
-                dolph.logger.info("TEST_OFFLINE calibration complete, saving params to DB...")
-                dolph.ds.saveSecurityParamsToDB(dolph.securities)
-                for sec in dolph.securities:
-                    dolph.logger.info(f"Calibrated {sec['seccode']}: {sec['params']}")
-                dolph.logger.info("All calibrated params saved to DB.")
-                # Clear models and cache to force fresh calibration next round
-                for sec in dolph.securities:
-                    sec['models'] = {}
-                import PredictionModels.MinerviniClaude as mc
-                mc.MinerviniClaude._calibration_cache.clear()
-                pause = getattr(cm, 'calibrationPauseSeconds', 900)
-                dolph.logger.info(f"Sleeping {pause}s before next calibration round...")
-                time.sleep(pause)
-                continue  # vuelve al inicio del while True
-
-            dolph.logger.info(f"[Iter {iteration}] Step 3/3: Take Position")
             dolph.takePosition()
-            dolph.logger.info(f"[Iter {iteration}] Step 3/3: ✓ COMPLETED")
             
             dolph.logger.info(f"{'='*60}")
             dolph.logger.info(f"MAIN LOOP ITERATION {iteration} - FINISHED")
@@ -612,14 +646,9 @@ def main():
             break
             
         except Exception as e:
-            dolph.logger.error(f"\n{'!'*60}")
             dolph.logger.error(f"ERROR IN MAIN LOOP ITERATION {iteration}")
-            dolph.logger.error(f"{'!'*60}")
-            dolph.logger.error(f"Error: {e}")
             import traceback
-            dolph.logger.error(traceback.format_exc())
-            dolph.logger.error(f"{'!'*60}\n")
-            
+            dolph.logger.error(traceback.format_exc())            
             dolph.logger.info("Waiting 10 seconds before retrying...")
             time.sleep(10)
 

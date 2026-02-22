@@ -1034,6 +1034,9 @@ MODE = 'OPERATIONAL' # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' |
 periods = ['1Min'] #periods = ['1Min','30Min']
 numDaysHistCandles = 3
 
+calibration_timezone = 'America/New_York'
+calibration_active_hours = (0, 8)
+
 current_tz = pytz.timezone('America/New_York')
 # Localize the 'since' and 'until' datetime objects to the specified timezone
 since = current_tz.localize(dt.datetime.now() - dt.timedelta(days=numDaysHistCandles))
