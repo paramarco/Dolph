@@ -1471,13 +1471,14 @@ class AlpacaTradingPlatform(TradingPlatform):
                 side=exit_action, type='market', time_in_force='gtc'
             )
 
-            if close_res is not None:
-                self._market_close_order_ids.add(close_res.id)
-                log.info(f'exit by market successfully processed for {mp.seccode}, close_order_id={close_res.id}')
-            else:
-                log.error(f"Failed to create market order for closing position {mp.seccode}")
+            if close_res is None:
+                log.error(f"Failed to create market order for closing position {mp.seccode}, keeping position in monitoredPositions")
+                return
 
-            # Clean up monitored structures
+            self._market_close_order_ids.add(close_res.id)
+            log.info(f'exit by market successfully processed for {mp.seccode}, close_order_id={close_res.id}')
+
+            # Only clean up monitored structures AFTER confirming the market close order was accepted
             if meo in self.monitoredExitOrders:
                 self.monitoredExitOrders.remove(meo)
             self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_tp_id != meo.id]
@@ -1991,7 +1992,8 @@ class IBTradingPlatform(TradingPlatform):
             self.ib.disconnect()
 
         #self.eventLoopTask.terminate()
-        self.ordersStatusUpdateTask.terminate()
+        if self.ordersStatusUpdateTask is not None:
+            self.ordersStatusUpdateTask.terminate()
         if self.MODE != 'TEST_OFFLINE':
             self.storeMonitoredPositions()
 
@@ -2160,14 +2162,16 @@ class IBTradingPlatform(TradingPlatform):
             )
 
             if res is None:
-                log.error("Failed to create market order for closing position")
+                log.error(f"Failed to create market order for closing position {mp.seccode}, keeping position in monitoredPositions")
+                return
             elif res.status in cm.statusOrderForwarding or res.status in cm.statusOrderExecuted:
                 self._market_close_order_ids.add(res.id)
                 log.info(f'exit by market successfully processed for {mp.seccode}, close_order_id={res.id}')
             else:
-                log.error(f'exit by market failed with status: {res.status}')
+                log.error(f'exit by market failed with status: {res.status} for {mp.seccode}, keeping position in monitoredPositions')
+                return
 
-            # Clean up monitored structures before the MKT order events fire
+            # Only clean up monitored structures AFTER confirming the market close order was accepted
             if meo in self.monitoredExitOrders:
                 self.monitoredExitOrders.remove(meo)
             self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_tp_id != meo.id]
