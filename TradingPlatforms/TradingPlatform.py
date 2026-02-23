@@ -2159,36 +2159,57 @@ class IBTradingPlatform(TradingPlatform):
         pass
 
 
+    async def _closeExit_async(self, mp, meo_order, sl_meo_order):
+        """Run IB operations for closeExit on the IB event loop thread.
+        Called via _run_ib() from closeExit() to avoid 'no current event loop' errors
+        when invoked from the IB_OrderStatusTask thread.
+        """
+        # Cancel the TP exit order
+        self.ib.cancelOrder(meo_order, '')
+
+        # Cancel the SL exit order
+        if sl_meo_order is not None:
+            self.ib.cancelOrder(sl_meo_order, '')
+
+        # Send market order to close the position
+        exit_action = "SELL" if mp.takePosition == "long" else "BUY"
+        contract = self._make_stock_contract(mp.seccode)
+        expdate = self.convert_to_utc(self.getExpDate(mp.seccode))
+
+        order = MarketOrder(exit_action, mp.quantity)
+        order.tif = 'GTD'
+        order.goodTillDate = expdate.strftime('%Y%m%d-%H:%M:%S')
+        order.account = self.account_number
+
+        trade = self.ib.placeOrder(contract, order)
+        return SimpleTrade(trade.order.orderId, trade.orderStatus.status)
+
+
     def closeExit(self, mp, meo):
         """ Interactive Brokers """
 
         try:
-            # Cancel the TP exit order
-            self.cancelExitOrder(meo.order)
-
-            # Cancel the SL exit order (the other bracket leg)
+            # Find the SL exit order before scheduling async work
+            sl_meo = None
             if mp.exit_sl_id is not None:
                 sl_meo = next((o for o in self.monitoredExitOrders if o.id == mp.exit_sl_id), None)
-                if sl_meo is not None:
-                    self.cancelExitOrder(sl_meo.order)
-                    if sl_meo in self.monitoredExitOrders:
-                        self.monitoredExitOrders.remove(sl_meo)
-                else:
+                if sl_meo is None:
                     log.warning(f"SL order {mp.exit_sl_id} not found in monitoredExitOrders")
 
-            # Send market order to close the position
-            exit_action = "SELL" if mp.takePosition == "long" else "BUY"
-            expdate = self.convert_to_utc(self.getExpDate(mp.seccode))
-            res = self.new_order(
-                mp.board, mp.seccode, mp.client, mp.union,
-                exit_action, expdate, mp.quantity,
-                price=0, bymarket=True, usecredit=False
-            )
+            # Execute IB operations on the IB event loop thread
+            sl_meo_order = sl_meo.order if sl_meo is not None else None
+            res = self._run_ib(self._closeExit_async(mp, meo.order, sl_meo_order))
 
             if res is None:
-                log.error(f"Failed to create market order for closing position {mp.seccode}, keeping position in monitoredPositions")
+                log.error(f"Failed to execute closeExit IB operations for {mp.seccode}, keeping position in monitoredPositions")
+                mp.exitOrderAlreadyCancelled = False
                 return
-            elif res.status in cm.statusOrderForwarding or res.status in cm.statusOrderExecuted:
+
+            # Clean up the SL monitored exit order
+            if sl_meo is not None and sl_meo in self.monitoredExitOrders:
+                self.monitoredExitOrders.remove(sl_meo)
+
+            if res.status in cm.statusOrderForwarding or res.status in cm.statusOrderExecuted:
                 self._market_close_order_ids.add(res.id)
                 log.info(f'exit by market successfully processed for {mp.seccode}, close_order_id={res.id}')
             else:
