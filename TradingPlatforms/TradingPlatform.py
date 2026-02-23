@@ -2090,49 +2090,61 @@ class IBTradingPlatform(TradingPlatform):
 
 
 
-    def cancel_order(self, order_id):
+    async def _cancel_order_async(self, order_id):
+        """Cancel order on IB event loop thread."""
         self.ib.cancelOrder(order_id)
 
+    def cancel_order(self, order_id):
+        self._run_ib(self._cancel_order_async(order_id))
+
+
+    async def _newExitOrder_async(self, seccode, exit_action, quantity, trigger_price_sl, trigger_price_tp):
+        """Place bracket exit orders on IB event loop thread."""
+        contract = self._make_stock_contract(seccode)
+        utcInteger = int(datetime.datetime.now(timezone.utc).timestamp())
+        oca_group = f"OCA_{seccode}_{utcInteger}"
+
+        # --- Take Profit (Limit Order) ---
+        tp_order = Order()
+        tp_order.action = exit_action
+        tp_order.orderType = 'LMT'
+        tp_order.totalQuantity = quantity
+        tp_order.lmtPrice = float(trigger_price_tp)
+        tp_order.tif = 'GTC' # Good 'Til Cancel
+        tp_order.account = self.account_number
+
+        # --- Stop Loss (Stop Order) ---
+        sl_order = Order()
+        sl_order.action = exit_action
+        sl_order.orderType = 'STP'
+        sl_order.totalQuantity = quantity
+        sl_order.auxPrice = float(trigger_price_sl)  # trigger price
+        sl_order.tif = 'GTC' # Good 'Til Cancel
+        sl_order.account = self.account_number
+
+        # --- Link them via OCA group ---
+        tp_order.ocaGroup = oca_group
+        tp_order.ocaType = 1  # 1 = Cancel remaining orders in group
+
+        sl_order.ocaGroup = oca_group
+        sl_order.ocaType = 1
+
+        # Place both orders
+        tp_trade = self.ib.placeOrder(contract, tp_order)
+        sl_trade = self.ib.placeOrder(contract, sl_order)
+
+        log.info(f"Bracket exit for seccode={seccode}: TP@{trigger_price_tp}, SL@{trigger_price_sl}, OCA={oca_group}")
+
+        return tp_trade, sl_trade
 
     def newExitOrder(self, board, seccode, client, exit_action, quantity, trigger_price_sl, trigger_price_tp, correction, spread, bymarket, is_market):
         """ Interactive Brokers """
         try:
-            contract = self._make_stock_contract(seccode)
-            utcInteger = int(datetime.datetime.now(timezone.utc).timestamp())
-            oca_group = f"OCA_{seccode}_{utcInteger}"
-
-            # --- Take Profit (Limit Order) ---
-            tp_order = Order()
-            tp_order.action = exit_action
-            tp_order.orderType = 'LMT'
-            tp_order.totalQuantity = quantity
-            tp_order.lmtPrice = float(trigger_price_tp)
-            tp_order.tif = 'GTC' # Good 'Til Cancel
-            tp_order.account = self.account_number
-
-            # --- Stop Loss (Stop Order) ---
-            sl_order = Order()
-            sl_order.action = exit_action
-            sl_order.orderType = 'STP'
-            sl_order.totalQuantity = quantity
-            sl_order.auxPrice = float(trigger_price_sl)  # trigger price
-            sl_order.tif = 'GTC' # Good 'Til Cancel
-            sl_order.account = self.account_number
-
-            # --- Link them via OCA group ---
-            tp_order.ocaGroup = oca_group
-            tp_order.ocaType = 1  # 1 = Cancel remaining orders in group
-
-            sl_order.ocaGroup = oca_group
-            sl_order.ocaType = 1
-
-            # Place both orders
-            tp_trade = self.ib.placeOrder(contract, tp_order)
-            sl_trade = self.ib.placeOrder(contract, sl_order)
-
-            log.info(f"Bracket exit for seccode={seccode}: TP@{trigger_price_tp}, SL@{trigger_price_sl}, OCA={oca_group}")
-
-            return tp_trade, sl_trade
+            result = self._run_ib(self._newExitOrder_async(seccode, exit_action, quantity, trigger_price_sl, trigger_price_tp))
+            if result is None:
+                log.error(f"Failed to execute newExitOrder for {seccode} via IB event loop")
+                return None, None
+            return result
 
         except Exception as e:
             log.error(f"Error placing bracket exit order for {seccode}: {e}")
@@ -2140,10 +2152,9 @@ class IBTradingPlatform(TradingPlatform):
 
 
     def cancelExitOrder(self, exitOrderId):
-        """ Interactive Brokers """
-        try:     
-            self.ib.cancelOrder(exitOrderId, '')
-
+        """ Interactive Brokers - thread-safe via _run_ib """
+        try:
+            self._run_ib(self._cancel_order_async(exitOrderId))
         except Exception as e:
             log.error(f"Error placing cancelExitOrder {exitOrderId}: {e}")
             return None
