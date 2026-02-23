@@ -32,11 +32,12 @@ class SimpleTrade:
 
 class Position:
     
-    def __init__(self, takePosition, board, seccode, marketId, 
-                 quantity, entryPrice, exitPrice, stoploss, 
-                 decimals, client, exitTime=None, correction=None, spread=None, bymarket = False, 
-                 entry_id=None, exit_tp_id=None, exit_sl_id=None, exit_order_no=None , union = None, 
-                 expdate = None, buysell = None , exitOrderRequested = None, exitOrderAlreadyCancelled = None) :
+    def __init__(self, takePosition, board, seccode, marketId,
+                 quantity, entryPrice, exitPrice, stoploss,
+                 decimals, client, exitTime=None, correction=None, spread=None, bymarket = False,
+                 entry_id=None, exit_tp_id=None, exit_sl_id=None, exit_order_no=None , union = None,
+                 expdate = None, buysell = None , exitOrderRequested = None, exitOrderAlreadyCancelled = None,
+                 entry_time=None) :
         
         # id:= transactionid of the first order, "your entry" of the Position
         # will be assigned once upon successful entry of the Position
@@ -76,6 +77,11 @@ class Position:
         # automatically triggered by a tp_executed or sl_executed 
         self.exit_order_no = exit_order_no  # Add exit_order_no field
         self.exitOrderAlreadyCancelled = exitOrderAlreadyCancelled if exitOrderAlreadyCancelled else False
+        # entry_time := UTC datetime when the entry order was filled
+        if isinstance(entry_time, str):
+            self.entry_time = datetime.datetime.fromisoformat(entry_time)
+        else:
+            self.entry_time = entry_time
 
     def __str__(self):
         
@@ -278,13 +284,16 @@ class TradingPlatform(ABC):
                 # Parse the 'exitTime' field from string to datetime if it's in string format
                 if 'exitTime' in pos_dict and isinstance(pos_dict['exitTime'], str):
                     pos_dict['exitTime'] = datetime.datetime.fromisoformat(pos_dict['exitTime'])
-    
+
                 # Filter positions based on client
                 #if 'client' in pos_dict and pos_dict.get('client') == self.secrets['api_key']:
                 if 'client' in pos_dict and pos_dict.get('client') == self.getClientId() :
                     # Construct Position object and append to monitoredPositions
                     pos = Position(**pos_dict)
                     self.monitoredPositions.append(pos)
+                    # Restore in-memory entry_time lookup from persisted Position
+                    if pos.entry_time is not None:
+                        self.position_entry_filled_at[pos.seccode] = pos.entry_time
                
         except Exception as e:
             log.error(f"Failed to load monitored positions: {e}")
@@ -431,7 +440,9 @@ class TradingPlatform(ABC):
                     
                 elif not monitoredPosition.exitOrderRequested:
                     log.info(f'Order is Filled-Monitored wo exitOrderRequested: {repr(order.id)}')
-                    self.position_entry_filled_at[monitoredPosition.seccode] = datetime.datetime.now(datetime.timezone.utc)
+                    now_utc = datetime.datetime.now(datetime.timezone.utc)
+                    monitoredPosition.entry_time = now_utc
+                    self.position_entry_filled_at[monitoredPosition.seccode] = now_utc
                     self.triggerExitOrder(order, monitoredPosition)                
                 else:
                     self.removeMonitoredPositionByExit(order)
@@ -663,7 +674,7 @@ class TradingPlatform(ABC):
             sec_tz = pytz.timezone(sec.get('timezone', defaut_tz ))
             sec_time2close = sec.get('time2close', getattr(cm, 'time2close', default_time2close ))
             exit_timeout = sec.get('params', {}).get('exitTimeSeconds', cm.exitTimeSeconds)
-            entry_time = self.position_entry_filled_at.get(mp.seccode)
+            entry_time = mp.entry_time or self.position_entry_filled_at.get(mp.seccode)
             if entry_time is None:
                 log.error(f'closing position for {mp.seccode} with None entry_time')
                 continue            
@@ -2326,7 +2337,7 @@ class IBTradingPlatform(TradingPlatform):
             if order.id in (p.exit_tp_id, p.exit_sl_id):
                 close_time = datetime.datetime.now(datetime.timezone.utc)
                 self.position_closed_at[p.seccode] = close_time
-                entry_time = self.position_entry_filled_at.get(p.seccode)
+                entry_time = p.entry_time or self.position_entry_filled_at.get(p.seccode)
                 if entry_time:
                     duration = (close_time - entry_time).total_seconds()
                     if duration < 60:
@@ -2357,7 +2368,7 @@ class IBTradingPlatform(TradingPlatform):
                     orphaned.append(mp)
         for mp in orphaned:
             close_time = datetime.datetime.now(datetime.timezone.utc)
-            entry_time = self.position_entry_filled_at.get(mp.seccode)
+            entry_time = mp.entry_time or self.position_entry_filled_at.get(mp.seccode)
             if entry_time and (close_time - entry_time).total_seconds() < 60:
                 self.position_scalp_cooldown[mp.seccode] = 1800
             log.warning(f"Orphaned position detected: {mp.seccode} "
