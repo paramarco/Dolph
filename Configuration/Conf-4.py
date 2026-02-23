@@ -121,6 +121,52 @@ def _sec_eu(code, decimals=2, market='XETRA', timezone='Europe/Berlin',
         'params': dict(_BASE_PARAMS),
     }
 
+# ---------------------------------------------------------------------------
+# Japan (TSE) helper
+# Trading hours: 9:00-11:30 (morning) + 12:30-15:30 (afternoon), lunch break
+# IB: exchange SMART, primaryExchange TSEJ, currency JPY
+# ---------------------------------------------------------------------------
+def _sec_jp(code, decimals=0,
+            trading_times=(dt.time(9, 5), dt.time(15, 20)),
+            time2close=dt.time(15, 25)):
+    return {
+        'seccode': code,
+        'board': 'EQTY',
+        'market': 'TSEJ',
+        'decimals': decimals,
+        'id': 0,
+        'timezone': 'Asia/Tokyo',
+        'currency': 'JPY',
+        'exchange': 'SMART',
+        'primaryExchange': 'TSEJ',
+        'tradingTimes': trading_times,
+        'time2close': time2close,
+        'params': dict(_BASE_PARAMS),
+    }
+
+# ---------------------------------------------------------------------------
+# South Korea (KRX) helper
+# Trading hours: 9:00-15:30 continuous (no lunch break)
+# IB: exchange SMART, primaryExchange KSE, currency KRW
+# ---------------------------------------------------------------------------
+def _sec_kr(code, decimals=0,
+            trading_times=(dt.time(9, 5), dt.time(15, 20)),
+            time2close=dt.time(15, 25)):
+    return {
+        'seccode': code,
+        'board': 'EQTY',
+        'market': 'KSE',
+        'decimals': decimals,
+        'id': 0,
+        'timezone': 'Asia/Seoul',
+        'currency': 'KRW',
+        'exchange': 'SMART',
+        'primaryExchange': 'KSE',
+        'tradingTimes': trading_times,
+        'time2close': time2close,
+        'params': dict(_BASE_PARAMS),
+    }
+
 securities = [
     _sec('AAPL'),
     _sec('INTC', decimals=3),
@@ -154,11 +200,27 @@ securities = [
             primary_exchange='LSE',
             trading_times=(dt.time(8, 0), dt.time(16, 30)),
             time2close=dt.time(16, 25)),  # Barclays - banking, beta 1.98
+    # ==================== JAPAN - TSE (6 securities) ====================
+    # High intraday liquidity + high price fluctuation
+    _sec_jp('9984'),      # SoftBank Group   - tech/investment, beta ~1.5, avg intraday range 2-3%
+    _sec_jp('8035'),      # Tokyo Electron   - semiconductor equipment, very volatile, range 2-4%
+    _sec_jp('6857'),      # Advantest        - semiconductor test, high volatility, range 2-4%
+    _sec_jp('6920'),      # Lasertec         - semiconductor inspection, extreme volatility, range 3-5%
+    _sec_jp('9983'),      # Fast Retailing   - Uniqlo, heavy Nikkei weight, range 1.5-3%
+    _sec_jp('6758'),      # Sony Group       - diversified tech/entertainment, liquid, range 1.5-2.5%
+    # ==================== SOUTH KOREA - KRX (6 securities) ==============
+    # High intraday liquidity + high price fluctuation
+    _sec_kr('005930'),    # Samsung Electronics  - most liquid in Korea, semiconductor, range 1-2%
+    _sec_kr('000660'),    # SK Hynix            - memory semiconductor, very volatile, range 2-4%
+    _sec_kr('373220'),    # LG Energy Solution  - EV batteries, volatile, range 2-3%
+    _sec_kr('035420'),    # NAVER               - internet/tech platform, range 1.5-3%
+    _sec_kr('035720'),    # Kakao               - tech platform, high retail volume, range 2-3%
+    _sec_kr('006400'),    # Samsung SDI          - battery tech, volatile, range 2-3%
 ]
 
 logLevel = logging.DEBUG
 #logLevel = logging.INFO
-MODE = 'TEST_OFFLINE' # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL' | 'INIT_DB'
+MODE = 'INIT_DB' # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL' | 'INIT_DB'
 periods = ['1Min'] #periods = ['1Min','30Min']
 numDaysHistCandles = 89
 

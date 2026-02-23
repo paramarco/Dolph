@@ -6,94 +6,178 @@ import logging
 from Configuration import TradingPlatfomSettings as tps
 
 platform = tps.platform
-securities = []
+
+# =============================================================================
+# Instance 3 - Asian Markets (Japan TSE + South Korea KRX)
+# 12 securities: 6 Japanese + 6 South Korean
+# Focus: High intraday liquidity & volatility for intraday trading
+# =============================================================================
+
+# Base params derived from calibrated INTC (best profit score in instance 5)
+# Adjusted for higher-volatility Asian equities
+_BASE_PARAMS = {
+    'algorithm': 'MinerviniClaude',
+    'entryByMarket': True,
+    'exitTimeSeconds': 11400,
+    'entryTimeSeconds': 3600,
+    'minNumPastSamples': 51,
+    'positionMargin': 0.003,
+    'stopLossCoefficient': 22,
+    'period': '1Min',
+    # VCP
+    'VCP_ATR_SLOPE_EXPANSION': 0.1620308857142857,
+    'VCP_BB_WIDTH_PERCENTILE_EXPANSION': 0.24499999999999997,
+    'VCP_ADX_TREND_THRESHOLD': 13,
+    # Indicator Periods
+    'EMA_FAST': 14,
+    'EMA_MID': 16,
+    'EMA_SLOW': 24,
+    'RSI_PERIOD': 23,
+    'ATR_PERIOD': 19,
+    'ATR_SLOPE_WINDOW': 5,
+    'ADX_PERIOD': 13,
+    'BB_WINDOW': 10,
+    'BB_STD': 1,
+    'BB_PERCENTILE_WINDOW': 49,
+    'FVP_WINDOW': 47,
+    # Expansion Phase Thresholds
+    'EXPANSION_DEVIATION_THRESHOLD': 0.000245,
+    'EXPANSION_RSI_SHORT_MIN': 20,
+    'EXPANSION_RSI_LONG_MAX': 50,
+    # Trend Phase Thresholds
+    'TREND_RSI_LONG_MIN': 20,
+    'TREND_RSI_LONG_MAX': 95,
+    'TREND_RSI_SHORT_MIN': 15,
+    'TREND_RSI_SHORT_MAX': 60,
+    # Margin Adaptation Parameters
+    'MARGIN_CONTRACTION_FIXED': 0.0015,
+    'MARGIN_EXPANSION_MULTIPLIER': 1.5,
+    'MARGIN_EXPANSION_MIN': 0.002,
+    'MARGIN_EXPANSION_MAX': 0.008,
+    'MARGIN_TREND_ATR_MULTIPLIER': 2.0,
+    'MARGIN_TREND_MIN': 0.002,
+    'MARGIN_TREND_MAX': 0.006,
+    # Calibration Parameters
+    'CALIBRATION_LOOKBACK_DAYS': 30,
+    'CALIBRATION_LIMIT_RESULTS': 15000,
+    'CALIBRATION_MIN_ROWS': 1000,
+    'CALIBRATION_MARGIN_MIN': 0.001,
+    'CALIBRATION_MARGIN_MAX': 0.006,
+    'CALIBRATION_MARGIN_STEPS': 10,
+    # Calibration Simulation Parameters
+    'CALIBRATION_LOOKAHEAD_BARS': 60,
+    'CALIBRATION_STOPLOSS_MULTIPLIER': 5.0,
+    'CALIBRATION_DEFAULT_MARGIN': 0.003,
+    # Volume Analysis Parameters
+    'VOLUME_AVG_WINDOW': 13,
+    'VOLUME_SLOPE_WINDOW': 4,
+    'BIG_VOLUME_THRESHOLD': 1.638,
+    'EXTREME_VOLUME_THRESHOLD': 2.7001,
+    'BIG_BODY_ATR_THRESHOLD': 0.588,
+    'EXTREME_BODY_ATR_THRESHOLD': 3.157142857142857,
+    'DIVERGENCE_LOOKBACK': 10,
+    # Buying Climax
+    'BUYING_CLIMAX_LOOKBACK': 10,
+    'BUYING_CLIMAX_TREND_LOOKBACK': 7,
+    'BUYING_CLIMAX_EXTENSION': 0.005481285714285714,
+    'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
+    # Final Decision Scoring
+    'MIN_TOTAL_SCORE': 0.735,
+    'MIN_CONFIDENCE': 0.294,
+    # Position Management
+    'POSITION_COOLDOWN_SECONDS': 300,
+}
+
+# ---------------------------------------------------------------------------
+# Japan (TSE) helper
+# Trading hours: 9:00-11:30 (morning) + 12:30-15:30 (afternoon), lunch break
+# IB: exchange SMART, primaryExchange TSEJ, currency JPY
+# ---------------------------------------------------------------------------
+def _sec_jp(code, decimals=0,
+            trading_times=(dt.time(9, 5), dt.time(15, 20)),
+            time2close=dt.time(15, 25)):
+    return {
+        'seccode': code,
+        'board': 'EQTY',
+        'market': 'TSEJ',
+        'decimals': decimals,
+        'id': 0,
+        'timezone': 'Asia/Tokyo',
+        'currency': 'JPY',
+        'exchange': 'SMART',
+        'primaryExchange': 'TSEJ',
+        'tradingTimes': trading_times,
+        'time2close': time2close,
+        'params': dict(_BASE_PARAMS),
+    }
+
+# ---------------------------------------------------------------------------
+# South Korea (KRX) helper
+# Trading hours: 9:00-15:30 continuous (no lunch break)
+# IB: exchange SMART, primaryExchange KSE, currency KRW
+# ---------------------------------------------------------------------------
+def _sec_kr(code, decimals=0,
+            trading_times=(dt.time(9, 5), dt.time(15, 20)),
+            time2close=dt.time(15, 25)):
+    return {
+        'seccode': code,
+        'board': 'EQTY',
+        'market': 'KSE',
+        'decimals': decimals,
+        'id': 0,
+        'timezone': 'Asia/Seoul',
+        'currency': 'KRW',
+        'exchange': 'SMART',
+        'primaryExchange': 'KSE',
+        'tradingTimes': trading_times,
+        'time2close': time2close,
+        'params': dict(_BASE_PARAMS),
+    }
+
 securities = [
-    {
-        'seccode': 'AAPL'
-        ,'board': 'EQTY'
-        ,'market': 'NASDAQ'
-        ,'decimals' : 2 
-        ,'id' : 0
-        ,'params': {
-            'algorithm': 'RsiAndAtr',
-            'entryByMarket': False,
-            'exitTimeSeconds': 11400,
-            'entryTimeSeconds': 3600,
-            'minNumPastSamples': 51
-            ,"positionMargin": 0.002 
-            ,"stopLossCoefficient": 2 
-            ,"acceptableTrainingError": 0.000192
-            ,'period': '1Min'
-            ,'rsiCoeff': '9'
-        }
-    }
-    ,{
-        'seccode': 'INTC'       
-        ,'board': 'EQTY'
-        ,'market': 'NASDAQ'
-        ,'decimals' : 2
-        ,'id' : 0
-        ,'params': {
-            'algorithm': 'RsiAndAtr',
-            'entryByMarket': False,
-            'exitTimeSeconds': 11400,
-            'entryTimeSeconds': 3600,
-            'minNumPastSamples': 51
-            ,"longPositionMargin": 0.002 
-            ,"shortPositionMargin": 0.002 
-            ,"stopLossCoefficient": 2 
-            ,"acceptableTrainingError": 0.000192
-            ,'period': '1Min'
-            ,'rsiCoeff': '9'
-        }
-    }
-    ,{
-        'seccode': 'NVDA'        
-        ,'board': 'EQTY'
-        ,'market': 'NASDAQ'
-        ,'decimals' : 2
-        ,'id' : 0
-        ,'params': {
-            'algorithm': 'RsiAndAtr',
-            'entryByMarket': False,
-            'exitTimeSeconds': 11400,
-            'entryTimeSeconds': 3600,
-            'minNumPastSamples': 51
-            ,"longPositionMargin": 0.002 
-            ,"shortPositionMargin": 0.002 
-            ,"stopLossCoefficient": 2 
-            ,"acceptableTrainingError": 0.000192
-            ,'period': '1Min'
-            ,'rsiCoeff': '9'
-        }
-    }
+    # ==================== JAPAN - TSE (6 securities) ====================
+    # High intraday liquidity + high price fluctuation
+    _sec_jp('9984'),      # SoftBank Group   - tech/investment, beta ~1.5, avg intraday range 2-3%
+    _sec_jp('8035'),      # Tokyo Electron   - semiconductor equipment, very volatile, range 2-4%
+    _sec_jp('6857'),      # Advantest        - semiconductor test, high volatility, range 2-4%
+    _sec_jp('6920'),      # Lasertec         - semiconductor inspection, extreme volatility, range 3-5%
+    _sec_jp('9983'),      # Fast Retailing   - Uniqlo, heavy Nikkei weight, range 1.5-3%
+    _sec_jp('6758'),      # Sony Group       - diversified tech/entertainment, liquid, range 1.5-2.5%
+
+    # ==================== SOUTH KOREA - KRX (6 securities) ==============
+    # High intraday liquidity + high price fluctuation
+    _sec_kr('005930'),    # Samsung Electronics  - most liquid in Korea, semiconductor, range 1-2%
+    _sec_kr('000660'),    # SK Hynix            - memory semiconductor, very volatile, range 2-4%
+    _sec_kr('373220'),    # LG Energy Solution  - EV batteries, volatile, range 2-3%
+    _sec_kr('035420'),    # NAVER               - internet/tech platform, range 1.5-3%
+    _sec_kr('035720'),    # Kakao               - tech platform, high retail volume, range 2-3%
+    _sec_kr('006400'),    # Samsung SDI          - battery tech, volatile, range 2-3%
 ]
-logLevel = logging.DEBUG
-#logLevel = logging.INFO
+
+#logLevel = logging.DEBUG
+logLevel = logging.INFO
 MODE = 'TEST_OFFLINE' # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL' | 'INIT_DB'
 periods = ['1Min'] #periods = ['1Min','30Min']
-numDaysHistCandles = 89
+numDaysHistCandles = 3
 
 calibrationPauseSeconds = 900  # 15 min
 calibration_timezone = 'Asia/Tokyo'
 calibration_active_hours = (0, 8)
 
-simulation_net_balance = 29000
-
-current_tz = pytz.timezone('America/New_York')
+current_tz = pytz.timezone('Asia/Tokyo')
 # Localize the 'since' and 'until' datetime objects to the specified timezone
 since = current_tz.localize(dt.datetime.now() - dt.timedelta(days=numDaysHistCandles))
 until = current_tz.localize(dt.datetime.now())
-#until = current_tz.localize(dt.datetime.now())
 between_time = (
-    current_tz.localize(dt.datetime.strptime('07:00', '%H:%M')).time(),
-    current_tz.localize(dt.datetime.strptime('23:40', '%H:%M')).time()
+    current_tz.localize(dt.datetime.strptime('08:00', '%H:%M')).time(),
+    current_tz.localize(dt.datetime.strptime('16:00', '%H:%M')).time()
 )
-tradingTimes = (dt.time(9, 45), dt.time(15, 45))
+tradingTimes = (dt.time(9, 5), dt.time(15, 20))
+
 
 numTestSample = 500
-TrainingHour = 10  # 10:00 
-currentTestIndex = 0  
+TrainingHour = 10  # 10:00
+currentTestIndex = 0
 
 db_connection_params = {
     "dbname" : "dolph_db",
@@ -101,7 +185,7 @@ db_connection_params = {
     "password" : "dolph_password",
     "host" : "127.0.0.1",
     "port" : 4713,
-    "sslmode" : "disable"    
+    "sslmode" : "disable"
 }
 
 transaqConnectorPort = 13000
@@ -115,13 +199,85 @@ statusExitOrderExecuted = ['tp_executed', 'sl_executed','matched','triggered']
 statusExitOrderFilled = ['filled','Filled']
 
 ########### default-fallback values ##########################################
-factorPosition_Balance = 0.3
-factorMargin_Position  = 0.001
-entryTimeSeconds = 60
+factorPosition_Balance = 0.23
+factorMargin_Position  = 0.0035
+entryTimeSeconds = 3600
 exitTimeSeconds = 11400  # 190 * 60
-stopLossCoefficient = 2
+stopLossCoefficient = 22
 correction = 0.0
 spread = 0.0
-time2close = dt.time(15, 46)  # Definido como 16:30 (4:30 PM)
 
 openaikey = platform['secrets']['openaikey']
+
+# ===== Phase Detection Parameters =====
+VCP_ATR_SLOPE_EXPANSION = 0.15
+VCP_BB_WIDTH_PERCENTILE_EXPANSION = 0.5
+VCP_ADX_TREND_THRESHOLD = 25
+
+# Indicator Periods
+EMA_FAST = 9
+EMA_MID = 21
+EMA_SLOW = 50
+
+RSI_PERIOD = 14
+ATR_PERIOD = 14
+ATR_SLOPE_WINDOW = 5
+ADX_PERIOD = 14
+
+BB_WINDOW = 20
+BB_STD = 2
+BB_PERCENTILE_WINDOW = 100
+
+FVP_WINDOW = 30
+
+# Expansion Phase Thresholds
+EXPANSION_DEVIATION_THRESHOLD = 0.0005
+EXPANSION_RSI_SHORT_MIN = 40
+EXPANSION_RSI_LONG_MAX = 60
+
+# Trend Phase Thresholds
+TREND_RSI_LONG_MIN = 40
+TREND_RSI_LONG_MAX = 70
+TREND_RSI_SHORT_MIN = 30
+TREND_RSI_SHORT_MAX = 60
+
+# Margin Adaptation Parameters
+MARGIN_CONTRACTION_FIXED = 0.0015
+MARGIN_EXPANSION_MULTIPLIER = 1.5
+MARGIN_EXPANSION_MIN = 0.002
+MARGIN_EXPANSION_MAX = 0.008
+MARGIN_TREND_ATR_MULTIPLIER = 2.0
+MARGIN_TREND_MIN = 0.002
+MARGIN_TREND_MAX = 0.006
+
+# Calibration Parameters
+CALIBRATION_LOOKBACK_DAYS = 90
+CALIBRATION_LIMIT_RESULTS = 5000
+CALIBRATION_MIN_ROWS = 1000
+CALIBRATION_MARGIN_MIN = 0.001
+CALIBRATION_MARGIN_MAX = 0.006
+CALIBRATION_MARGIN_STEPS = 10
+
+# Calibration Simulation Parameters
+CALIBRATION_LOOKAHEAD_BARS = 60
+CALIBRATION_STOPLOSS_MULTIPLIER = 5.0
+CALIBRATION_DEFAULT_MARGIN = 0.003
+
+# Volume Analysis Parameters
+VOLUME_AVG_WINDOW = 20
+VOLUME_SLOPE_WINDOW = 5
+BIG_VOLUME_THRESHOLD = 1.8
+EXTREME_VOLUME_THRESHOLD = 2.5
+BIG_BODY_ATR_THRESHOLD = 1.2
+EXTREME_BODY_ATR_THRESHOLD = 2.0
+DIVERGENCE_LOOKBACK = 10
+
+# Buying Climax
+BUYING_CLIMAX_LOOKBACK = 20
+BUYING_CLIMAX_TREND_LOOKBACK = 15
+BUYING_CLIMAX_EXTENSION = 0.004
+BUYING_CLIMAX_COOLDOWN_SECONDS = 900
+
+# Final Decision Scoring
+MIN_TOTAL_SCORE = 1.5
+MIN_CONFIDENCE = 0.6
