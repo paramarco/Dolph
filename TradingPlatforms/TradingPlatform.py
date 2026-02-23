@@ -652,16 +652,28 @@ class TradingPlatform(ABC):
     def cancelTimedoutExits(self):
         """common"""
         positions_to_close = []
+        defaut_tz = 'America/New_York'
+        default_time2close = datetime.time(16, 30)
 
         for mp in list(self.monitoredPositions):
             if mp.exitOrderAlreadyCancelled:
                 continue
 
             sec = next((s for s in self.securities if s['seccode'] == mp.seccode), {})
-            sec_tz = pytz.timezone(sec.get('timezone', 'America/New_York'))
-            sec_time2close = sec.get('time2close', getattr(cm, 'time2close', datetime.time(16, 30)))
+            sec_tz = pytz.timezone(sec.get('timezone', defaut_tz ))
+            sec_time2close = sec.get('time2close', getattr(cm, 'time2close', default_time2close ))
+            exit_timeout = sec.get('params', {}).get('exitTimeSeconds', cm.exitTimeSeconds)
+            entry_time = self.position_entry_filled_at.get(mp.seccode)
+            if entry_time is None:
+                log.error(f'closing position for {mp.seccode} with None entry_time')
+                continue            
             now_utc = datetime.datetime.now(datetime.timezone.utc)
             current_time_in_sec_tz = now_utc.astimezone(sec_tz).time()
+            seconds_open = (now_utc - entry_time).total_seconds()
+            pred_signal = self.getLastPredictionSignal(mp.seccode)
+            if pred_signal is None:
+                log.error(f'closing position for {mp.seccode} with None pred_signal')
+                continue 
 
             should_close = False
             reason = ''
@@ -670,20 +682,13 @@ class TradingPlatform(ABC):
             if current_time_in_sec_tz > sec_time2close:
                 should_close = True
                 reason = (f'time2close exceeded ({current_time_in_sec_tz} > {sec_time2close} '
-                          f'in {sec.get("timezone", "America/New_York")})')
+                          f'in {sec.get("timezone", defaut_tz)})')
 
-            # Condition 2: position open > exitTimeSeconds AND last prediction no longer supports direction
-            if not should_close:
-                exit_timeout = sec.get('params', {}).get('exitTimeSeconds', cm.exitTimeSeconds)
-                entry_time = self.position_entry_filled_at.get(mp.seccode)
-                if entry_time is not None:
-                    seconds_open = (now_utc - entry_time).total_seconds()
-                    if seconds_open > exit_timeout:
-                        pred_signal = self.getLastPredictionSignal(mp.seccode)
-                        if pred_signal is not None and pred_signal != mp.takePosition:
-                            should_close = True
-                            reason = (f'open {seconds_open/60:.0f}min > {exit_timeout/60:.0f}min, '
-                                      f'prediction={pred_signal} != position={mp.takePosition}')
+            # Condition 2: position seconds_open > exitTimeSeconds AND last prediction no longer supports direction
+            if seconds_open > exit_timeout and  pred_signal != mp.takePosition:
+                should_close = True
+                reason = (f'open {seconds_open/60:.0f}min > {exit_timeout/60:.0f}min, '
+                            f'prediction={pred_signal} != position={mp.takePosition}')
 
             if should_close:
                 meo = next((o for o in self.monitoredExitOrders if o.id == mp.exit_tp_id), None)
