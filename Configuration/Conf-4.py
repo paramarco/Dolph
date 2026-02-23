@@ -145,23 +145,23 @@ def _sec_jp(code, decimals=0,
     }
 
 # ---------------------------------------------------------------------------
-# South Korea (KRX) helper
-# Trading hours: 9:00-15:30 continuous (no lunch break)
-# IB: exchange SMART, primaryExchange KSE, currency KRW
+# Hong Kong (HKEX) helper
+# Trading hours: 9:30-12:00 (morning) + 13:00-16:00 (afternoon), lunch break
+# IB: exchange SMART, primaryExchange SEHK, currency HKD
 # ---------------------------------------------------------------------------
-def _sec_kr(code, decimals=0,
-            trading_times=(dt.time(9, 5), dt.time(15, 20)),
-            time2close=dt.time(15, 25)):
+def _sec_hk(code, decimals=2,
+            trading_times=(dt.time(9, 35), dt.time(15, 55)),
+            time2close=dt.time(15, 58)):
     return {
         'seccode': code,
         'board': 'EQTY',
-        'market': 'KSE',
+        'market': 'SEHK',
         'decimals': decimals,
         'id': 0,
-        'timezone': 'Asia/Seoul',
-        'currency': 'KRW',
+        'timezone': 'Asia/Hong_Kong',
+        'currency': 'HKD',
         'exchange': 'SMART',
-        'primaryExchange': 'KSE',
+        'primaryExchange': 'SEHK',
         'tradingTimes': trading_times,
         'time2close': time2close,
         'params': dict(_BASE_PARAMS),
@@ -208,14 +208,14 @@ securities = [
     _sec_jp('6920'),      # Lasertec         - semiconductor inspection, extreme volatility, range 3-5%
     _sec_jp('9983'),      # Fast Retailing   - Uniqlo, heavy Nikkei weight, range 1.5-3%
     _sec_jp('6758'),      # Sony Group       - diversified tech/entertainment, liquid, range 1.5-2.5%
-    # ==================== SOUTH KOREA - KRX (6 securities) ==============
+    # ==================== HONG KONG - HKEX (6 securities) ================
     # High intraday liquidity + high price fluctuation
-    _sec_kr('005930'),    # Samsung Electronics  - most liquid in Korea, semiconductor, range 1-2%
-    _sec_kr('000660'),    # SK Hynix            - memory semiconductor, very volatile, range 2-4%
-    _sec_kr('373220'),    # LG Energy Solution  - EV batteries, volatile, range 2-3%
-    _sec_kr('035420'),    # NAVER               - internet/tech platform, range 1.5-3%
-    _sec_kr('035720'),    # Kakao               - tech platform, high retail volume, range 2-3%
-    _sec_kr('006400'),    # Samsung SDI          - battery tech, volatile, range 2-3%
+    _sec_hk('9988'),      # Alibaba Group    - e-commerce/cloud, very volatile, range 2-4%
+    _sec_hk('700'),       # Tencent Holdings - tech/gaming, most liquid on HKEX, range 1.5-3%
+    _sec_hk('3690'),      # Meituan          - delivery/tech, volatile, range 2-4%
+    _sec_hk('9618'),      # JD.com           - e-commerce, volatile, range 2-4%
+    _sec_hk('1810'),      # Xiaomi           - electronics/EV, high retail volume, range 2-3%
+    _sec_hk('1211'),      # BYD              - EV/batteries, volatile, range 2-3%
 ]
 
 logLevel = logging.DEBUG
