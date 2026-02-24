@@ -22,7 +22,7 @@ _BASE_PARAMS = {
     'entryTimeSeconds': 3600,
     'minNumPastSamples': 51,
     'positionMargin': 0.003,
-    'stopLossCoefficient': 22,
+    'stopLossCoefficient': 8,
     'period': '1Min',
     # VCP
     'VCP_ATR_SLOPE_EXPANSION': 0.1620308857142857,
@@ -52,17 +52,17 @@ _BASE_PARAMS = {
     # Margin Adaptation Parameters
     'MARGIN_CONTRACTION_FIXED': 0.0015,
     'MARGIN_EXPANSION_MULTIPLIER': 1.5,
-    'MARGIN_EXPANSION_MIN': 0.002,
-    'MARGIN_EXPANSION_MAX': 0.008,
+    'MARGIN_EXPANSION_MIN': 0.004,
+    'MARGIN_EXPANSION_MAX': 0.015,
     'MARGIN_TREND_ATR_MULTIPLIER': 2.0,
-    'MARGIN_TREND_MIN': 0.002,
-    'MARGIN_TREND_MAX': 0.006,
+    'MARGIN_TREND_MIN': 0.003,
+    'MARGIN_TREND_MAX': 0.010,
     # Calibration Parameters
     'CALIBRATION_LOOKBACK_DAYS': 30,
     'CALIBRATION_LIMIT_RESULTS': 15000,
     'CALIBRATION_MIN_ROWS': 1000,
     'CALIBRATION_MARGIN_MIN': 0.001,
-    'CALIBRATION_MARGIN_MAX': 0.006,
+    'CALIBRATION_MARGIN_MAX': 0.015,
     'CALIBRATION_MARGIN_STEPS': 10,
     # Calibration Simulation Parameters
     'CALIBRATION_LOOKAHEAD_BARS': 60,
@@ -199,11 +199,11 @@ statusExitOrderExecuted = ['tp_executed', 'sl_executed','matched','triggered']
 statusExitOrderFilled = ['filled','Filled']
 
 ########### default-fallback values ##########################################
-factorPosition_Balance = 0.23
+factorPosition_Balance = 0.18
 factorMargin_Position  = 0.0035
 entryTimeSeconds = 3600
 exitTimeSeconds = 11400  # 190 * 60
-stopLossCoefficient = 22
+stopLossCoefficient = 8
 correction = 0.0
 spread = 0.0
 
@@ -244,18 +244,18 @@ TREND_RSI_SHORT_MAX = 60
 # Margin Adaptation Parameters
 MARGIN_CONTRACTION_FIXED = 0.0015
 MARGIN_EXPANSION_MULTIPLIER = 1.5
-MARGIN_EXPANSION_MIN = 0.002
-MARGIN_EXPANSION_MAX = 0.008
+MARGIN_EXPANSION_MIN = 0.004
+MARGIN_EXPANSION_MAX = 0.015
 MARGIN_TREND_ATR_MULTIPLIER = 2.0
-MARGIN_TREND_MIN = 0.002
-MARGIN_TREND_MAX = 0.006
+MARGIN_TREND_MIN = 0.003
+MARGIN_TREND_MAX = 0.010
 
 # Calibration Parameters
 CALIBRATION_LOOKBACK_DAYS = 90
 CALIBRATION_LIMIT_RESULTS = 5000
 CALIBRATION_MIN_ROWS = 1000
 CALIBRATION_MARGIN_MIN = 0.001
-CALIBRATION_MARGIN_MAX = 0.006
+CALIBRATION_MARGIN_MAX = 0.015
 CALIBRATION_MARGIN_STEPS = 10
 
 # Calibration Simulation Parameters

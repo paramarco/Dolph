@@ -693,7 +693,7 @@ class TradingPlatform(ABC):
             exit_timeout = sec.get('params', {}).get('exitTimeSeconds', cm.exitTimeSeconds)
             entry_time = mp.entry_time or self.position_entry_filled_at.get(mp.seccode)
             if entry_time is None:
-                log.error(f'closing position for {mp.seccode} with None entry_time')
+                log.error(f'skipping timeout check for {mp.seccode}: entry_time is None')
                 continue            
             now_utc = datetime.datetime.now(datetime.timezone.utc)
             current_time_in_sec_tz = now_utc.astimezone(sec_tz).time()
@@ -708,24 +708,20 @@ class TradingPlatform(ABC):
             should_close = False
             reason = ''
 
-            # Guard: only attempt closes during market hours for this security
-            startOfTradingTimes = sec_trading_times[0]
-            market_is_open = startOfTradingTimes <= current_time_in_sec_tz <= sec_time2close
-
             # Condition 1: current time in security's timezone exceeds time2close
-            if market_is_open and current_time_in_sec_tz > sec_time2close:
+            if current_time_in_sec_tz > sec_time2close:
                 should_close = True
                 reason = (f'time2close exceeded ({current_time_in_sec_tz} > {sec_time2close} in {sec.get("timezone", defaut_tz)})')
 
             # Condition 2: after endOfTradingTimes but before time2close, close if prediction is opposite
-            if not should_close and market_is_open and endOfTradingTimes < current_time_in_sec_tz < sec_time2close and pred_signal != mp.takePosition:
+            if not should_close and endOfTradingTimes < current_time_in_sec_tz < sec_time2close and pred_signal != mp.takePosition:
                 should_close = True
                 reason = (f'after endOfTradingTimes ({current_time_in_sec_tz} > {endOfTradingTimes} '
                     f'before {sec_time2close} in {sec.get("timezone", defaut_tz)}) but positioned opposite to current prediction'
                     f' (prediction={pred_signal} != position={mp.takePosition})')
 
             # Condition 3: position seconds_open > exitTimeSeconds AND last prediction no longer supports direction
-            if not should_close and market_is_open and seconds_open > exit_timeout and pred_signal != mp.takePosition:
+            if not should_close and seconds_open > exit_timeout and pred_signal != mp.takePosition:
                 should_close = True
                 reason = (f'open {seconds_open/60:.0f}min > {exit_timeout/60:.0f}min, '
                     f'prediction={pred_signal} != position={mp.takePosition}')
@@ -735,6 +731,9 @@ class TradingPlatform(ABC):
                 if meo is not None:
                     log.info(f'closing position for {mp.seccode}: {reason}')
                     positions_to_close.append((mp, meo))
+                elif mp.exit_tp_id is None:
+                    log.info(f'closing position for {mp.seccode} (no exit orders): {reason}')
+                    positions_to_close.append((mp, None))
 
         for mp, meo in positions_to_close:
             self.closeExit(mp, meo)
@@ -2205,7 +2204,8 @@ class IBTradingPlatform(TradingPlatform):
         when invoked from the IB_OrderStatusTask thread.
         """
         # Cancel the TP exit order
-        self.ib.cancelOrder(meo_order, '')
+        if meo_order is not None:
+            self.ib.cancelOrder(meo_order, '')
 
         # Cancel the SL exit order
         if sl_meo_order is not None:
@@ -2238,7 +2238,8 @@ class IBTradingPlatform(TradingPlatform):
 
             # Execute IB operations on the IB event loop thread
             sl_meo_order = sl_meo.order if sl_meo is not None else None
-            res = self._run_ib(self._closeExit_async(mp, meo.order, sl_meo_order))
+            meo_order = meo.order if meo is not None else None
+            res = self._run_ib(self._closeExit_async(mp, meo_order, sl_meo_order))
 
             if res is None:
                 log.error(f"Failed to execute closeExit IB operations for {mp.seccode}, keeping position in monitoredPositions")
@@ -2259,9 +2260,13 @@ class IBTradingPlatform(TradingPlatform):
                 return
 
             # Only clean up monitored structures AFTER confirming the market close order was accepted
-            if meo in self.monitoredExitOrders:
-                self.monitoredExitOrders.remove(meo)
-            self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_tp_id != meo.id]
+            if meo is not None:
+                if meo in self.monitoredExitOrders:
+                    self.monitoredExitOrders.remove(meo)
+                self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_tp_id != meo.id]
+            else:
+                # Position had no exit orders (e.g. reconciled without orders)
+                self.monitoredPositions = [p for p in self.monitoredPositions if p.seccode != mp.seccode]
 
             mp.exitOrderAlreadyCancelled = True
 
