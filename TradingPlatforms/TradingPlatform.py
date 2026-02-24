@@ -2473,7 +2473,12 @@ class IBTradingPlatform(TradingPlatform):
             # 2. Build set of seccodes already monitored
             monitored_seccodes = {mp.seccode for mp in self.monitoredPositions}
 
-            # 3. Get open trades from IB
+            # 3. Request ALL open orders (from all clientIds) so we can match
+            #    exit orders that may have been placed by a previous session
+            try:
+                self._run_ib(self.ib.reqAllOpenOrdersAsync(), timeout=10)
+            except Exception as e:
+                log.warning(f"RECONCILE: reqAllOpenOrders failed: {e}, proceeding with cached trades")
             open_trades = self.ib.openTrades()
 
             recovered = 0
@@ -2617,13 +2622,23 @@ class IBTradingPlatform(TradingPlatform):
             log.error("Failed to create Exit order: newExitOrder returned None")
             
         elif res.orderStatus.status in cm.statusOrderForwarding or res.orderStatus.status in cm.statusOrderExecuted:
-                        
+
             monitoredPosition.exitOrderRequested = True
             monitoredPosition.exit_tp_id = res.order.orderId  # Capture IB order ID
             monitoredPosition.exit_sl_id = res_sl.order.orderId
             log.info(f"Exit order {order.id} successfully in IB OrderId: {res.order.orderId}")
-            log.info(repr(res))  
-            
+            log.info(repr(res))
+
+            # Immediately register exit orders in monitoredExitOrders to prevent
+            # reconcileOrphanedPositions from removing this position before
+            # processExitOrderStatus has a chance to add them
+            tp_order_ib = OrderIB(res)
+            sl_order_ib = OrderIB(res_sl)
+            if tp_order_ib not in self.monitoredExitOrders:
+                self.monitoredExitOrders.append(tp_order_ib)
+            if sl_order_ib not in self.monitoredExitOrders:
+                self.monitoredExitOrders.append(sl_order_ib)
+
             # safety net to not collision with an Entry
             if order in self.monitoredOrders:
                 self.monitoredOrders.remove(order)               
