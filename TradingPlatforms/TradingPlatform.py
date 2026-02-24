@@ -1771,6 +1771,8 @@ class IBTradingPlatform(TradingPlatform):
          )
          t2.start()
 
+         self.reconcileBrokerPositions()
+
          return True  # Successful connection
 
      except Exception as e:
@@ -2449,6 +2451,142 @@ class IBTradingPlatform(TradingPlatform):
                         f"- removing from monitoredPositions")
             self.position_closed_at[mp.seccode] = close_time
             self.monitoredPositions.remove(mp)
+
+    def reconcileBrokerPositions(self):
+        """Interactive Brokers
+        Detects positions open in IB that are NOT in monitoredPositions
+        (e.g. due to crash, manual intervention) and recovers them so they
+        get proper TP/SL management and timeout handling.
+        Called once at startup after monitoredPositions is loaded from DB.
+        """
+        log.warning("RECONCILE: Starting broker position reconciliation...")
+        try:
+            # 1. Get real holdings from IB
+            ib_positions = self.ib.positions()
+            # Filter by our account
+            ib_positions = [p for p in ib_positions if p.account == self.account_number]
+
+            if not ib_positions:
+                log.warning("RECONCILE: No positions found in IB portfolio")
+                return
+
+            # 2. Build set of seccodes already monitored
+            monitored_seccodes = {mp.seccode for mp in self.monitoredPositions}
+
+            # 3. Get open trades from IB
+            open_trades = self.ib.openTrades()
+
+            recovered = 0
+            for item in ib_positions:
+                seccode = item.contract.symbol
+                if seccode in monitored_seccodes:
+                    continue
+                if item.position == 0:
+                    continue
+
+                # Determine direction
+                direction = "long" if item.position > 0 else "short"
+                quantity = abs(item.position)
+                entry_price = item.avgCost
+
+                # Find security config
+                sec = next((s for s in self.securities if s['seccode'] == seccode), None)
+                if sec is None:
+                    log.warning(f"RECONCILE: {seccode} found in IB but not in securities config, skipping")
+                    continue
+
+                board = sec.get('board', 'EQTY')
+                market_id = sec.get('id', 0)
+                decimals = sec.get('decimals', 2)
+
+                # Find open exit orders for this seccode
+                exit_action = "SELL" if direction == "long" else "BUY"
+                exit_orders = []
+                for trade in open_trades:
+                    if (trade.contract.symbol == seccode
+                            and trade.order.action.upper() == exit_action
+                            and trade.order.orderType in ('LMT', 'STP', 'STP LMT')):
+                        exit_orders.append(trade)
+
+                exit_tp_id = None
+                exit_sl_id = None
+                exit_price = None
+                stoploss = None
+                tp_trade = None
+                sl_trade = None
+
+                if len(exit_orders) >= 2:
+                    # Sort by distance to entry_price; closest = TP, farthest = SL
+                    exit_orders.sort(key=lambda t: abs(self._get_order_price(t) - entry_price))
+                    tp_trade = exit_orders[0]
+                    sl_trade = exit_orders[1]
+                    exit_tp_id = tp_trade.order.orderId
+                    exit_sl_id = sl_trade.order.orderId
+                    exit_price = self._get_order_price(tp_trade)
+                    stoploss = self._get_order_price(sl_trade)
+                elif len(exit_orders) == 1:
+                    tp_trade = exit_orders[0]
+                    exit_tp_id = tp_trade.order.orderId
+                    exit_price = self._get_order_price(tp_trade)
+                    stoploss = entry_price  # placeholder, no SL order found
+                else:
+                    # No exit orders at all
+                    exit_price = entry_price
+                    stoploss = entry_price
+
+                # Create the Position object
+                pos = Position(
+                    takePosition=direction,
+                    board=board,
+                    seccode=seccode,
+                    marketId=market_id,
+                    quantity=quantity,
+                    entryPrice=entry_price,
+                    exitPrice=exit_price,
+                    stoploss=stoploss,
+                    decimals=decimals,
+                    client=self.getClientId(),
+                    entry_id=None,
+                    exit_tp_id=exit_tp_id,
+                    exit_sl_id=exit_sl_id,
+                    entry_time=datetime.datetime.now(datetime.timezone.utc),
+                )
+
+                self.monitoredPositions.append(pos)
+                monitored_seccodes.add(seccode)
+
+                # Register exit orders in monitoredExitOrders so reconcileOrphanedPositions
+                # does not immediately remove them
+                if tp_trade is not None:
+                    self.monitoredExitOrders.append(OrderIB(tp_trade))
+                if sl_trade is not None:
+                    self.monitoredExitOrders.append(OrderIB(sl_trade))
+
+                log.warning(
+                    f"RECONCILE: Recovered {direction} position for {seccode}: "
+                    f"qty={quantity}, entry={entry_price}, "
+                    f"TP={exit_price} (id={exit_tp_id}), SL={stoploss} (id={exit_sl_id})"
+                )
+                recovered += 1
+
+            if recovered > 0:
+                self.storeMonitoredPositions()
+                log.warning(f"RECONCILE: Recovered {recovered} position(s) from IB broker, persisted to DB")
+            else:
+                log.warning("RECONCILE: All IB portfolio positions match monitoredPositions, no recovery needed")
+
+        except Exception as e:
+            log.error(f"RECONCILE: Error during broker position reconciliation: {e}", exc_info=True)
+
+    @staticmethod
+    def _get_order_price(trade):
+        """Extract the effective price from an IB Trade object (LMT or STP)."""
+        order = trade.order
+        if order.orderType == 'LMT' and order.lmtPrice:
+            return order.lmtPrice
+        if order.orderType in ('STP', 'STP LMT') and order.auxPrice:
+            return order.auxPrice
+        return 0.0
 
     def set_exit_order_no_to_MonitoredPosition (self, stopOrder):
         """ Interactive Brokers """
