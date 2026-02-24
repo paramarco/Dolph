@@ -2476,7 +2476,9 @@ class IBTradingPlatform(TradingPlatform):
             # 3. Request ALL open orders (from all clientIds) so we can match
             #    exit orders that may have been placed by a previous session
             try:
-                self._run_ib(self.ib.reqAllOpenOrdersAsync(), timeout=10)
+                async def _req_all_open_orders():
+                    return await self.ib.reqAllOpenOrdersAsync()
+                self._run_ib(_req_all_open_orders(), timeout=10)
             except Exception as e:
                 log.warning(f"RECONCILE: reqAllOpenOrders failed: {e}, proceeding with cached trades")
             open_trades = self.ib.openTrades()
