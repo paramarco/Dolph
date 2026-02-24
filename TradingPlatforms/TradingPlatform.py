@@ -138,6 +138,7 @@ class TradingPlatform(ABC):
         self.candlesUpdateTask = None
         self.fmt = "%d.%m.%Y %H:%M:%S"
         self._market_close_order_ids = set()
+        self._market_close_positions = {}  # order_id -> Position, for restoring on cancel
 
         if self.MODE != 'TEST_OFFLINE':
             self.loadMonitoredPositions()
@@ -659,9 +660,20 @@ class TradingPlatform(ABC):
         """common - returns True if the order is a market-close order sent by closeExit (skip processing)"""
         if order.id not in self._market_close_order_ids:
             return False
-        if order.status in cm.statusOrderExecuted or order.status in cm.statusOrderCanceled:
+        if order.status in cm.statusOrderExecuted:
             self._market_close_order_ids.discard(order.id)
             log.info(f'market close order {order.id} finished with status: {order.status}')
+        elif order.status in cm.statusOrderCanceled:
+            self._market_close_order_ids.discard(order.id)
+            # Restore position that was removed prematurely (e.g. market was closed)
+            saved = self._market_close_positions.pop(order.id, None)
+            if saved is not None:
+                saved.exitOrderAlreadyCancelled = False
+                self.monitoredPositions.append(saved)
+                log.warning(f'market close order {order.id} CANCELLED for {saved.seccode}, '
+                            f'position restored to monitoredPositions')
+            else:
+                log.warning(f'market close order {order.id} cancelled but no saved position to restore')
         return True
 
 
@@ -696,20 +708,24 @@ class TradingPlatform(ABC):
             should_close = False
             reason = ''
 
+            # Guard: only attempt closes during market hours for this security
+            startOfTradingTimes = sec_trading_times[0]
+            market_is_open = startOfTradingTimes <= current_time_in_sec_tz <= sec_time2close
+
             # Condition 1: current time in security's timezone exceeds time2close
-            if current_time_in_sec_tz > sec_time2close:
+            if market_is_open and current_time_in_sec_tz > sec_time2close:
                 should_close = True
                 reason = (f'time2close exceeded ({current_time_in_sec_tz} > {sec_time2close} in {sec.get("timezone", defaut_tz)})')
 
             # Condition 2: after endOfTradingTimes but before time2close, close if prediction is opposite
-            if not should_close and endOfTradingTimes < current_time_in_sec_tz < sec_time2close and pred_signal != mp.takePosition:
+            if not should_close and market_is_open and endOfTradingTimes < current_time_in_sec_tz < sec_time2close and pred_signal != mp.takePosition:
                 should_close = True
                 reason = (f'after endOfTradingTimes ({current_time_in_sec_tz} > {endOfTradingTimes} '
                     f'before {sec_time2close} in {sec.get("timezone", defaut_tz)}) but positioned opposite to current prediction'
                     f' (prediction={pred_signal} != position={mp.takePosition})')
 
             # Condition 3: position seconds_open > exitTimeSeconds AND last prediction no longer supports direction
-            if not should_close and seconds_open > exit_timeout and pred_signal != mp.takePosition:
+            if not should_close and market_is_open and seconds_open > exit_timeout and pred_signal != mp.takePosition:
                 should_close = True
                 reason = (f'open {seconds_open/60:.0f}min > {exit_timeout/60:.0f}min, '
                     f'prediction={pred_signal} != position={mp.takePosition}')
@@ -2233,6 +2249,8 @@ class IBTradingPlatform(TradingPlatform):
 
             if res.status in cm.statusOrderForwarding or res.status in cm.statusOrderExecuted:
                 self._market_close_order_ids.add(res.id)
+                # Save position so it can be restored if the close order is cancelled
+                self._market_close_positions[res.id] = mp
                 log.info(f'exit by market successfully processed for {mp.seccode}, close_order_id={res.id}')
             else:
                 log.error(f'exit by market failed with status: {res.status} for {mp.seccode}, keeping position in monitoredPositions')
