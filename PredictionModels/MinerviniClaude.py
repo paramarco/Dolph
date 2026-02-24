@@ -873,7 +873,14 @@ class MinerviniClaude:
             sec_tz = pytz.timezone(self.security.get('timezone', 'America/New_York'))
             trading_start, trading_end = self.security.get('tradingTimes',
                 getattr(cm, 'tradingTimes', (dt.time(9, 30), dt.time(16, 0))))
+            time2close = self.security.get('time2close',
+                getattr(cm, 'time2close', dt.time(16, 0)))
             use_trading_hours = (cm.MODE == 'TEST_OFFLINE')
+
+            # exitTimeSeconds -> bars (1 bar = 1 min)
+            exit_time_seconds = self.security.get('params', {}).get(
+                'exitTimeSeconds', getattr(cm, 'exitTimeSeconds', 11400))
+            exit_timeout_bars = int(exit_time_seconds / 60)
 
             # Exposure and position tracking for TEST_OFFLINE
             track_constraints = (cm.MODE == 'TEST_OFFLINE')
@@ -888,8 +895,11 @@ class MinerviniClaude:
             stats_skip_position_open = 0
             stats_skip_exposure = 0
             stats_tp = 0
+            stats_tp_fast = 0  # TP hit in < half exitTimeSeconds
             stats_sl = 0
             stats_expired = 0
+            stats_forced_close = 0
+            stats_exit_timeout = 0  # closed by exitTimeSeconds timeout
             stats_max_concurrent = 0
 
             total_profit = 0.0
@@ -906,6 +916,19 @@ class MinerviniClaude:
                     bar_time = df.index[i]
                     bar_ny = bar_time.tz_convert(sec_tz) if bar_time.tzinfo else bar_time
                     if not (trading_start <= bar_ny.time() <= trading_end):
+                        stats_skip_hours += 1
+                        continue
+
+                    # Filter entries with insufficient bars before time2close
+                    bars_to_close = 0
+                    for j in range(i + 2, min(i + 2 + lookahead, n)):
+                        bar_t = df.index[j]
+                        bar_local = bar_t.tz_convert(sec_tz) if bar_t.tzinfo else bar_t
+                        if bar_local.time() >= time2close:
+                            break
+                        bars_to_close += 1
+                    min_bars_for_trade = 10  # minimum 10 bars (10 min) for a trade to make sense
+                    if bars_to_close < min_bars_for_trade:
                         stats_skip_hours += 1
                         continue
 
@@ -977,17 +1000,66 @@ class MinerviniClaude:
                 tp_first = tp_hits[0] if len(tp_hits) > 0 else lookahead + 1
                 sl_first = sl_hits[0] if len(sl_hits) > 0 else lookahead + 1
 
+                # Calculate forced close bar: first bar where time >= time2close
+                forced_close_bar = lookahead + 1  # default: no forced close
+                if use_trading_hours:
+                    for j_offset in range(end - start):
+                        bar_idx = start + j_offset
+                        bar_t = df.index[bar_idx]
+                        bar_local = bar_t.tz_convert(sec_tz) if bar_t.tzinfo else bar_t
+                        if bar_local.time() >= time2close:
+                            forced_close_bar = j_offset
+                            break
+
+                # exitTimeSeconds timeout bar (position open too long)
+                exit_timeout_bar = min(exit_timeout_bars, lookahead + 1)
+                # effective deadline = earliest of exit_timeout and forced_close (time2close)
+                deadline_bar = min(exit_timeout_bar, forced_close_bar)
+                half_exit_timeout = exit_timeout_bars // 2
+
                 # Determine outcome and close bar
-                if tp_first <= sl_first and tp_first <= lookahead:
-                    total_profit += quantity * m_abs - round_trip_cost
+                if tp_first <= sl_first and tp_first <= lookahead and tp_first < deadline_bar:
+                    # TP hit before any deadline
+                    tp_profit = quantity * m_abs - round_trip_cost
+                    if tp_first < half_exit_timeout:
+                        # Fast TP bonus: 20% reward for hitting TP in < half exitTimeSeconds
+                        tp_profit *= 1.20
+                        stats_tp_fast += 1
+                    total_profit += tp_profit
                     close_bar = entry_idx + 1 + tp_first
                     stats_tp += 1
-                elif sl_first < tp_first and sl_first <= lookahead:
+                elif sl_first < tp_first and sl_first <= lookahead and sl_first < deadline_bar:
+                    # SL hit before any deadline
                     total_profit -= quantity * sl_coeff * m_abs + round_trip_cost
                     close_bar = entry_idx + 1 + sl_first
                     stats_sl += 1
+                elif exit_timeout_bar <= forced_close_bar and exit_timeout_bar <= lookahead:
+                    # exitTimeSeconds timeout: position open too long, penalty
+                    close_idx = min(start + exit_timeout_bar, n - 1)
+                    close_price = closes[close_idx]
+                    if sig == 1:
+                        pnl = (close_price - entry_price) * quantity - round_trip_cost
+                    else:
+                        pnl = (entry_price - close_price) * quantity - round_trip_cost
+                    # Penalty: subtract extra 50% of round_trip_cost for params that cause timeouts
+                    pnl -= round_trip_cost * 0.5
+                    total_profit += pnl
+                    close_bar = close_idx
+                    stats_exit_timeout += 1
+                elif forced_close_bar <= lookahead:
+                    # Forced close at time2close
+                    close_idx = start + forced_close_bar
+                    close_price = closes[close_idx]
+                    if sig == 1:
+                        pnl = (close_price - entry_price) * quantity - round_trip_cost
+                    else:
+                        pnl = (entry_price - close_price) * quantity - round_trip_cost
+                    total_profit += pnl
+                    close_bar = close_idx
+                    stats_forced_close += 1
                 else:
-                    close_bar = end  # expires at lookahead
+                    # Expired (no TP, no SL, no timeout, no forced close in window)
+                    close_bar = end
                     stats_expired += 1
 
                 # Track exposure and position
@@ -1001,15 +1073,36 @@ class MinerviniClaude:
                     if len(active_positions) > stats_max_concurrent:
                         stats_max_concurrent = len(active_positions)
 
+            # Trade frequency scoring: reward ~4 trades/day, penalize deviation
+            trades_opened = stats_tp + stats_sl + stats_expired + stats_forced_close + stats_exit_timeout
+            num_trading_days = 1
+            if use_trading_hours and trades_opened > 0:
+                # Count unique trading days in the simulation window
+                trading_days = set()
+                for idx in range(n):
+                    bar_t = df.index[idx]
+                    bar_local = bar_t.tz_convert(sec_tz) if bar_t.tzinfo else bar_t
+                    if trading_start <= bar_local.time() <= trading_end:
+                        trading_days.add(bar_local.date())
+                num_trading_days = max(len(trading_days), 1)
+                trades_per_day = trades_opened / num_trading_days
+                target_trades_per_day = 4.0
+                # Gaussian-like multiplier: 1.0 at target, decays as deviation increases
+                freq_deviation = abs(trades_per_day - target_trades_per_day) / target_trades_per_day
+                freq_multiplier = max(0.5, 1.0 - 0.25 * freq_deviation)
+                total_profit *= freq_multiplier
+
             # DEBUG summary for this simulation run
             if track_constraints:
-                trades_opened = stats_tp + stats_sl + stats_expired
                 log.debug(
                     f"seccode={self.seccode} simulation: "
                     f"signals={stats_signals} skip_hours={stats_skip_hours} "
                     f"skip_position_open={stats_skip_position_open} skip_exposure={stats_skip_exposure} | "
-                    f"trades={trades_opened} TP={stats_tp} SL={stats_sl} expired={stats_expired} "
-                    f"max_concurrent={stats_max_concurrent} profit={total_profit:.2f}"
+                    f"trades={trades_opened} TP={stats_tp} TP_fast={stats_tp_fast} SL={stats_sl} "
+                    f"exit_timeout={stats_exit_timeout} forced_close={stats_forced_close} expired={stats_expired} "
+                    f"max_concurrent={stats_max_concurrent} "
+                    f"trades/day={trades_opened / num_trading_days:.1f} "
+                    f"profit={total_profit:.2f}"
                 )
 
             return total_profit

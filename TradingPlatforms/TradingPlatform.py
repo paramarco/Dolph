@@ -37,7 +37,7 @@ class Position:
                  decimals, client, exitTime=None, correction=None, spread=None, bymarket = False,
                  entry_id=None, exit_tp_id=None, exit_sl_id=None, exit_order_no=None , union = None,
                  expdate = None, buysell = None , exitOrderRequested = None, exitOrderAlreadyCancelled = None,
-                 entry_time=None) :
+                 entry_time=None, entry_limit_prices=None) :
         
         # id:= transactionid of the first order, "your entry" of the Position
         # will be assigned once upon successful entry of the Position
@@ -82,6 +82,8 @@ class Position:
             self.entry_time = datetime.datetime.fromisoformat(entry_time)
         else:
             self.entry_time = entry_time
+        # entry_limit_prices := list of limit entry attempts with price, time, order_id
+        self.entry_limit_prices = entry_limit_prices if entry_limit_prices else []
 
     def __str__(self):
         
@@ -617,26 +619,29 @@ class TradingPlatform(ABC):
         
  
     def cancelTimedoutEntries(self):
-        """common"""        
-        list2cancel = []
-        nSec = datetime.timedelta( seconds=cm.entryTimeSeconds)
+        """common"""
+        orders_to_cancel = []
+        default_entry_timeout = getattr(cm, 'entryTimeSeconds', 3600)
         currentTime = datetime.datetime.now(timezone.utc)
-        
-        for mp in self.monitoredPositions:
-            for mo in self.monitoredOrders:
+
+        for mp in list(self.monitoredPositions):
+            for mo in list(self.monitoredOrders):
                 if mp.entry_id == mo.id:
-                    expTime = mo.time + nSec                
+                    # Per-security entry timeout
+                    sec = next((s for s in self.securities if s['seccode'] == mp.seccode), {})
+                    entry_timeout = sec.get('params', {}).get('entryTimeSeconds', default_entry_timeout)
+                    nSec = datetime.timedelta(seconds=entry_timeout)
+                    expTime = mo.time + nSec
                     if currentTime > expTime:
-                        self.cancel_order(mo.id)
-                        list2cancel.append(mo)
-                        msg = f'Cancelling Order expiring at {expTime.isoformat()}, {mo}'
-                        log.info(msg)
+                        orders_to_cancel.append(mo)
+                        log.info(f'Cancelling Order expiring at {expTime.isoformat()}, {mo}')
                     break
-                
-        for mo in list2cancel:
+
+        for mo in orders_to_cancel:
+            self.cancel_order(mo.id)
             if mo in self.monitoredOrders:
                 self.monitoredOrders.remove(mo)
-                self.monitoredPositions = [p for p in self.monitoredPositions if p.entry_id != mo.id]
+            self.monitoredPositions = [p for p in self.monitoredPositions if p.entry_id != mo.id]
                      
 
     def getLastPredictionSignal(self, seccode):
@@ -1630,7 +1635,7 @@ class IB_OrderStatusTask:
         """ Interactive Brokers (IB) handling of events"""
 
         time.sleep(15)
-        log.info('starting ordersStatusUpdate Thread ...')                
+        log.info('starting ordersStatusUpdate Thread ...')
 
         while self._running:
             self.tp.reportCurrentOpenPositions()
@@ -1641,7 +1646,13 @@ class IB_OrderStatusTask:
                     order = OrderIB(trade)
                     if self.tp.isMarketCloseOrder(order):
                         continue
-                    if order.type in ['MKT']:  # IB uses 'LMT' for limit and 'MKT' for market orders
+
+                    # Determine if a LMT order is an entry by checking order ID
+                    is_entry_position = any(mp.entry_id == order.id for mp in self.tp.monitoredPositions
+                                            if not mp.exitOrderRequested)
+                    is_entry_monitored = any(mo.id == order.id for mo in self.tp.monitoredOrders)
+
+                    if order.type in ['MKT'] or (order.type == 'LMT' and (is_entry_position or is_entry_monitored)):
                         self.tp.processEntryOrderStatus(order)
                     elif order.type in ['STP', 'LMT', 'STP LMT']:
                         self.tp.processExitOrderStatus(order)
@@ -2339,26 +2350,38 @@ class IBTradingPlatform(TradingPlatform):
         """ Interactive Brokers """
 
         buysell = "BUY" if position.takePosition == "long" else "SELL"
-        position.bymarket = True # for liquid stocks, using MKT for entry is reasonable, slippage is usually 0–1 cent.
+
+        # Respect entryByMarket from security config instead of forcing MKT
+        sec = next((s for s in self.securities if s['seccode'] == position.seccode), {})
+        entry_by_market = sec.get('params', {}).get('entryByMarket', True)
+        position.bymarket = entry_by_market
+
         position.expdate = self.getExpDate(position.seccode)
-        position.expdate = self.convert_to_utc(position.expdate) 
+        position.expdate = self.convert_to_utc(position.expdate)
         price = round(position.entryPrice, position.decimals)
         price = "{0:0.{prec}f}".format(price, prec=position.decimals)
-   
+
         res = self.new_order(
             position.board, position.seccode, position.client, position.union,
             buysell, position.expdate, position.quantity, price, position.bymarket, False
         )
 
         if res is None:
-            log.error("Failed to create order: new_order returned None")            
-        
+            log.error("Failed to create order: new_order returned None")
+
         elif res.status in cm.statusOrderForwarding or res.status in cm.statusOrderExecuted:
-        
+
             position.entry_id = res.id  # Capture the IB order ID
+            # Track limit entry attempt
+            if not entry_by_market:
+                position.entry_limit_prices.append({
+                    'price': price,
+                    'time': datetime.datetime.now(timezone.utc).isoformat(),
+                    'order_id': res.id
+                })
             self.monitoredPositions.append(position)
-            log.info(f"orderId: {res.id}, status: {res.status}")
-        
+            log.info(f"orderId: {res.id}, status: {res.status}, bymarket: {entry_by_market}")
+
         else:
             log.error(f"Order failed or in invalid state: {res.status}")
         

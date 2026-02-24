@@ -20,7 +20,7 @@ securities = [
         'time2close': dt.time(15, 53),
         'params': {
             'algorithm': 'MinerviniClaude',
-            'entryByMarket': True,
+            'entryByMarket': False,
             'exitTimeSeconds': 11400,
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51,
@@ -105,7 +105,7 @@ securities = [
         'time2close': dt.time(15, 53),
         'params': {
             'algorithm': 'MinerviniClaude',
-            'entryByMarket': True,
+            'entryByMarket': False,
             'exitTimeSeconds': 11400,
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51,
@@ -190,7 +190,7 @@ securities = [
         'time2close': dt.time(15, 53),
         'params': {
             'algorithm': 'MinerviniClaude',
-            'entryByMarket': True,
+            'entryByMarket': False,
             'exitTimeSeconds': 11400,
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51,
@@ -275,7 +275,7 @@ securities = [
         'time2close': dt.time(15, 53),
         'params': {
             'algorithm': 'MinerviniClaude',
-            'entryByMarket': True,
+            'entryByMarket': False,
             'exitTimeSeconds': 11400,
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51,
@@ -360,7 +360,7 @@ securities = [
         'time2close': dt.time(15, 53),
         'params': {
             'algorithm': 'MinerviniClaude',
-            'entryByMarket': True,
+            'entryByMarket': False,
             'exitTimeSeconds': 11400,
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51,
@@ -445,7 +445,7 @@ securities = [
         'time2close': dt.time(15, 53),
         'params': {
             'algorithm': 'MinerviniClaude',
-            'entryByMarket': True,
+            'entryByMarket': False,
             'exitTimeSeconds': 11400,
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51,
@@ -530,7 +530,7 @@ securities = [
         'time2close': dt.time(15, 53),
         'params': {
             'algorithm': 'MinerviniClaude',
-            'entryByMarket': True,
+            'entryByMarket': False,
             'exitTimeSeconds': 11400,
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51,
@@ -615,7 +615,7 @@ securities = [
         'time2close': dt.time(15, 53),
         'params': {
             'algorithm': 'MinerviniClaude',
-            'entryByMarket': True,
+            'entryByMarket': False,
             'exitTimeSeconds': 11400,
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51,
@@ -700,7 +700,7 @@ securities = [
         'time2close': dt.time(15, 53),
         'params': {
             'algorithm': 'MinerviniClaude',
-            'entryByMarket': True,
+            'entryByMarket': False,
             'exitTimeSeconds': 11400,
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51,
@@ -785,7 +785,7 @@ securities = [
         'time2close': dt.time(15, 53),
         'params': {
             'algorithm': 'MinerviniClaude',
-            'entryByMarket': True,
+            'entryByMarket': False,
             'exitTimeSeconds': 11400,
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51,
@@ -870,7 +870,7 @@ securities = [
         'time2close': dt.time(15, 53),
         'params': {
             'algorithm': 'MinerviniClaude',
-            'entryByMarket': True,
+            'entryByMarket': False,
             'exitTimeSeconds': 11400,
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51,
@@ -955,7 +955,7 @@ securities = [
         'time2close': dt.time(15, 53),
         'params': {
             'algorithm': 'MinerviniClaude',
-            'entryByMarket': True,
+            'entryByMarket': False,
             'exitTimeSeconds': 11400,
             'entryTimeSeconds': 3600,
             'minNumPastSamples': 51,
