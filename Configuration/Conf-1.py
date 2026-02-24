@@ -103,9 +103,9 @@ def _sec(code, decimals=2, timezone='America/New_York', currency='USD',
     return sec
 
 securities = [
-    _sec('AAPL'),
+    _sec('TSLA'),
     _sec('INTC', decimals=3),
-    _sec('NVDA'),
+    _sec('AMD'),
     _sec('SOFI'),
     _sec('MARA'),
     _sec('RIVN'),

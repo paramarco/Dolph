@@ -169,9 +169,9 @@ def _sec_hk(code, decimals=2,
 
 securities = [
     # --- US & EU temporarily disabled for Asia-only INIT_DB ---
-    # _sec('AAPL'),
+    # _sec('TSLA'),
     # _sec('INTC', decimals=3),
-    # _sec('NVDA'),
+    # _sec('AMD'),
     # _sec('SOFI'),
     # _sec('MARA'),
     # _sec('RIVN'),
