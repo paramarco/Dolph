@@ -203,20 +203,20 @@ securities = [
     #         time2close=dt.time(16, 25)),  # Barclays - banking, beta 1.98
     # ==================== JAPAN - TSE (6 securities) ====================
     # High intraday liquidity + high price fluctuation
-    _sec_jp('9984'),      # SoftBank Group   - tech/investment, beta ~1.5, avg intraday range 2-3%
-    _sec_jp('8035'),      # Tokyo Electron   - semiconductor equipment, very volatile, range 2-4%
-    _sec_jp('6857'),      # Advantest        - semiconductor test, high volatility, range 2-4%
-    _sec_jp('6920'),      # Lasertec         - semiconductor inspection, extreme volatility, range 3-5%
-    _sec_jp('9983'),      # Fast Retailing   - Uniqlo, heavy Nikkei weight, range 1.5-3%
-    _sec_jp('6758'),      # Sony Group       - diversified tech/entertainment, liquid, range 1.5-2.5%
+    # _sec_jp('9984'),      # SoftBank Group   - tech/investment, beta ~1.5, avg intraday range 2-3%
+    # _sec_jp('8035'),      # Tokyo Electron   - semiconductor equipment, very volatile, range 2-4%
+    # _sec_jp('6857'),      # Advantest        - semiconductor test, high volatility, range 2-4%
+    # _sec_jp('6920'),      # Lasertec         - semiconductor inspection, extreme volatility, range 3-5%
+    # _sec_jp('9983'),      # Fast Retailing   - Uniqlo, heavy Nikkei weight, range 1.5-3%
+    # _sec_jp('6758'),      # Sony Group       - diversified tech/entertainment, liquid, range 1.5-2.5%
     # ==================== HONG KONG - HKEX (6 securities) ================
     # High intraday liquidity + high price fluctuation
-    _sec_hk('9988'),      # Alibaba Group    - e-commerce/cloud, very volatile, range 2-4%
-    _sec_hk('700'),       # Tencent Holdings - tech/gaming, most liquid on HKEX, range 1.5-3%
-    _sec_hk('3690'),      # Meituan          - delivery/tech, volatile, range 2-4%
-    _sec_hk('9618'),      # JD.com           - e-commerce, volatile, range 2-4%
-    _sec_hk('1810'),      # Xiaomi           - electronics/EV, high retail volume, range 2-3%
-    _sec_hk('1211'),      # BYD              - EV/batteries, volatile, range 2-3%
+    # _sec_hk('9988'),      # Alibaba Group    - e-commerce/cloud, very volatile, range 2-4%
+    # _sec_hk('700'),       # Tencent Holdings - tech/gaming, most liquid on HKEX, range 1.5-3%
+    # _sec_hk('3690'),      # Meituan          - delivery/tech, volatile, range 2-4%
+    # _sec_hk('9618'),      # JD.com           - e-commerce, volatile, range 2-4%
+    # _sec_hk('1810'),      # Xiaomi           - electronics/EV, high retail volume, range 2-3%
+    # _sec_hk('1211'),      # BYD              - EV/batteries, volatile, range 2-3%
 ]
 
 logLevel = logging.DEBUG
