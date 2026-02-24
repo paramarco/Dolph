@@ -10,7 +10,7 @@ platform = tps.platform
 # INTC base params used as starting point for all securities (calibration will optimize)
 _BASE_PARAMS = {
     'algorithm': 'MinerviniClaude',
-    'entryByMarket': True,
+    'entryByMarket': False,
     'exitTimeSeconds': 11400,
     'entryTimeSeconds': 3600,
     'minNumPastSamples': 51,

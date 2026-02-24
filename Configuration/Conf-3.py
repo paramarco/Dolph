@@ -17,7 +17,7 @@ platform = tps.platform
 # Adjusted for higher-volatility Asian equities
 _BASE_PARAMS = {
     'algorithm': 'MinerviniClaude',
-    'entryByMarket': True,
+    'entryByMarket': False,
     'exitTimeSeconds': 11400,
     'entryTimeSeconds': 3600,
     'minNumPastSamples': 51,
