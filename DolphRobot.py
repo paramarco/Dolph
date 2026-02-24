@@ -584,15 +584,19 @@ class Dolph:
             return
         
         self.logger.info('init database according to Trading platform ...')
-          
+
         for sec in self.securities:
-            
+
             self.logger.info(f"getting candles for {sec['seccode']} ... ")
             candles = self.tp.get_candles(sec, self.since, self.until, period = '1Min')
             self.logger.info(f"storing candles for {sec['seccode']} ... ")
-            self.ds.store_candles(candles,sec) 
-    
-        sys.exit(0)           
+            self.ds.store_candles(candles,sec)
+
+        # Save initial calibration params from config to DB
+        self.logger.info('saving initial calibration params to DB ...')
+        self.ds.saveSecurityParamsToDB(self.securities)
+
+        sys.exit(0)
         raise SystemExit("Stopping the program") 
 
 

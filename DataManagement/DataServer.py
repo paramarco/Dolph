@@ -482,12 +482,15 @@ class DataServer:
             log.error(f"Failed to save params to DB: {e}")
 
     def loadSecurityParamsFromDB(self, securities):
-        """Load alg_parameters from DB and overwrite each security's params dict."""
+        """Load alg_parameters from DB and merge into each security's params dict.
+        Config params serve as defaults; DB params override only keys that exist in DB."""
         for sec in securities:
-            params = self.getSecurityAlgParams(sec)
-            if params:
-                sec['params'] = params
-                log.info(f"Loaded params from DB for {sec['seccode']}")
+            db_params = self.getSecurityAlgParams(sec)
+            if db_params:
+                config_params = sec['params'].copy()
+                config_params.update(db_params)
+                sec['params'] = config_params
+                log.info(f"Loaded and merged params from DB for {sec['seccode']}")
             else:
                 log.warning(f"No params in DB for {sec['seccode']}, keeping config values")
 
@@ -850,19 +853,21 @@ class DataServer:
             else:
                 period_val, decimals_val, market_val, platform_val = 1, 2, 'NASDAQ', None
 
-            # Get per-security market metadata from config
+            # Get per-security market metadata and params from config
             sec_cfg = next((s for s in self.securities if s['seccode'] == seccode), {})
             tz_val = sec_cfg.get('timezone', 'America/New_York')
             currency_val = sec_cfg.get('currency', 'USD')
             exchange_val = sec_cfg.get('exchange', 'SMART')
+            alg_params = sec_cfg.get('params')
+            alg_params_json = json.dumps(alg_params) if alg_params else None
 
-            # Insert with complete fields from reference
+            # Insert with complete fields from reference, including initial alg_parameters
             insert_query = """
-                INSERT INTO security (code, board, period, decimals, market, platform, timezone, currency, exchange)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO security (code, board, period, decimals, market, platform, timezone, currency, exchange, alg_parameters)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
             """
-            cursor.execute(insert_query, (seccode, board, period_val, decimals_val, market_val, platform_val, tz_val, currency_val, exchange_val))
+            cursor.execute(insert_query, (seccode, board, period_val, decimals_val, market_val, platform_val, tz_val, currency_val, exchange_val, alg_params_json))
             new_id = cursor.fetchone()[0]
                         
             # Confirmar la transacción
