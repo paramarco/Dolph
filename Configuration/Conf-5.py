@@ -6,1028 +6,218 @@ import logging
 from Configuration import TradingPlatfomSettings as tps
 
 platform = tps.platform
+# INTC base params used as starting point for all securities (calibration will optimize)
+_BASE_PARAMS = {
+    'algorithm': 'MinerviniClaude',
+    'entryByMarket': False,
+    'exitTimeSeconds': 11400,
+    'entryTimeSeconds': 3600,
+    'minNumPastSamples': 51,
+    'positionMargin': 0.003,
+    'stopLossCoefficient': 25,
+    'period': '1Min',
+    # VCP
+    'VCP_ATR_SLOPE_EXPANSION': 0.1620308857142857,
+    'VCP_BB_WIDTH_PERCENTILE_EXPANSION': 0.24499999999999997,
+    'VCP_ADX_TREND_THRESHOLD': 13,
+    # Indicator Periods
+    'EMA_FAST': 14,
+    'EMA_MID': 16,
+    'EMA_SLOW': 24,
+    'RSI_PERIOD': 23,
+    'ATR_PERIOD': 19,
+    'ATR_SLOPE_WINDOW': 5,
+    'ADX_PERIOD': 13,
+    'BB_WINDOW': 10,
+    'BB_STD': 1,
+    'BB_PERCENTILE_WINDOW': 49,
+    'FVP_WINDOW': 47,
+    # Expansion Phase Thresholds
+    'EXPANSION_DEVIATION_THRESHOLD': 0.000245,
+    'EXPANSION_RSI_SHORT_MIN': 20,
+    'EXPANSION_RSI_LONG_MAX': 50,
+    # Trend Phase Thresholds
+    'TREND_RSI_LONG_MIN': 20,
+    'TREND_RSI_LONG_MAX': 95,
+    'TREND_RSI_SHORT_MIN': 15,
+    'TREND_RSI_SHORT_MAX': 60,
+    # Margin Adaptation Parameters
+    'MARGIN_CONTRACTION_FIXED': 0.0015,
+    'MARGIN_EXPANSION_MULTIPLIER': 1.5,
+    'MARGIN_EXPANSION_MIN': 0.002,
+    'MARGIN_EXPANSION_MAX': 0.008,
+    'MARGIN_TREND_ATR_MULTIPLIER': 2.0,
+    'MARGIN_TREND_MIN': 0.002,
+    'MARGIN_TREND_MAX': 0.006,
+    # Calibration Parameters (3 months lookback for TEST_OFFLINE)
+    'CALIBRATION_LOOKBACK_DAYS': 90,
+    'CALIBRATION_LIMIT_RESULTS': 40000,
+    'CALIBRATION_MIN_ROWS': 1000,
+    'CALIBRATION_MARGIN_MIN': 0.001,
+    'CALIBRATION_MARGIN_MAX': 0.006,
+    'CALIBRATION_MARGIN_STEPS': 10,
+    # Calibration Simulation Parameters
+    'CALIBRATION_LOOKAHEAD_BARS': 60,
+    'CALIBRATION_STOPLOSS_MULTIPLIER': 5.0,
+    'CALIBRATION_DEFAULT_MARGIN': 0.003,
+    # Volume Analysis Parameters
+    'VOLUME_AVG_WINDOW': 13,
+    'VOLUME_SLOPE_WINDOW': 4,
+    'BIG_VOLUME_THRESHOLD': 1.638,
+    'EXTREME_VOLUME_THRESHOLD': 2.7001,
+    'BIG_BODY_ATR_THRESHOLD': 0.588,
+    'EXTREME_BODY_ATR_THRESHOLD': 3.157142857142857,
+    'DIVERGENCE_LOOKBACK': 10,
+    # Buying Climax
+    'BUYING_CLIMAX_LOOKBACK': 10,
+    'BUYING_CLIMAX_TREND_LOOKBACK': 7,
+    'BUYING_CLIMAX_EXTENSION': 0.005481285714285714,
+    'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
+    # Final Decision Scoring
+    'MIN_TOTAL_SCORE': 0.735,
+    'MIN_CONFIDENCE': 0.294,
+    # Position Management
+    'POSITION_COOLDOWN_SECONDS': 300,
+}
+
+def _sec(code, decimals=2, timezone='America/New_York', currency='USD',
+         exchange='SMART', primary_exchange=None,
+         trading_times=(dt.time(9, 44), dt.time(15, 45)),
+         time2close=dt.time(16, 30)):
+    sec = {
+        'seccode': code,
+        'board': 'EQTY',
+        'market': 'NASDAQ',
+        'decimals': decimals,
+        'id': 0,
+        'timezone': timezone,
+        'currency': currency,
+        'exchange': exchange,
+        'tradingTimes': trading_times,
+        'time2close': time2close,
+        'params': dict(_BASE_PARAMS),
+    }
+    if primary_exchange:
+        sec['primaryExchange'] = primary_exchange
+    return sec
+
+def _sec_eu(code, decimals=2, market='XETRA', timezone='Europe/Berlin',
+            currency='EUR', exchange='SMART', primary_exchange='IBIS',
+            trading_times=(dt.time(9, 0), dt.time(17, 30)),
+            time2close=dt.time(17, 25)):
+    return {
+        'seccode': code,
+        'board': 'EQTY',
+        'market': market,
+        'decimals': decimals,
+        'id': 0,
+        'timezone': timezone,
+        'currency': currency,
+        'exchange': exchange,
+        'primaryExchange': primary_exchange,
+        'tradingTimes': trading_times,
+        'time2close': time2close,
+        'params': dict(_BASE_PARAMS),
+    }
+
+# ---------------------------------------------------------------------------
+# Japan (TSE) helper
+# Trading hours: 9:00-11:30 (morning) + 12:30-15:30 (afternoon), lunch break
+# IB: exchange SMART, primaryExchange TSEJ, currency JPY
+# ---------------------------------------------------------------------------
+def _sec_jp(code, decimals=0,
+            trading_times=(dt.time(9, 5), dt.time(15, 20)),
+            time2close=dt.time(15, 25)):
+    return {
+        'seccode': code,
+        'board': 'EQTY',
+        'market': 'TSEJ',
+        'decimals': decimals,
+        'id': 0,
+        'timezone': 'Asia/Tokyo',
+        'currency': 'JPY',
+        'exchange': 'SMART',
+        'primaryExchange': 'TSEJ',
+        'tradingTimes': trading_times,
+        'time2close': time2close,
+        'params': dict(_BASE_PARAMS),
+    }
+
+# ---------------------------------------------------------------------------
+# Hong Kong (HKEX) helper
+# Trading hours: 9:30-12:00 (morning) + 13:00-16:00 (afternoon), lunch break
+# IB: exchange SMART, primaryExchange SEHK, currency HKD
+# ---------------------------------------------------------------------------
+def _sec_hk(code, decimals=2,
+            trading_times=(dt.time(9, 35), dt.time(15, 55)),
+            time2close=dt.time(15, 58)):
+    return {
+        'seccode': code,
+        'board': 'EQTY',
+        'market': 'SEHK',
+        'decimals': decimals,
+        'id': 0,
+        'timezone': 'Asia/Hong_Kong',
+        'currency': 'HKD',
+        'exchange': 'SMART',
+        'primaryExchange': 'SEHK',
+        'tradingTimes': trading_times,
+        'time2close': time2close,
+        'params': dict(_BASE_PARAMS),
+    }
+
 securities = [
-    {   # Calibrated 2026-02-18 | profit score: 60740.60 -> 75762.12 (30d/15K, qty*margin, $2 cost)
-        'seccode': 'AAPL',
-        'board': 'EQTY',
-        'market': 'NASDAQ',
-        'decimals': 2,
-        'id': 0,
-        'timezone': 'America/New_York',
-        'currency': 'USD',
-        'exchange': 'SMART',
-        'tradingTimes': (dt.time(9, 44), dt.time(15, 45)),
-        'time2close': dt.time(15, 53),
-        'params': {
-            'algorithm': 'MinerviniClaude',
-            'entryByMarket': False,
-            'exitTimeSeconds': 11400,
-            'entryTimeSeconds': 3600,
-            'minNumPastSamples': 51,
-            'positionMargin': 0.0017149999999999997,
-            'stopLossCoefficient': 18,
-            'period': '1Min',
-            # VCP
-            'VCP_ATR_SLOPE_EXPANSION': 0.20335714285714288,
-            'VCP_BB_WIDTH_PERCENTILE_EXPANSION': 0.33499999999999996,
-            'VCP_ADX_TREND_THRESHOLD': 13,
-            # Indicator Periods
-            'EMA_FAST': 14,
-            'EMA_MID': 16,
-            'EMA_SLOW': 24,
-            'RSI_PERIOD': 23,
-            'ATR_PERIOD': 23,
-            'ATR_SLOPE_WINDOW': 3,
-            'ADX_PERIOD': 12,
-            'BB_WINDOW': 16,
-            'BB_STD': 1,
-            'BB_PERCENTILE_WINDOW': 49,
-            'FVP_WINDOW': 23,
-            # Expansion Phase Thresholds
-            'EXPANSION_DEVIATION_THRESHOLD': 0.000245,
-            'EXPANSION_RSI_SHORT_MIN': 20,
-            'EXPANSION_RSI_LONG_MAX': 50,
-            # Trend Phase Thresholds
-            'TREND_RSI_LONG_MIN': 20,
-            'TREND_RSI_LONG_MAX': 87,
-            'TREND_RSI_SHORT_MIN': 15,
-            'TREND_RSI_SHORT_MAX': 59,
-            # Margin Adaptation Parameters
-            'MARGIN_CONTRACTION_FIXED': 0.001365,
-            'MARGIN_EXPANSION_MULTIPLIER': 2.033571428571429,
-            'MARGIN_EXPANSION_MIN': 0.0027413000000000003,
-            'MARGIN_EXPANSION_MAX': 0.0108459,
-            'MARGIN_TREND_ATR_MULTIPLIER': 3.3800000000000003,
-            'MARGIN_TREND_MIN': 0.0031571428571428566,
-            'MARGIN_TREND_MAX': 0.004916028571428572,
-            # Calibration Parameters
-            'CALIBRATION_LOOKBACK_DAYS': 30,
-            'CALIBRATION_LIMIT_RESULTS': 15000,
-            'CALIBRATION_MIN_ROWS': 1000,
-            'CALIBRATION_MARGIN_MIN': 0.001,
-            'CALIBRATION_MARGIN_MAX': 0.006,
-            'CALIBRATION_MARGIN_STEPS': 10,
-            # Calibration Simulation Parameters
-            'CALIBRATION_LOOKAHEAD_BARS': 60,
-            'CALIBRATION_STOPLOSS_MULTIPLIER': 5.0,
-            'CALIBRATION_DEFAULT_MARGIN': 0.003,
-            # Volume Analysis Parameters
-            'VOLUME_AVG_WINDOW': 12,
-            'VOLUME_SLOPE_WINDOW': 4,
-            'BIG_VOLUME_THRESHOLD': 1.638,
-            'EXTREME_VOLUME_THRESHOLD': 3.1109,
-            'BIG_BODY_ATR_THRESHOLD': 0.588,
-            'EXTREME_BODY_ATR_THRESHOLD': 2.7114285714285717,
-            'DIVERGENCE_LOOKBACK': 9,
-            # Buying Climax
-            'BUYING_CLIMAX_LOOKBACK': 10,
-            'BUYING_CLIMAX_TREND_LOOKBACK': 7,
-            'BUYING_CLIMAX_EXTENSION': 0.0039342,
-            'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
-            # Position Management
-            'POSITION_COOLDOWN_SECONDS': 300,
-
-            # Final Decision Scoring
-            'MIN_TOTAL_SCORE': 0.735,
-            'MIN_CONFIDENCE': 0.294,
-        }
-    },
-    {   # Calibrated 2026-02-18 | profit score: 120863.20 -> 159413.57 (30d/15K, qty*margin, $2 cost)
-        'seccode': 'INTC',
-        'board': 'EQTY',
-        'market': 'NASDAQ',
-        'decimals': 3,
-        'id': 0,
-        'timezone': 'America/New_York',
-        'currency': 'USD',
-        'exchange': 'SMART',
-        'tradingTimes': (dt.time(9, 44), dt.time(15, 45)),
-        'time2close': dt.time(15, 53),
-        'params': {
-            'algorithm': 'MinerviniClaude',
-            'entryByMarket': False,
-            'exitTimeSeconds': 11400,
-            'entryTimeSeconds': 3600,
-            'minNumPastSamples': 51,
-            'positionMargin': 0.0017149999999999997,
-            'stopLossCoefficient': 25,
-            'period': '1Min',
-            # VCP
-            'VCP_ATR_SLOPE_EXPANSION': 0.1620308857142857,
-            'VCP_BB_WIDTH_PERCENTILE_EXPANSION': 0.24499999999999997,
-            'VCP_ADX_TREND_THRESHOLD': 13,
-            # Indicator Periods
-            'EMA_FAST': 14,
-            'EMA_MID': 16,
-            'EMA_SLOW': 24,
-            'RSI_PERIOD': 23,
-            'ATR_PERIOD': 19,
-            'ATR_SLOPE_WINDOW': 5,
-            'ADX_PERIOD': 13,
-            'BB_WINDOW': 10,
-            'BB_STD': 1,
-            'BB_PERCENTILE_WINDOW': 49,
-            'FVP_WINDOW': 47,
-            # Expansion Phase Thresholds
-            'EXPANSION_DEVIATION_THRESHOLD': 0.000245,
-            'EXPANSION_RSI_SHORT_MIN': 20,
-            'EXPANSION_RSI_LONG_MAX': 50,
-            # Trend Phase Thresholds
-            'TREND_RSI_LONG_MIN': 20,
-            'TREND_RSI_LONG_MAX': 95,
-            'TREND_RSI_SHORT_MIN': 15,
-            'TREND_RSI_SHORT_MAX': 60,
-            # Margin Adaptation Parameters
-            'MARGIN_CONTRACTION_FIXED': 0.001365,
-            'MARGIN_EXPANSION_MULTIPLIER': 1.2288571428571429,
-            'MARGIN_EXPANSION_MIN': 0.00098,
-            'MARGIN_EXPANSION_MAX': 0.00488,
-            'MARGIN_TREND_ATR_MULTIPLIER': 3.3800000000000003,
-            'MARGIN_TREND_MIN': 0.0033799999999999998,
-            'MARGIN_TREND_MAX': 0.01014,
-            # Calibration Parameters
-            'CALIBRATION_LOOKBACK_DAYS': 30,
-            'CALIBRATION_LIMIT_RESULTS': 15000,
-            'CALIBRATION_MIN_ROWS': 1000,
-            'CALIBRATION_MARGIN_MIN': 0.001,
-            'CALIBRATION_MARGIN_MAX': 0.006,
-            'CALIBRATION_MARGIN_STEPS': 10,
-            # Calibration Simulation Parameters
-            'CALIBRATION_LOOKAHEAD_BARS': 60,
-            'CALIBRATION_STOPLOSS_MULTIPLIER': 5.0,
-            'CALIBRATION_DEFAULT_MARGIN': 0.003,
-            # Volume Analysis Parameters
-            'VOLUME_AVG_WINDOW': 13,
-            'VOLUME_SLOPE_WINDOW': 4,
-            'BIG_VOLUME_THRESHOLD': 1.638,
-            'EXTREME_VOLUME_THRESHOLD': 2.7001,
-            'BIG_BODY_ATR_THRESHOLD': 0.588,
-            'EXTREME_BODY_ATR_THRESHOLD': 3.157142857142857,
-            'DIVERGENCE_LOOKBACK': 10,
-            # Buying Climax
-            'BUYING_CLIMAX_LOOKBACK': 10,
-            'BUYING_CLIMAX_TREND_LOOKBACK': 7,
-            'BUYING_CLIMAX_EXTENSION': 0.005481285714285714,
-            'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
-            # Position Management
-            'POSITION_COOLDOWN_SECONDS': 300,
-
-            # Final Decision Scoring
-            'MIN_TOTAL_SCORE': 0.735,
-            'MIN_CONFIDENCE': 0.294,
-        }
-    },
-    {   # Calibrated 2026-02-18 | profit score: 76613.94 -> 115715.02 (30d/15K, qty*margin, $2 cost)
-        'seccode': 'NVDA',
-        'board': 'EQTY',
-        'market': 'NASDAQ',
-        'decimals': 2,
-        'id': 0,
-        'timezone': 'America/New_York',
-        'currency': 'USD',
-        'exchange': 'SMART',
-        'tradingTimes': (dt.time(9, 44), dt.time(15, 45)),
-        'time2close': dt.time(15, 53),
-        'params': {
-            'algorithm': 'MinerviniClaude',
-            'entryByMarket': False,
-            'exitTimeSeconds': 11400,
-            'entryTimeSeconds': 3600,
-            'minNumPastSamples': 51,
-            'positionMargin': 0.0017149999999999997,
-            'stopLossCoefficient': 21,
-            'period': '1Min',
-            # VCP
-            'VCP_ATR_SLOPE_EXPANSION': 0.2055615714285714,
-            'VCP_BB_WIDTH_PERCENTILE_EXPANSION': 0.6850428571428571,
-            'VCP_ADX_TREND_THRESHOLD': 13,
-            # Indicator Periods
-            'EMA_FAST': 10,
-            'EMA_MID': 12,
-            'EMA_SLOW': 24,
-            'RSI_PERIOD': 23,
-            'ATR_PERIOD': 23,
-            'ATR_SLOPE_WINDOW': 3,
-            'ADX_PERIOD': 12,
-            'BB_WINDOW': 29,
-            'BB_STD': 3,
-            'BB_PERCENTILE_WINDOW': 55,
-            'FVP_WINDOW': 44,
-            # Expansion Phase Thresholds
-            'EXPANSION_DEVIATION_THRESHOLD': 0.000245,
-            'EXPANSION_RSI_SHORT_MIN': 20,
-            'EXPANSION_RSI_LONG_MAX': 50,
-            # Trend Phase Thresholds
-            'TREND_RSI_LONG_MIN': 20,
-            'TREND_RSI_LONG_MAX': 103,
-            'TREND_RSI_SHORT_MIN': 15,
-            'TREND_RSI_SHORT_MAX': 59,
-            # Margin Adaptation Parameters
-            'MARGIN_CONTRACTION_FIXED': 0.001365,
-            'MARGIN_EXPANSION_MULTIPLIER': 2.0332000000000003,
-            'MARGIN_EXPANSION_MIN': 0.00098,
-            'MARGIN_EXPANSION_MAX': 0.013519999999999999,
-            'MARGIN_TREND_ATR_MULTIPLIER': 3.3800000000000003,
-            'MARGIN_TREND_MIN': 0.0033799999999999998,
-            'MARGIN_TREND_MAX': 0.008802857142857142,
-            # Calibration Parameters
-            'CALIBRATION_LOOKBACK_DAYS': 30,
-            'CALIBRATION_LIMIT_RESULTS': 15000,
-            'CALIBRATION_MIN_ROWS': 1000,
-            'CALIBRATION_MARGIN_MIN': 0.001,
-            'CALIBRATION_MARGIN_MAX': 0.006,
-            'CALIBRATION_MARGIN_STEPS': 10,
-            # Calibration Simulation Parameters
-            'CALIBRATION_LOOKAHEAD_BARS': 60,
-            'CALIBRATION_STOPLOSS_MULTIPLIER': 5.0,
-            'CALIBRATION_DEFAULT_MARGIN': 0.003,
-            # Volume Analysis Parameters
-            'VOLUME_AVG_WINDOW': 17,
-            'VOLUME_SLOPE_WINDOW': 3,
-            'BIG_VOLUME_THRESHOLD': 1.638,
-            'EXTREME_VOLUME_THRESHOLD': 1.8250000000000002,
-            'BIG_BODY_ATR_THRESHOLD': 0.588,
-            'EXTREME_BODY_ATR_THRESHOLD': 2.4882,
-            'DIVERGENCE_LOOKBACK': 8,
-            # Buying Climax
-            'BUYING_CLIMAX_LOOKBACK': 10,
-            'BUYING_CLIMAX_TREND_LOOKBACK': 7,
-            'BUYING_CLIMAX_EXTENSION': 0.0067599999999999995,
-            'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
-            # Position Management
-            'POSITION_COOLDOWN_SECONDS': 300,
-
-            # Final Decision Scoring
-            'MIN_TOTAL_SCORE': 0.735,
-            'MIN_CONFIDENCE': 0.294,
-        }
-    },
-    {   # Calibrated 2026-02-18 | profit score: 23633.30 -> 31561.43 (30d/15K, qty*margin, $2 cost)
-        'seccode': 'SOFI',
-        'board': 'EQTY',
-        'market': 'NASDAQ',
-        'decimals': 2,
-        'id': 0,
-        'timezone': 'America/New_York',
-        'currency': 'USD',
-        'exchange': 'SMART',
-        'tradingTimes': (dt.time(9, 44), dt.time(15, 45)),
-        'time2close': dt.time(15, 53),
-        'params': {
-            'algorithm': 'MinerviniClaude',
-            'entryByMarket': False,
-            'exitTimeSeconds': 11400,
-            'entryTimeSeconds': 3600,
-            'minNumPastSamples': 51,
-            'positionMargin': 0.003,
-            'stopLossCoefficient': 18,
-            'period': '1Min',
-            # VCP
-            'VCP_ATR_SLOPE_EXPANSION': 0.11850019999999999,
-            'VCP_BB_WIDTH_PERCENTILE_EXPANSION': 0.24499999999999997,
-            'VCP_ADX_TREND_THRESHOLD': 13,
-            # Indicator Periods
-            'EMA_FAST': 13,
-            'EMA_MID': 14,
-            'EMA_SLOW': 24,
-            'RSI_PERIOD': 23,
-            'ATR_PERIOD': 13,
-            'ATR_SLOPE_WINDOW': 3,
-            'ADX_PERIOD': 13,
-            'BB_WINDOW': 10,
-            'BB_STD': 1,
-            'BB_PERCENTILE_WINDOW': 49,
-            'FVP_WINDOW': 27,
-            # Expansion Phase Thresholds
-            'EXPANSION_DEVIATION_THRESHOLD': 0.000245,
-            'EXPANSION_RSI_SHORT_MIN': 20,
-            'EXPANSION_RSI_LONG_MAX': 36,
-            # Trend Phase Thresholds
-            'TREND_RSI_LONG_MIN': 20,
-            'TREND_RSI_LONG_MAX': 87,
-            'TREND_RSI_SHORT_MIN': 15,
-            'TREND_RSI_SHORT_MAX': 60,
-            # Margin Adaptation Parameters
-            'MARGIN_CONTRACTION_FIXED': 0.0015,
-            'MARGIN_EXPANSION_MULTIPLIER': 1.5,
-            'MARGIN_EXPANSION_MIN': 0.002,
-            'MARGIN_EXPANSION_MAX': 0.008,
-            'MARGIN_TREND_ATR_MULTIPLIER': 2.0,
-            'MARGIN_TREND_MIN': 0.002,
-            'MARGIN_TREND_MAX': 0.006,
-            # Calibration Parameters
-            'CALIBRATION_LOOKBACK_DAYS': 30,
-            'CALIBRATION_LIMIT_RESULTS': 15000,
-            'CALIBRATION_MIN_ROWS': 1000,
-            'CALIBRATION_MARGIN_MIN': 0.001,
-            'CALIBRATION_MARGIN_MAX': 0.006,
-            'CALIBRATION_MARGIN_STEPS': 10,
-            # Calibration Simulation Parameters
-            'CALIBRATION_LOOKAHEAD_BARS': 60,
-            'CALIBRATION_STOPLOSS_MULTIPLIER': 5.0,
-            'CALIBRATION_DEFAULT_MARGIN': 0.003,
-            # Volume Analysis Parameters
-            'VOLUME_AVG_WINDOW': 11,
-            'VOLUME_SLOPE_WINDOW': 3,
-            'BIG_VOLUME_THRESHOLD': 1.638,
-            'EXTREME_VOLUME_THRESHOLD': 1.9747,
-            'BIG_BODY_ATR_THRESHOLD': 0.588,
-            'EXTREME_BODY_ATR_THRESHOLD': 1.8199999999999998,
-            'DIVERGENCE_LOOKBACK': 8,
-            # Buying Climax
-            'BUYING_CLIMAX_LOOKBACK': 10,
-            'BUYING_CLIMAX_TREND_LOOKBACK': 10,
-            'BUYING_CLIMAX_EXTENSION': 0.0031597999999999995,
-            'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
-            # Position Management
-            'POSITION_COOLDOWN_SECONDS': 300,
-
-            # Final Decision Scoring
-            'MIN_TOTAL_SCORE': 0.735,
-            'MIN_CONFIDENCE': 0.294,
-        }
-    },
-    {   # Calibrated 2026-02-18 | profit score: 29754.86 -> 41248.42 (30d/15K, qty*margin, $2 cost)
-        'seccode': 'MARA',
-        'board': 'EQTY',
-        'market': 'NASDAQ',
-        'decimals': 2,
-        'id': 0,
-        'timezone': 'America/New_York',
-        'currency': 'USD',
-        'exchange': 'SMART',
-        'tradingTimes': (dt.time(9, 44), dt.time(15, 45)),
-        'time2close': dt.time(15, 53),
-        'params': {
-            'algorithm': 'MinerviniClaude',
-            'entryByMarket': False,
-            'exitTimeSeconds': 11400,
-            'entryTimeSeconds': 3600,
-            'minNumPastSamples': 51,
-            'positionMargin': 0.003,
-            'stopLossCoefficient': 18,
-            'period': '1Min',
-            # VCP
-            'VCP_ATR_SLOPE_EXPANSION': 0.11850019999999999,
-            'VCP_BB_WIDTH_PERCENTILE_EXPANSION': 0.24499999999999997,
-            'VCP_ADX_TREND_THRESHOLD': 13,
-            # Indicator Periods
-            'EMA_FAST': 14,
-            'EMA_MID': 16,
-            'EMA_SLOW': 24,
-            'RSI_PERIOD': 20,
-            'ATR_PERIOD': 20,
-            'ATR_SLOPE_WINDOW': 3,
-            'ADX_PERIOD': 13,
-            'BB_WINDOW': 10,
-            'BB_STD': 1,
-            'BB_PERCENTILE_WINDOW': 49,
-            'FVP_WINDOW': 27,
-            # Expansion Phase Thresholds
-            'EXPANSION_DEVIATION_THRESHOLD': 0.000245,
-            'EXPANSION_RSI_SHORT_MIN': 20,
-            'EXPANSION_RSI_LONG_MAX': 36,
-            # Trend Phase Thresholds
-            'TREND_RSI_LONG_MIN': 20,
-            'TREND_RSI_LONG_MAX': 103,
-            'TREND_RSI_SHORT_MIN': 15,
-            'TREND_RSI_SHORT_MAX': 60,
-            # Margin Adaptation Parameters
-            'MARGIN_CONTRACTION_FIXED': 0.0015,
-            'MARGIN_EXPANSION_MULTIPLIER': 1.5,
-            'MARGIN_EXPANSION_MIN': 0.002,
-            'MARGIN_EXPANSION_MAX': 0.008,
-            'MARGIN_TREND_ATR_MULTIPLIER': 2.0,
-            'MARGIN_TREND_MIN': 0.002,
-            'MARGIN_TREND_MAX': 0.006,
-            # Calibration Parameters
-            'CALIBRATION_LOOKBACK_DAYS': 30,
-            'CALIBRATION_LIMIT_RESULTS': 15000,
-            'CALIBRATION_MIN_ROWS': 1000,
-            'CALIBRATION_MARGIN_MIN': 0.001,
-            'CALIBRATION_MARGIN_MAX': 0.006,
-            'CALIBRATION_MARGIN_STEPS': 10,
-            # Calibration Simulation Parameters
-            'CALIBRATION_LOOKAHEAD_BARS': 60,
-            'CALIBRATION_STOPLOSS_MULTIPLIER': 5.0,
-            'CALIBRATION_DEFAULT_MARGIN': 0.003,
-            # Volume Analysis Parameters
-            'VOLUME_AVG_WINDOW': 14,
-            'VOLUME_SLOPE_WINDOW': 3,
-            'BIG_VOLUME_THRESHOLD': 1.638,
-            'EXTREME_VOLUME_THRESHOLD': 1.9747,
-            'BIG_BODY_ATR_THRESHOLD': 0.588,
-            'EXTREME_BODY_ATR_THRESHOLD': 3.157142857142857,
-            'DIVERGENCE_LOOKBACK': 8,
-            # Buying Climax
-            'BUYING_CLIMAX_LOOKBACK': 10,
-            'BUYING_CLIMAX_TREND_LOOKBACK': 13,
-            'BUYING_CLIMAX_EXTENSION': 0.003933628571428571,
-            'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
-            # Position Management
-            'POSITION_COOLDOWN_SECONDS': 300,
-
-            # Final Decision Scoring
-            'MIN_TOTAL_SCORE': 0.735,
-            'MIN_CONFIDENCE': 0.294,
-        }
-    },
-    {   # Calibrated 2026-02-18 | profit score: 25166.21 -> 43922.03 (30d/15K, qty*margin, $2 cost)
-        'seccode': 'RIVN',
-        'board': 'EQTY',
-        'market': 'NASDAQ',
-        'decimals': 2,
-        'id': 0,
-        'timezone': 'America/New_York',
-        'currency': 'USD',
-        'exchange': 'SMART',
-        'tradingTimes': (dt.time(9, 44), dt.time(15, 45)),
-        'time2close': dt.time(15, 53),
-        'params': {
-            'algorithm': 'MinerviniClaude',
-            'entryByMarket': False,
-            'exitTimeSeconds': 11400,
-            'entryTimeSeconds': 3600,
-            'minNumPastSamples': 51,
-            'positionMargin': 0.003,
-            'stopLossCoefficient': 29,
-            'period': '1Min',
-            # VCP
-            'VCP_ATR_SLOPE_EXPANSION': 0.11850019999999999,
-            'VCP_BB_WIDTH_PERCENTILE_EXPANSION': 0.33499999999999996,
-            'VCP_ADX_TREND_THRESHOLD': 13,
-            # Indicator Periods
-            'EMA_FAST': 14,
-            'EMA_MID': 16,
-            'EMA_SLOW': 24,
-            'RSI_PERIOD': 23,
-            'ATR_PERIOD': 16,
-            'ATR_SLOPE_WINDOW': 3,
-            'ADX_PERIOD': 7,
-            'BB_WINDOW': 10,
-            'BB_STD': 1,
-            'BB_PERCENTILE_WINDOW': 49,
-            'FVP_WINDOW': 27,
-            # Expansion Phase Thresholds
-            'EXPANSION_DEVIATION_THRESHOLD': 0.000245,
-            'EXPANSION_RSI_SHORT_MIN': 20,
-            'EXPANSION_RSI_LONG_MAX': 36,
-            # Trend Phase Thresholds
-            'TREND_RSI_LONG_MIN': 20,
-            'TREND_RSI_LONG_MAX': 87,
-            'TREND_RSI_SHORT_MIN': 15,
-            'TREND_RSI_SHORT_MAX': 60,
-            # Margin Adaptation Parameters
-            'MARGIN_CONTRACTION_FIXED': 0.0015,
-            'MARGIN_EXPANSION_MULTIPLIER': 1.5,
-            'MARGIN_EXPANSION_MIN': 0.002,
-            'MARGIN_EXPANSION_MAX': 0.008,
-            'MARGIN_TREND_ATR_MULTIPLIER': 2.0,
-            'MARGIN_TREND_MIN': 0.002,
-            'MARGIN_TREND_MAX': 0.006,
-            # Calibration Parameters
-            'CALIBRATION_LOOKBACK_DAYS': 30,
-            'CALIBRATION_LIMIT_RESULTS': 15000,
-            'CALIBRATION_MIN_ROWS': 1000,
-            'CALIBRATION_MARGIN_MIN': 0.001,
-            'CALIBRATION_MARGIN_MAX': 0.006,
-            'CALIBRATION_MARGIN_STEPS': 10,
-            # Calibration Simulation Parameters
-            'CALIBRATION_LOOKAHEAD_BARS': 60,
-            'CALIBRATION_STOPLOSS_MULTIPLIER': 5.0,
-            'CALIBRATION_DEFAULT_MARGIN': 0.003,
-            # Volume Analysis Parameters
-            'VOLUME_AVG_WINDOW': 11,
-            'VOLUME_SLOPE_WINDOW': 3,
-            'BIG_VOLUME_THRESHOLD': 1.8385714285714285,
-            'EXTREME_VOLUME_THRESHOLD': 3.4255,
-            'BIG_BODY_ATR_THRESHOLD': 0.588,
-            'EXTREME_BODY_ATR_THRESHOLD': 2.4885714285714284,
-            'DIVERGENCE_LOOKBACK': 8,
-            # Buying Climax
-            'BUYING_CLIMAX_LOOKBACK': 10,
-            'BUYING_CLIMAX_TREND_LOOKBACK': 8,
-            'BUYING_CLIMAX_EXTENSION': 0.0031597999999999995,
-            'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
-            # Position Management
-            'POSITION_COOLDOWN_SECONDS': 300,
-
-            # Final Decision Scoring
-            'MIN_TOTAL_SCORE': 0.735,
-            'MIN_CONFIDENCE': 0.294,
-        }
-    },
-    {   # Calibrated 2026-02-18 | profit score: 27814.78 -> 36880.27 (30d/15K, qty*margin, $2 cost)
-        'seccode': 'HOOD',
-        'board': 'EQTY',
-        'market': 'NASDAQ',
-        'decimals': 2,
-        'id': 0,
-        'timezone': 'America/New_York',
-        'currency': 'USD',
-        'exchange': 'SMART',
-        'tradingTimes': (dt.time(9, 44), dt.time(15, 45)),
-        'time2close': dt.time(15, 53),
-        'params': {
-            'algorithm': 'MinerviniClaude',
-            'entryByMarket': False,
-            'exitTimeSeconds': 11400,
-            'entryTimeSeconds': 3600,
-            'minNumPastSamples': 51,
-            'positionMargin': 0.0017149999999999997,
-            'stopLossCoefficient': 20,
-            'period': '1Min',
-            # VCP
-            'VCP_ATR_SLOPE_EXPANSION': 0.1620308857142857,
-            'VCP_BB_WIDTH_PERCENTILE_EXPANSION': 0.24499999999999997,
-            'VCP_ADX_TREND_THRESHOLD': 13,
-            # Indicator Periods
-            'EMA_FAST': 10,
-            'EMA_MID': 12,
-            'EMA_SLOW': 24,
-            'RSI_PERIOD': 19,
-            'ATR_PERIOD': 23,
-            'ATR_SLOPE_WINDOW': 3,
-            'ADX_PERIOD': 10,
-            'BB_WINDOW': 10,
-            'BB_STD': 1,
-            'BB_PERCENTILE_WINDOW': 49,
-            'FVP_WINDOW': 27,
-            # Expansion Phase Thresholds
-            'EXPANSION_DEVIATION_THRESHOLD': 0.000245,
-            'EXPANSION_RSI_SHORT_MIN': 20,
-            'EXPANSION_RSI_LONG_MAX': 36,
-            # Trend Phase Thresholds
-            'TREND_RSI_LONG_MIN': 20,
-            'TREND_RSI_LONG_MAX': 87,
-            'TREND_RSI_SHORT_MIN': 15,
-            'TREND_RSI_SHORT_MAX': 60,
-            # Margin Adaptation Parameters
-            'MARGIN_CONTRACTION_FIXED': 0.001365,
-            'MARGIN_EXPANSION_MULTIPLIER': 1.0948,
-            'MARGIN_EXPANSION_MIN': 0.00098,
-            'MARGIN_EXPANSION_MAX': 0.00392,
-            'MARGIN_TREND_ATR_MULTIPLIER': 2.7114285714285717,
-            'MARGIN_TREND_MIN': 0.0033799999999999998,
-            'MARGIN_TREND_MAX': 0.01014,
-            # Calibration Parameters
-            'CALIBRATION_LOOKBACK_DAYS': 30,
-            'CALIBRATION_LIMIT_RESULTS': 15000,
-            'CALIBRATION_MIN_ROWS': 1000,
-            'CALIBRATION_MARGIN_MIN': 0.001,
-            'CALIBRATION_MARGIN_MAX': 0.006,
-            'CALIBRATION_MARGIN_STEPS': 10,
-            # Calibration Simulation Parameters
-            'CALIBRATION_LOOKAHEAD_BARS': 60,
-            'CALIBRATION_STOPLOSS_MULTIPLIER': 5.0,
-            'CALIBRATION_DEFAULT_MARGIN': 0.003,
-            # Volume Analysis Parameters
-            'VOLUME_AVG_WINDOW': 13,
-            'VOLUME_SLOPE_WINDOW': 3,
-            'BIG_VOLUME_THRESHOLD': 1.638,
-            'EXTREME_VOLUME_THRESHOLD': 3.6673000000000004,
-            'BIG_BODY_ATR_THRESHOLD': 0.588,
-            'EXTREME_BODY_ATR_THRESHOLD': 2.265714285714286,
-            'DIVERGENCE_LOOKBACK': 11,
-            # Buying Climax
-            'BUYING_CLIMAX_LOOKBACK': 10,
-            'BUYING_CLIMAX_TREND_LOOKBACK': 7,
-            'BUYING_CLIMAX_EXTENSION': 0.0035467142857142854,
-            'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
-            # Position Management
-            'POSITION_COOLDOWN_SECONDS': 300,
-
-            # Final Decision Scoring
-            'MIN_TOTAL_SCORE': 0.735,
-            'MIN_CONFIDENCE': 0.294,
-        }
-    },
-    {   # Calibrated 2026-02-18 | profit score: 22924.76 -> 28493.67 (30d/15K, qty*margin, $2 cost)
-        'seccode': 'SMCI',
-        'board': 'EQTY',
-        'market': 'NASDAQ',
-        'decimals': 2,
-        'id': 0,
-        'timezone': 'America/New_York',
-        'currency': 'USD',
-        'exchange': 'SMART',
-        'tradingTimes': (dt.time(9, 44), dt.time(15, 45)),
-        'time2close': dt.time(15, 53),
-        'params': {
-            'algorithm': 'MinerviniClaude',
-            'entryByMarket': False,
-            'exitTimeSeconds': 11400,
-            'entryTimeSeconds': 3600,
-            'minNumPastSamples': 51,
-            'positionMargin': 0.0017149999999999997,
-            'stopLossCoefficient': 18,
-            'period': '1Min',
-            # VCP
-            'VCP_ATR_SLOPE_EXPANSION': 0.11850019999999999,
-            'VCP_BB_WIDTH_PERCENTILE_EXPANSION': 0.24499999999999997,
-            'VCP_ADX_TREND_THRESHOLD': 13,
-            # Indicator Periods
-            'EMA_FAST': 13,
-            'EMA_MID': 14,
-            'EMA_SLOW': 24,
-            'RSI_PERIOD': 22,
-            'ATR_PERIOD': 14,
-            'ATR_SLOPE_WINDOW': 3,
-            'ADX_PERIOD': 10,
-            'BB_WINDOW': 10,
-            'BB_STD': 1,
-            'BB_PERCENTILE_WINDOW': 49,
-            'FVP_WINDOW': 27,
-            # Expansion Phase Thresholds
-            'EXPANSION_DEVIATION_THRESHOLD': 0.000245,
-            'EXPANSION_RSI_SHORT_MIN': 20,
-            'EXPANSION_RSI_LONG_MAX': 36,
-            # Trend Phase Thresholds
-            'TREND_RSI_LONG_MIN': 20,
-            'TREND_RSI_LONG_MAX': 95,
-            'TREND_RSI_SHORT_MIN': 15,
-            'TREND_RSI_SHORT_MAX': 60,
-            # Margin Adaptation Parameters
-            'MARGIN_CONTRACTION_FIXED': 0.0012749999999999999,
-            'MARGIN_EXPANSION_MULTIPLIER': 1.0948,
-            'MARGIN_EXPANSION_MIN': 0.00098,
-            'MARGIN_EXPANSION_MAX': 0.00392,
-            'MARGIN_TREND_ATR_MULTIPLIER': 3.3800000000000003,
-            'MARGIN_TREND_MIN': 0.002934285714285714,
-            'MARGIN_TREND_MAX': 0.01014,
-            # Calibration Parameters
-            'CALIBRATION_LOOKBACK_DAYS': 30,
-            'CALIBRATION_LIMIT_RESULTS': 15000,
-            'CALIBRATION_MIN_ROWS': 1000,
-            'CALIBRATION_MARGIN_MIN': 0.001,
-            'CALIBRATION_MARGIN_MAX': 0.006,
-            'CALIBRATION_MARGIN_STEPS': 10,
-            # Calibration Simulation Parameters
-            'CALIBRATION_LOOKAHEAD_BARS': 60,
-            'CALIBRATION_STOPLOSS_MULTIPLIER': 5.0,
-            'CALIBRATION_DEFAULT_MARGIN': 0.003,
-            # Volume Analysis Parameters
-            'VOLUME_AVG_WINDOW': 15,
-            'VOLUME_SLOPE_WINDOW': 3,
-            'BIG_VOLUME_THRESHOLD': 1.638,
-            'EXTREME_VOLUME_THRESHOLD': 1.9747,
-            'BIG_BODY_ATR_THRESHOLD': 0.588,
-            'EXTREME_BODY_ATR_THRESHOLD': 1.8199999999999998,
-            'DIVERGENCE_LOOKBACK': 11,
-            # Buying Climax
-            'BUYING_CLIMAX_LOOKBACK': 10,
-            'BUYING_CLIMAX_TREND_LOOKBACK': 7,
-            'BUYING_CLIMAX_EXTENSION': 0.0031597999999999995,
-            'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
-            # Position Management
-            'POSITION_COOLDOWN_SECONDS': 300,
-
-            # Final Decision Scoring
-            'MIN_TOTAL_SCORE': 0.735,
-            'MIN_CONFIDENCE': 0.294,
-        }
-    },
-    {   # Calibrated 2026-02-18 | profit score: 27762.85 -> 35060.14 (30d/15K, qty*margin, $2 cost)
-        'seccode': 'DKNG',
-        'board': 'EQTY',
-        'market': 'NASDAQ',
-        'decimals': 2,
-        'id': 0,
-        'timezone': 'America/New_York',
-        'currency': 'USD',
-        'exchange': 'SMART',
-        'tradingTimes': (dt.time(9, 44), dt.time(15, 45)),
-        'time2close': dt.time(15, 53),
-        'params': {
-            'algorithm': 'MinerviniClaude',
-            'entryByMarket': False,
-            'exitTimeSeconds': 11400,
-            'entryTimeSeconds': 3600,
-            'minNumPastSamples': 51,
-            'positionMargin': 0.003,
-            'stopLossCoefficient': 18,
-            'period': '1Min',
-            # VCP
-            'VCP_ATR_SLOPE_EXPANSION': 0.13301042857142856,
-            'VCP_BB_WIDTH_PERCENTILE_EXPANSION': 0.24499999999999997,
-            'VCP_ADX_TREND_THRESHOLD': 13,
-            # Indicator Periods
-            'EMA_FAST': 14,
-            'EMA_MID': 16,
-            'EMA_SLOW': 24,
-            'RSI_PERIOD': 22,
-            'ATR_PERIOD': 13,
-            'ATR_SLOPE_WINDOW': 3,
-            'ADX_PERIOD': 12,
-            'BB_WINDOW': 10,
-            'BB_STD': 1,
-            'BB_PERCENTILE_WINDOW': 49,
-            'FVP_WINDOW': 27,
-            # Expansion Phase Thresholds
-            'EXPANSION_DEVIATION_THRESHOLD': 0.000245,
-            'EXPANSION_RSI_SHORT_MIN': 20,
-            'EXPANSION_RSI_LONG_MAX': 36,
-            # Trend Phase Thresholds
-            'TREND_RSI_LONG_MIN': 32,
-            'TREND_RSI_LONG_MAX': 103,
-            'TREND_RSI_SHORT_MIN': 15,
-            'TREND_RSI_SHORT_MAX': 60,
-            # Margin Adaptation Parameters
-            'MARGIN_CONTRACTION_FIXED': 0.0015,
-            'MARGIN_EXPANSION_MULTIPLIER': 1.5,
-            'MARGIN_EXPANSION_MIN': 0.002,
-            'MARGIN_EXPANSION_MAX': 0.008,
-            'MARGIN_TREND_ATR_MULTIPLIER': 2.0,
-            'MARGIN_TREND_MIN': 0.002,
-            'MARGIN_TREND_MAX': 0.006,
-            # Calibration Parameters
-            'CALIBRATION_LOOKBACK_DAYS': 30,
-            'CALIBRATION_LIMIT_RESULTS': 15000,
-            'CALIBRATION_MIN_ROWS': 1000,
-            'CALIBRATION_MARGIN_MIN': 0.001,
-            'CALIBRATION_MARGIN_MAX': 0.006,
-            'CALIBRATION_MARGIN_STEPS': 10,
-            # Calibration Simulation Parameters
-            'CALIBRATION_LOOKAHEAD_BARS': 60,
-            'CALIBRATION_STOPLOSS_MULTIPLIER': 5.0,
-            'CALIBRATION_DEFAULT_MARGIN': 0.003,
-            # Volume Analysis Parameters
-            'VOLUME_AVG_WINDOW': 13,
-            'VOLUME_SLOPE_WINDOW': 3,
-            'BIG_VOLUME_THRESHOLD': 1.638,
-            'EXTREME_VOLUME_THRESHOLD': 1.9747,
-            'BIG_BODY_ATR_THRESHOLD': 0.588,
-            'EXTREME_BODY_ATR_THRESHOLD': 2.0428571428571427,
-            'DIVERGENCE_LOOKBACK': 11,
-            # Buying Climax
-            'BUYING_CLIMAX_LOOKBACK': 10,
-            'BUYING_CLIMAX_TREND_LOOKBACK': 7,
-            'BUYING_CLIMAX_EXTENSION': 0.0031597999999999995,
-            'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
-            # Position Management
-            'POSITION_COOLDOWN_SECONDS': 300,
-
-            # Final Decision Scoring
-            'MIN_TOTAL_SCORE': 0.735,
-            'MIN_CONFIDENCE': 0.294,
-        }
-    },
-    {   # Calibrated 2026-02-18 | profit score: 29560.45 -> 41287.09 (30d/15K, qty*margin, $2 cost)
-        'seccode': 'MSTR',
-        'board': 'EQTY',
-        'market': 'NASDAQ',
-        'decimals': 2,
-        'id': 0,
-        'timezone': 'America/New_York',
-        'currency': 'USD',
-        'exchange': 'SMART',
-        'tradingTimes': (dt.time(9, 44), dt.time(15, 45)),
-        'time2close': dt.time(15, 53),
-        'params': {
-            'algorithm': 'MinerviniClaude',
-            'entryByMarket': False,
-            'exitTimeSeconds': 11400,
-            'entryTimeSeconds': 3600,
-            'minNumPastSamples': 51,
-            'positionMargin': 0.0017149999999999997,
-            'stopLossCoefficient': 18,
-            'period': '1Min',
-            # VCP
-            'VCP_ATR_SLOPE_EXPANSION': 0.1620308857142857,
-            'VCP_BB_WIDTH_PERCENTILE_EXPANSION': 0.24499999999999997,
-            'VCP_ADX_TREND_THRESHOLD': 13,
-            # Indicator Periods
-            'EMA_FAST': 10,
-            'EMA_MID': 12,
-            'EMA_SLOW': 24,
-            'RSI_PERIOD': 22,
-            'ATR_PERIOD': 23,
-            'ATR_SLOPE_WINDOW': 3,
-            'ADX_PERIOD': 11,
-            'BB_WINDOW': 18,
-            'BB_STD': 1,
-            'BB_PERCENTILE_WINDOW': 49,
-            'FVP_WINDOW': 44,
-            # Expansion Phase Thresholds
-            'EXPANSION_DEVIATION_THRESHOLD': 0.000245,
-            'EXPANSION_RSI_SHORT_MIN': 20,
-            'EXPANSION_RSI_LONG_MAX': 36,
-            # Trend Phase Thresholds
-            'TREND_RSI_LONG_MIN': 20,
-            'TREND_RSI_LONG_MAX': 87,
-            'TREND_RSI_SHORT_MIN': 15,
-            'TREND_RSI_SHORT_MAX': 60,
-            # Margin Adaptation Parameters
-            'MARGIN_CONTRACTION_FIXED': 0.001365,
-            'MARGIN_EXPANSION_MULTIPLIER': 2.0332000000000003,
-            'MARGIN_EXPANSION_MIN': 0.00098,
-            'MARGIN_EXPANSION_MAX': 0.00728,
-            'MARGIN_TREND_ATR_MULTIPLIER': 3.3800000000000003,
-            'MARGIN_TREND_MIN': 0.0033799999999999998,
-            'MARGIN_TREND_MAX': 0.01014,
-            # Calibration Parameters
-            'CALIBRATION_LOOKBACK_DAYS': 30,
-            'CALIBRATION_LIMIT_RESULTS': 15000,
-            'CALIBRATION_MIN_ROWS': 1000,
-            'CALIBRATION_MARGIN_MIN': 0.001,
-            'CALIBRATION_MARGIN_MAX': 0.006,
-            'CALIBRATION_MARGIN_STEPS': 10,
-            # Calibration Simulation Parameters
-            'CALIBRATION_LOOKAHEAD_BARS': 60,
-            'CALIBRATION_STOPLOSS_MULTIPLIER': 5.0,
-            'CALIBRATION_DEFAULT_MARGIN': 0.003,
-            # Volume Analysis Parameters
-            'VOLUME_AVG_WINDOW': 14,
-            'VOLUME_SLOPE_WINDOW': 3,
-            'BIG_VOLUME_THRESHOLD': 1.638,
-            'EXTREME_VOLUME_THRESHOLD': 3.6673000000000004,
-            'BIG_BODY_ATR_THRESHOLD': 0.588,
-            'EXTREME_BODY_ATR_THRESHOLD': 1.8199999999999998,
-            'DIVERGENCE_LOOKBACK': 8,
-            # Buying Climax
-            'BUYING_CLIMAX_LOOKBACK': 10,
-            'BUYING_CLIMAX_TREND_LOOKBACK': 7,
-            'BUYING_CLIMAX_EXTENSION': 0.0058682,
-            'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
-            # Position Management
-            'POSITION_COOLDOWN_SECONDS': 300,
-
-            # Final Decision Scoring
-            'MIN_TOTAL_SCORE': 0.735,
-            'MIN_CONFIDENCE': 0.294,
-        }
-    },
-    {   # Calibrated 2026-02-18 | profit score: 15801.48 -> 20599.87 (30d/15K, qty*margin, $2 cost)
-        'seccode': 'AMZN',
-        'board': 'EQTY',
-        'market': 'NASDAQ',
-        'decimals': 2,
-        'id': 0,
-        'timezone': 'America/New_York',
-        'currency': 'USD',
-        'exchange': 'SMART',
-        'tradingTimes': (dt.time(9, 44), dt.time(15, 45)),
-        'time2close': dt.time(15, 53),
-        'params': {
-            'algorithm': 'MinerviniClaude',
-            'entryByMarket': False,
-            'exitTimeSeconds': 11400,
-            'entryTimeSeconds': 3600,
-            'minNumPastSamples': 51,
-            'positionMargin': 0.0017149999999999997,
-            'stopLossCoefficient': 18,
-            'period': '1Min',
-            # VCP
-            'VCP_ATR_SLOPE_EXPANSION': 0.14752065714285714,
-            'VCP_BB_WIDTH_PERCENTILE_EXPANSION': 0.24499999999999997,
-            'VCP_ADX_TREND_THRESHOLD': 13,
-            # Indicator Periods
-            'EMA_FAST': 14,
-            'EMA_MID': 16,
-            'EMA_SLOW': 24,
-            'RSI_PERIOD': 23,
-            'ATR_PERIOD': 17,
-            'ATR_SLOPE_WINDOW': 3,
-            'ADX_PERIOD': 13,
-            'BB_WINDOW': 10,
-            'BB_STD': 1,
-            'BB_PERCENTILE_WINDOW': 49,
-            'FVP_WINDOW': 41,
-            # Expansion Phase Thresholds
-            'EXPANSION_DEVIATION_THRESHOLD': 0.000245,
-            'EXPANSION_RSI_SHORT_MIN': 20,
-            'EXPANSION_RSI_LONG_MAX': 50,
-            # Trend Phase Thresholds
-            'TREND_RSI_LONG_MIN': 20,
-            'TREND_RSI_LONG_MAX': 87,
-            'TREND_RSI_SHORT_MIN': 15,
-            'TREND_RSI_SHORT_MAX': 60,
-            # Margin Adaptation Parameters
-            'MARGIN_CONTRACTION_FIXED': 0.0007349999999999999,
-            'MARGIN_EXPANSION_MULTIPLIER': 2.0332000000000003,
-            'MARGIN_EXPANSION_MIN': 0.00182,
-            'MARGIN_EXPANSION_MAX': 0.00728,
-            'MARGIN_TREND_ATR_MULTIPLIER': 3.3800000000000003,
-            'MARGIN_TREND_MIN': 0.0033799999999999998,
-            'MARGIN_TREND_MAX': 0.008134285714285714,
-            # Calibration Parameters
-            'CALIBRATION_LOOKBACK_DAYS': 30,
-            'CALIBRATION_LIMIT_RESULTS': 15000,
-            'CALIBRATION_MIN_ROWS': 1000,
-            'CALIBRATION_MARGIN_MIN': 0.001,
-            'CALIBRATION_MARGIN_MAX': 0.006,
-            'CALIBRATION_MARGIN_STEPS': 10,
-            # Calibration Simulation Parameters
-            'CALIBRATION_LOOKAHEAD_BARS': 60,
-            'CALIBRATION_STOPLOSS_MULTIPLIER': 5.0,
-            'CALIBRATION_DEFAULT_MARGIN': 0.003,
-            # Volume Analysis Parameters
-            'VOLUME_AVG_WINDOW': 11,
-            'VOLUME_SLOPE_WINDOW': 3,
-            'BIG_VOLUME_THRESHOLD': 1.638,
-            'EXTREME_VOLUME_THRESHOLD': 3.1837,
-            'BIG_BODY_ATR_THRESHOLD': 0.588,
-            'EXTREME_BODY_ATR_THRESHOLD': 2.4885714285714284,
-            'DIVERGENCE_LOOKBACK': 10,
-            # Buying Climax
-            'BUYING_CLIMAX_LOOKBACK': 10,
-            'BUYING_CLIMAX_TREND_LOOKBACK': 7,
-            'BUYING_CLIMAX_EXTENSION': 0.0058682,
-            'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
-            # Position Management
-            'POSITION_COOLDOWN_SECONDS': 300,
-
-            # Final Decision Scoring
-            'MIN_TOTAL_SCORE': 0.735,
-            'MIN_CONFIDENCE': 0.294,
-        }
-    },
-    {   # Calibrated 2026-02-18 | profit score: 10913.76 -> 15615.60 (30d/15K, qty*margin, $2 cost)
-        'seccode': 'MSFT',
-        'board': 'EQTY',
-        'market': 'NASDAQ',
-        'decimals': 2,
-        'id': 0,
-        'timezone': 'America/New_York',
-        'currency': 'USD',
-        'exchange': 'SMART',
-        'tradingTimes': (dt.time(9, 44), dt.time(15, 45)),
-        'time2close': dt.time(15, 53),
-        'params': {
-            'algorithm': 'MinerviniClaude',
-            'entryByMarket': False,
-            'exitTimeSeconds': 11400,
-            'entryTimeSeconds': 3600,
-            'minNumPastSamples': 51,
-            'positionMargin': 0.0017149999999999997,
-            'stopLossCoefficient': 18,
-            'period': '1Min',
-            # VCP
-            'VCP_ATR_SLOPE_EXPANSION': 0.19105134285714284,
-            'VCP_BB_WIDTH_PERCENTILE_EXPANSION': 0.24499999999999997,
-            'VCP_ADX_TREND_THRESHOLD': 13,
-            # Indicator Periods
-            'EMA_FAST': 14,
-            'EMA_MID': 16,
-            'EMA_SLOW': 24,
-            'RSI_PERIOD': 19,
-            'ATR_PERIOD': 23,
-            'ATR_SLOPE_WINDOW': 3,
-            'ADX_PERIOD': 13,
-            'BB_WINDOW': 10,
-            'BB_STD': 1,
-            'BB_PERCENTILE_WINDOW': 91,
-            'FVP_WINDOW': 41,
-            # Expansion Phase Thresholds
-            'EXPANSION_DEVIATION_THRESHOLD': 0.000245,
-            'EXPANSION_RSI_SHORT_MIN': 20,
-            'EXPANSION_RSI_LONG_MAX': 50,
-            # Trend Phase Thresholds
-            'TREND_RSI_LONG_MIN': 20,
-            'TREND_RSI_LONG_MAX': 95,
-            'TREND_RSI_SHORT_MIN': 15,
-            'TREND_RSI_SHORT_MAX': 60,
-            # Margin Adaptation Parameters
-            'MARGIN_CONTRACTION_FIXED': 0.001365,
-            'MARGIN_EXPANSION_MULTIPLIER': 1.6310285714285715,
-            'MARGIN_EXPANSION_MIN': 0.00182,
-            'MARGIN_EXPANSION_MAX': 0.005359999999999999,
-            'MARGIN_TREND_ATR_MULTIPLIER': 3.3800000000000003,
-            'MARGIN_TREND_MIN': 0.002934285714285714,
-            'MARGIN_TREND_MAX': 0.00546,
-            # Calibration Parameters
-            'CALIBRATION_LOOKBACK_DAYS': 30,
-            'CALIBRATION_LIMIT_RESULTS': 15000,
-            'CALIBRATION_MIN_ROWS': 1000,
-            'CALIBRATION_MARGIN_MIN': 0.001,
-            'CALIBRATION_MARGIN_MAX': 0.006,
-            'CALIBRATION_MARGIN_STEPS': 10,
-            # Calibration Simulation Parameters
-            'CALIBRATION_LOOKAHEAD_BARS': 60,
-            'CALIBRATION_STOPLOSS_MULTIPLIER': 5.0,
-            'CALIBRATION_DEFAULT_MARGIN': 0.003,
-            # Volume Analysis Parameters
-            'VOLUME_AVG_WINDOW': 11,
-            'VOLUME_SLOPE_WINDOW': 3,
-            'BIG_VOLUME_THRESHOLD': 1.638,
-            'EXTREME_VOLUME_THRESHOLD': 1.9747,
-            'BIG_BODY_ATR_THRESHOLD': 0.588,
-            'EXTREME_BODY_ATR_THRESHOLD': 1.8199999999999998,
-            'DIVERGENCE_LOOKBACK': 11,
-            # Buying Climax
-            'BUYING_CLIMAX_LOOKBACK': 10,
-            'BUYING_CLIMAX_TREND_LOOKBACK': 7,
-            'BUYING_CLIMAX_EXTENSION': 0.003933628571428571,
-            'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
-            # Position Management
-            'POSITION_COOLDOWN_SECONDS': 300,
-
-            # Final Decision Scoring
-            'MIN_TOTAL_SCORE': 0.735,
-            'MIN_CONFIDENCE': 0.294,
-        }
-    },
+    # --- US & EU temporarily disabled for Asia-only INIT_DB ---
+    _sec('AAPL'),
+    _sec('INTC', decimals=3),
+    _sec('NVDA'),
+    _sec('SOFI'),
+    _sec('MARA'),
+    _sec('RIVN'),
+    _sec('HOOD'),
+    _sec('SMCI'),
+    _sec('DKNG'),
+    _sec('MSTR'),
+    _sec('AMZN'),
+    _sec('MSFT'),
+    # # European stocks
+    # _sec_eu('RHM'),
+    # _sec_eu('SBX'),
+    # _sec_eu('BBVA', market='BME', timezone='Europe/Madrid', primary_exchange='BM'),
+    # _sec_eu('SAN', market='BME', timezone='Europe/Madrid', primary_exchange='BM'),
+    # # Germany - XETRA
+    # _sec_eu('IFX'),      # Infineon Technologies - semiconductor, beta 1.83
+    # _sec_eu('DBK'),      # Deutsche Bank - banking, beta 1.46
+    # _sec_eu('ENR'),      # Siemens Energy - energy, beta 1.60-1.81
+    # # France - Euronext Paris
+    # _sec_eu('GLE', market='SBF', timezone='Europe/Paris', primary_exchange='SBF'),      # Societe Generale - banking, beta 1.39
+    # _sec_eu('STMPA', market='SBF', timezone='Europe/Paris', primary_exchange='SBF'),    # STMicroelectronics - semiconductor, beta 1.22
+    # # Italy - Borsa Italiana
+    # _sec_eu('UCG', market='BVME', timezone='Europe/Rome', primary_exchange='BVME'),     # UniCredit - banking, beta 1.28
+    # _sec_eu('STLAM', market='BVME', timezone='Europe/Rome', primary_exchange='BVME'),   # Stellantis - automotive, beta 1.56
+    # # UK - London Stock Exchange
+    # _sec_eu('BARC', market='LSE', timezone='Europe/London', currency='GBP',
+    #         primary_exchange='LSE',
+    #         trading_times=(dt.time(8, 0), dt.time(16, 30)),
+    #         time2close=dt.time(16, 25)),  # Barclays - banking, beta 1.98
+    # ==================== JAPAN - TSE (6 securities) ====================
+    # High intraday liquidity + high price fluctuation
+    # _sec_jp('9984'),      # SoftBank Group   - tech/investment, beta ~1.5, avg intraday range 2-3%
+    # _sec_jp('8035'),      # Tokyo Electron   - semiconductor equipment, very volatile, range 2-4%
+    # _sec_jp('6857'),      # Advantest        - semiconductor test, high volatility, range 2-4%
+    # _sec_jp('6920'),      # Lasertec         - semiconductor inspection, extreme volatility, range 3-5%
+    # _sec_jp('9983'),      # Fast Retailing   - Uniqlo, heavy Nikkei weight, range 1.5-3%
+    # _sec_jp('6758'),      # Sony Group       - diversified tech/entertainment, liquid, range 1.5-2.5%
+    # # ==================== HONG KONG - HKEX (6 securities) ================
+    # # High intraday liquidity + high price fluctuation
+    # _sec_hk('9988'),      # Alibaba Group    - e-commerce/cloud, very volatile, range 2-4%
+    # _sec_hk('700'),       # Tencent Holdings - tech/gaming, most liquid on HKEX, range 1.5-3%
+    # _sec_hk('3690'),      # Meituan          - delivery/tech, volatile, range 2-4%
+    # _sec_hk('9618'),      # JD.com           - e-commerce, volatile, range 2-4%
+    # _sec_hk('1810'),      # Xiaomi           - electronics/EV, high retail volume, range 2-3%
+    # _sec_hk('1211'),      # BYD              - EV/batteries, volatile, range 2-3%
 ]
+
 #logLevel = logging.DEBUG
 logLevel = logging.INFO
 MODE = 'OPERATIONAL' # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL' | 'INIT_DB'
