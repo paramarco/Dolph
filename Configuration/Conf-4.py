@@ -80,11 +80,10 @@ _BASE_PARAMS = {
     # Position Management
     'POSITION_COOLDOWN_SECONDS': 300,
 }
-
 def _sec(code, decimals=2, timezone='America/New_York', currency='USD',
          exchange='SMART', primary_exchange=None,
-         trading_times=(dt.time(9, 44), dt.time(15, 45)),
-         time2close=dt.time(16, 30)):
+         trading_times=(dt.time(9, 46), dt.time(15, 45)),
+         time2close=dt.time(15, 53)):
     sec = {
         'seccode': code,
         'board': 'EQTY',
