@@ -2488,18 +2488,36 @@ class IBTradingPlatform(TradingPlatform):
         Also detects ghost positions where the entry was rejected by IB (Error 460)
         but the position was already added to monitoredPositions.
         Also repairs positions missing one exit order (TP or SL) by re-creating the bracket.
+        IMPORTANT: positions confirmed by IB portfolio are NEVER removed as orphaned;
+        instead their exit orders are re-linked from IB open trades.
         """
         active_exit_ids = {o.id for o in self.monitoredExitOrders}
         active_entry_ids = {o.id for o in self.monitoredOrders}
-        ib_order_ids = {t.order.orderId for t in self.ib.openTrades()}
+        open_trades = self.ib.openTrades()
+        ib_order_ids = {t.order.orderId for t in open_trades}
+
+        # Build set of seccodes with real positions in IB portfolio
+        try:
+            ib_portfolio_seccodes = {
+                p.contract.symbol for p in self.ib.positions()
+                if p.position != 0
+            }
+        except Exception:
+            ib_portfolio_seccodes = set()
+
         orphaned = []
+        relink = []   # positions confirmed in IB but with stale/missing exit IDs
         repair = []
         for mp in self.monitoredPositions:
             if mp.exit_tp_id is not None and mp.exit_sl_id is not None:
                 tp_active = mp.exit_tp_id in active_exit_ids or mp.exit_tp_id in ib_order_ids
                 sl_active = mp.exit_sl_id in active_exit_ids or mp.exit_sl_id in ib_order_ids
                 if not tp_active and not sl_active:
-                    orphaned.append(mp)
+                    if mp.seccode in ib_portfolio_seccodes:
+                        # IB confirms position exists — stale exit IDs, need re-link
+                        relink.append(mp)
+                    else:
+                        orphaned.append(mp)
                 elif tp_active != sl_active:
                     # One exit order is missing — needs bracket repair
                     repair.append(mp)
@@ -2507,7 +2525,73 @@ class IBTradingPlatform(TradingPlatform):
                 # Ghost position: entry was rejected (e.g. Error 460) before being filled.
                 # Entry is not in monitoredOrders and not in IB open trades.
                 if mp.entry_id not in active_entry_ids and mp.entry_id not in ib_order_ids:
-                    orphaned.append(mp)
+                    if mp.seccode in ib_portfolio_seccodes:
+                        # IB confirms position exists — filled entry, exit orders not persisted
+                        relink.append(mp)
+                    else:
+                        orphaned.append(mp)
+
+        # Re-link: find correct exit orders from IB open trades
+        relinked = False
+        for mp in relink:
+            exit_action = "SELL" if mp.takePosition == "long" else "BUY"
+            exit_orders = [
+                t for t in open_trades
+                if t.contract.symbol == mp.seccode
+                and t.order.action.upper() == exit_action
+                and t.order.orderType in ('LMT', 'STP', 'STP LMT')
+            ]
+            if len(exit_orders) >= 2:
+                # Closest to entry = TP, farthest = SL
+                exit_orders.sort(key=lambda t: abs(self._get_order_price(t) - mp.entryPrice))
+                tp_trade = exit_orders[0]
+                sl_trade = exit_orders[1]
+                old_tp, old_sl = mp.exit_tp_id, mp.exit_sl_id
+                mp.exit_tp_id = tp_trade.order.orderId
+                mp.exit_sl_id = sl_trade.order.orderId
+                mp.exitOrderRequested = True
+                # Register in monitoredExitOrders
+                tp_ib = OrderIB(tp_trade)
+                sl_ib = OrderIB(sl_trade)
+                if tp_ib not in self.monitoredExitOrders:
+                    self.monitoredExitOrders.append(tp_ib)
+                if sl_ib not in self.monitoredExitOrders:
+                    self.monitoredExitOrders.append(sl_ib)
+                log.warning(f"Re-linked exit orders for {mp.seccode}: "
+                            f"TP {old_tp}->{mp.exit_tp_id}, SL {old_sl}->{mp.exit_sl_id}")
+                relinked = True
+            elif len(exit_orders) == 1:
+                # Only one exit order found — re-link it and mark for bracket repair
+                trade = exit_orders[0]
+                if trade.order.orderType == 'LMT':
+                    mp.exit_tp_id = trade.order.orderId
+                    mp.exit_sl_id = None
+                else:
+                    mp.exit_tp_id = None
+                    mp.exit_sl_id = trade.order.orderId
+                mp.exitOrderRequested = True
+                ib_order = OrderIB(trade)
+                if ib_order not in self.monitoredExitOrders:
+                    self.monitoredExitOrders.append(ib_order)
+                log.warning(f"Re-linked partial exit for {mp.seccode}: "
+                            f"TP={mp.exit_tp_id}, SL={mp.exit_sl_id} — needs bracket repair")
+                # Refresh sets for repair
+                active_exit_ids = {o.id for o in self.monitoredExitOrders}
+                repair.append(mp)
+                relinked = True
+            else:
+                # No exit orders in IB — position exists but unprotected, create bracket
+                log.warning(f"Position {mp.seccode} confirmed in IB portfolio but has NO exit orders "
+                            f"— will attempt bracket repair")
+                mp.exit_tp_id = None
+                mp.exit_sl_id = None
+                repair.append(mp)
+                relinked = True
+
+        # Persist re-linked state to DB
+        if relinked:
+            self.storeMonitoredPositions()
+
         for mp in orphaned:
             close_time = datetime.datetime.now(datetime.timezone.utc)
             entry_time = mp.entry_time or self.position_entry_filled_at.get(mp.seccode)
@@ -2530,18 +2614,25 @@ class IBTradingPlatform(TradingPlatform):
             return
         self._bracket_repair_attempted.add(mp.seccode)
 
-        tp_active = mp.exit_tp_id in active_exit_ids or mp.exit_tp_id in ib_order_ids
-        sl_active = mp.exit_sl_id in active_exit_ids or mp.exit_sl_id in ib_order_ids
-        missing = "SL" if tp_active and not sl_active else "TP"
-        surviving_id = mp.exit_tp_id if tp_active else mp.exit_sl_id
+        tp_active = (mp.exit_tp_id in active_exit_ids or mp.exit_tp_id in ib_order_ids) if mp.exit_tp_id is not None else False
+        sl_active = (mp.exit_sl_id in active_exit_ids or mp.exit_sl_id in ib_order_ids) if mp.exit_sl_id is not None else False
+
+        if not tp_active and not sl_active:
+            missing = "TP+SL"
+        elif tp_active and not sl_active:
+            missing = "SL"
+        else:
+            missing = "TP"
+        surviving_id = mp.exit_tp_id if tp_active else (mp.exit_sl_id if sl_active else None)
 
         log.warning(f"Repairing bracket for {mp.seccode}: {missing} order missing "
                     f"(TP={mp.exit_tp_id} active={tp_active}, SL={mp.exit_sl_id} active={sl_active})")
         try:
-            # Cancel the surviving order
-            self.cancel_order(surviving_id)
-            self.monitoredExitOrders = [o for o in self.monitoredExitOrders if o.id != surviving_id]
-            log.info(f"Cancelled surviving {('TP' if tp_active else 'SL')} order {surviving_id} for {mp.seccode}")
+            # Cancel the surviving order (if any)
+            if surviving_id is not None:
+                self.cancel_order(surviving_id)
+                self.monitoredExitOrders = [o for o in self.monitoredExitOrders if o.id != surviving_id]
+                log.info(f"Cancelled surviving {('TP' if tp_active else 'SL')} order {surviving_id} for {mp.seccode}")
 
             # Re-create full bracket
             exit_action = "SELL" if mp.takePosition == "long" else "BUY"
@@ -2567,6 +2658,7 @@ class IBTradingPlatform(TradingPlatform):
                 if sl_order_ib not in self.monitoredExitOrders:
                     self.monitoredExitOrders.append(sl_order_ib)
                 log.info(f"Bracket repaired for {mp.seccode}: new TP={mp.exit_tp_id}, new SL={mp.exit_sl_id}")
+                self.storeMonitoredPositions()
             else:
                 log.error(f"Failed to repair bracket for {mp.seccode}: newExitOrder returned None")
         except Exception as e:
@@ -2760,6 +2852,9 @@ class IBTradingPlatform(TradingPlatform):
                 self.monitoredExitOrders.append(tp_order_ib)
             if sl_order_ib not in self.monitoredExitOrders:
                 self.monitoredExitOrders.append(sl_order_ib)
+
+            # Persist exit order IDs to DB so they survive restart
+            self.storeMonitoredPositions()
 
             # safety net to not collision with an Entry
             if order in self.monitoredOrders:
