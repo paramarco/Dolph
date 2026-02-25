@@ -511,12 +511,15 @@ class TradingPlatform(ABC):
         
         
     def isPositionOpen(self, seccode):
-        """common"""       
+        """common"""
+        # Block trading for securities with no IB permissions (Error 460)
+        if hasattr(self, '_disabled_securities') and seccode in self._disabled_securities:
+            return True
         inMP = any(mp.seccode == seccode for mp in self.monitoredPositions)
         inMSP = any(msp.seccode == seccode for msp in self.monitoredExitOrders)
         isOrderActive = any(mo.seccode == seccode for mo in self.monitoredOrders)
-        
-        flag =  inMP or inMSP or isOrderActive         
+
+        flag =  inMP or inMSP or isOrderActive
         return flag
 
 
@@ -2050,8 +2053,24 @@ class IBTradingPlatform(TradingPlatform):
             self.storeMonitoredPositions()
 
     def on_error(self, reqId, errorCode, errorString, contract):
-        
+
         log.error(f"Error: {errorCode}, {errorString}")
+
+        # Error 460: No trading permissions — mark security as disabled
+        if errorCode == 460:
+            # reqId is the orderId; find the position and remove it
+            for mp in list(self.monitoredPositions):
+                if mp.entry_id == reqId:
+                    seccode = mp.seccode
+                    if not hasattr(self, '_disabled_securities'):
+                        self._disabled_securities = set()
+                    self._disabled_securities.add(seccode)
+                    self.monitoredPositions.remove(mp)
+                    if any(mo.id == reqId for mo in self.monitoredOrders):
+                        self.monitoredOrders = [mo for mo in self.monitoredOrders if mo.id != reqId]
+                    log.warning(f"Security {seccode} disabled due to Error 460 (No trading permissions) "
+                                f"- removed ghost position entry_id={reqId}")
+                    break
 
 
     def get_history(self, board, seccode, period, count, reset=True):
