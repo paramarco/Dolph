@@ -225,19 +225,22 @@ class Dolph:
 
 
     def _is_outside_trading_hours(self, sec):
-        """Return True if current time is outside the security's tradingTimes
-        (i.e. the market is closed and calibration is allowed)."""
+        """Return True if current time is outside the security's trading session
+        (from tradingTimes start to time2close)."""
         import pytz
-        sec_tz = pytz.timezone(sec.get('timezone', 'America/New_York'))
+        default_tz = 'America/New_York'
+        default_tradingTimes = getattr(cm, 'tradingTimes', (dt.time(9, 30), dt.time(16, 0)))
+        default_time2close = dt.time(15, 45)
+        sec_tz = pytz.timezone(sec.get('timezone', default_tz))
         now_local = dt.datetime.now(sec_tz)
-        trading_start, trading_end = sec.get('tradingTimes',
-            getattr(cm, 'tradingTimes', (dt.time(9, 30), dt.time(16, 0))))
+        trading_start, _ = sec.get('tradingTimes', default_tradingTimes)
+        trading_close = sec.get('time2close', default_time2close)
         current_time = now_local.time()
-        if trading_start <= current_time <= trading_end:
-            self.logger.info(
-                f"seccode={sec['seccode']} within trading hours "
-                f"({trading_start}-{trading_end} {sec_tz}), "
-                f"current={now_local.strftime('%H:%M')}, skipping calibration")
+        if trading_start <= current_time <= trading_close:
+            self.logger.debug(
+                f"seccode={sec['seccode']} within trading session "
+                f"({trading_start}-{trading_close} {sec_tz}), "
+                f"current={now_local.strftime('%H:%M')}")
             return False
         return True
 
@@ -262,9 +265,10 @@ class Dolph:
                     self.loadModel(sec, period)
                     self._post_calibration_single(sec)
                 else:
-                    self.loadModel(sec, period)
-                    prediction = sec['models'][period].predict(self.data[period], sec, period)
-                    self.storePrediction(sec, prediction, period)
+                    if not self._is_outside_trading_hours(sec):
+                        self.loadModel(sec, period)
+                        prediction = sec['models'][period].predict(self.data[period], sec, period)
+                        self.storePrediction(sec, prediction, period)
 
         self.logger.info(f" Step 2/3: ✓ COMPLETED")
 
@@ -534,6 +538,8 @@ class Dolph:
         candidates = []
         for sec in self.securities:
 
+            if self._is_outside_trading_hours(sec):
+                continue
             position, confidence = self.evaluatePosition(sec)
             action = position.takePosition
             if action not in ['long','short','close','close-counterPosition']:

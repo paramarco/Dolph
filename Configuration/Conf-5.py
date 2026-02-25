@@ -182,25 +182,25 @@ securities = [
     _sec('AMZN'),
     _sec('MSFT'),
     # # European stocks
-    # _sec_eu('RHM'),
-    # _sec_eu('SBX'),
-    # _sec_eu('BBVA', market='BME', timezone='Europe/Madrid', primary_exchange='BM'),
-    # _sec_eu('SAN', market='BME', timezone='Europe/Madrid', primary_exchange='BM'),
-    # # Germany - XETRA
-    # _sec_eu('IFX'),      # Infineon Technologies - semiconductor, beta 1.83
-    # _sec_eu('DBK'),      # Deutsche Bank - banking, beta 1.46
-    # _sec_eu('ENR'),      # Siemens Energy - energy, beta 1.60-1.81
-    # # France - Euronext Paris
-    # _sec_eu('GLE', market='SBF', timezone='Europe/Paris', primary_exchange='SBF'),      # Societe Generale - banking, beta 1.39
-    # _sec_eu('STMPA', market='SBF', timezone='Europe/Paris', primary_exchange='SBF'),    # STMicroelectronics - semiconductor, beta 1.22
-    # # Italy - Borsa Italiana
-    # _sec_eu('UCG', market='BVME', timezone='Europe/Rome', primary_exchange='BVME'),     # UniCredit - banking, beta 1.28
-    # _sec_eu('STLAM', market='BVME', timezone='Europe/Rome', primary_exchange='BVME'),   # Stellantis - automotive, beta 1.56
-    # # UK - London Stock Exchange
-    # _sec_eu('BARC', market='LSE', timezone='Europe/London', currency='GBP',
-    #         primary_exchange='LSE',
-    #         trading_times=(dt.time(8, 0), dt.time(16, 30)),
-    #         time2close=dt.time(16, 25)),  # Barclays - banking, beta 1.98
+    _sec_eu('RHM'),
+    _sec_eu('SBX'),
+    _sec_eu('BBVA', market='BME', timezone='Europe/Madrid', primary_exchange='BM'),
+    _sec_eu('SAN', market='BME', timezone='Europe/Madrid', primary_exchange='BM'),
+    # Germany - XETRA
+    _sec_eu('IFX'),      # Infineon Technologies - semiconductor, beta 1.83
+    _sec_eu('DBK'),      # Deutsche Bank - banking, beta 1.46
+    _sec_eu('ENR'),      # Siemens Energy - energy, beta 1.60-1.81
+    # France - Euronext Paris
+    _sec_eu('GLE', market='SBF', timezone='Europe/Paris', primary_exchange='SBF'),      # Societe Generale - banking, beta 1.39
+    _sec_eu('STMPA', market='SBF', timezone='Europe/Paris', primary_exchange='SBF'),    # STMicroelectronics - semiconductor, beta 1.22
+    # Italy - Borsa Italiana
+    _sec_eu('UCG', market='BVME', timezone='Europe/Rome', primary_exchange='BVME'),     # UniCredit - banking, beta 1.28
+    _sec_eu('STLAM', market='BVME', timezone='Europe/Rome', primary_exchange='BVME'),   # Stellantis - automotive, beta 1.56
+    # UK - London Stock Exchange
+    _sec_eu('BARC', market='LSE', timezone='Europe/London', currency='GBP',
+            primary_exchange='LSE',
+            trading_times=(dt.time(8, 0), dt.time(16, 30)),
+            time2close=dt.time(16, 25)),  # Barclays - banking, beta 1.98
     # ==================== JAPAN - TSE (6 securities) ====================
     # High intraday liquidity + high price fluctuation
     # _sec_jp('9984'),      # SoftBank Group   - tech/investment, beta ~1.5, avg intraday range 2-3%
