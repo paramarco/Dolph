@@ -2445,14 +2445,23 @@ class IBTradingPlatform(TradingPlatform):
         """ Interactive Brokers
         Detects positions whose exit orders (TP and SL) are no longer active in IB
         (e.g. filled or cancelled while bot was offline) and removes them.
+        Also detects ghost positions where the entry was rejected by IB (Error 460)
+        but the position was already added to monitoredPositions.
         """
         active_exit_ids = {o.id for o in self.monitoredExitOrders}
+        active_entry_ids = {o.id for o in self.monitoredOrders}
+        ib_order_ids = {t.order.orderId for t in self.ib.openTrades()}
         orphaned = []
         for mp in self.monitoredPositions:
             if mp.exit_tp_id is not None and mp.exit_sl_id is not None:
                 tp_active = mp.exit_tp_id in active_exit_ids
                 sl_active = mp.exit_sl_id in active_exit_ids
                 if not tp_active and not sl_active:
+                    orphaned.append(mp)
+            elif mp.exit_tp_id is None and mp.exit_sl_id is None:
+                # Ghost position: entry was rejected (e.g. Error 460) before being filled.
+                # Entry is not in monitoredOrders and not in IB open trades.
+                if mp.entry_id not in active_entry_ids and mp.entry_id not in ib_order_ids:
                     orphaned.append(mp)
         for mp in orphaned:
             close_time = datetime.datetime.now(datetime.timezone.utc)
