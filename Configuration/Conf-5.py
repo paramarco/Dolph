@@ -195,7 +195,7 @@ securities = [
     _sec_eu('STMPA', market='SBF', timezone='Europe/Paris', primary_exchange='SBF'),    # STMicroelectronics - semiconductor, beta 1.22
     # Italy - Borsa Italiana
     _sec_eu('UCG', market='BVME', timezone='Europe/Rome', primary_exchange='BVME'),     # UniCredit - banking, beta 1.28
-    _sec_eu('STLAM', market='BVME', timezone='Europe/Rome', primary_exchange='BVME'),   # Stellantis - automotive, beta 1.56
+    # _sec_eu('STLAM', market='BVME', timezone='Europe/Rome', primary_exchange='BVME'),   # Stellantis - FIXME: IB contract not found
     # UK - London Stock Exchange
     _sec_eu('BARC', market='LSE', timezone='Europe/London', currency='GBP',
             primary_exchange='LSE',

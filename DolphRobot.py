@@ -512,6 +512,7 @@ class Dolph:
 
         if entryPrice is None:
             takePosition = 'no-go'
+            entryPrice = stoploss = exitPrice = 0
 
         # Minimum margin protection: margin must cover at least 3xCosts, aka:
         # the estimated round-trip transaction cost (commission + slippage)
