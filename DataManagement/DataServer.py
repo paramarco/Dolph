@@ -845,23 +845,25 @@ class DataServer:
     
             log.debug(f"security not found adding new...")
 
-            # Look up INTC as reference for period, decimals, market, platform
-            cursor.execute("SELECT period, decimals, market, platform FROM security WHERE code = 'INTC'")
+            # Look up INTC as reference for period and platform (shared across all securities)
+            cursor.execute("SELECT period, platform FROM security WHERE code = 'INTC'")
             ref = cursor.fetchone()
             if ref:
-                period_val, decimals_val, market_val, platform_val = ref
+                period_val, platform_val = ref
             else:
-                period_val, decimals_val, market_val, platform_val = 1, 2, 'NASDAQ', None
+                period_val, platform_val = 1, None
 
-            # Get per-security market metadata and params from config
+            # Get per-security metadata and params from config
             sec_cfg = next((s for s in self.securities if s['seccode'] == seccode), {})
+            market_val = sec_cfg.get('market', 'NASDAQ')
+            decimals_val = sec_cfg.get('decimals', 2)
             tz_val = sec_cfg.get('timezone', 'America/New_York')
             currency_val = sec_cfg.get('currency', 'USD')
             exchange_val = sec_cfg.get('exchange', 'SMART')
             alg_params = sec_cfg.get('params')
             alg_params_json = json.dumps(alg_params) if alg_params else None
 
-            # Insert with complete fields from reference, including initial alg_parameters
+            # Insert with fields from config (market, decimals, timezone, currency, exchange)
             insert_query = """
                 INSERT INTO security (code, board, period, decimals, market, platform, timezone, currency, exchange, alg_parameters)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
