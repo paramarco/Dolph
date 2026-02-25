@@ -25,17 +25,22 @@ class OrderIB:
             return self.id == other.id
         return False
 
+    # ib_insync sentinel for "not set"
+    _UNSET_DOUBLE = 1.7976931348623157e+308
+
     def __str__(self):
         """
         String representation for debugging.
         """
         # Extraer el precio según el tipo de orden
         price = None
-        if hasattr(self._raw.order, 'lmtPrice') and self._raw.order.lmtPrice:
-            price = self._raw.order.lmtPrice
-        elif hasattr(self._raw.order, 'auxPrice') and self._raw.order.auxPrice:
-            price = self._raw.order.auxPrice
-        elif hasattr(self._raw.orderStatus, 'avgFillPrice') and self._raw.orderStatus.avgFillPrice:
+        order = self._raw.order
+        if order.orderType in ('STP', 'STP LMT'):
+            if hasattr(order, 'auxPrice') and order.auxPrice and order.auxPrice < self._UNSET_DOUBLE:
+                price = order.auxPrice
+        if price is None and hasattr(order, 'lmtPrice') and order.lmtPrice and order.lmtPrice < self._UNSET_DOUBLE:
+            price = order.lmtPrice
+        if price is None and hasattr(self._raw.orderStatus, 'avgFillPrice') and self._raw.orderStatus.avgFillPrice:
             price = self._raw.orderStatus.avgFillPrice
         
         msg = f"OrderIB(id={self.id}, symbol={self.symbol}, side={self.side}, "

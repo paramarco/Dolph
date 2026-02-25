@@ -12,7 +12,7 @@ _BASE_PARAMS = {
     'algorithm': 'MinerviniClaude',
     'entryByMarket': False,
     'exitTimeSeconds': 11400,
-    'entryTimeSeconds': 3600,
+    'entryTimeSeconds': 360,
     'minNumPastSamples': 51,
     'positionMargin': 0.003,
     'stopLossCoefficient': 8,
@@ -161,7 +161,7 @@ statusExitOrderFilled = ['filled','Filled']
 ########### default-fallback values ##########################################
 factorPosition_Balance = 0.18
 factorMargin_Position  = 0.0035
-entryTimeSeconds = 3600
+entryTimeSeconds = 360
 exitTimeSeconds = 11400  # 190 * 60
 stopLossCoefficient = 8
 correction = 0.0
