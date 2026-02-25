@@ -2120,7 +2120,15 @@ class IBTradingPlatform(TradingPlatform):
 
     async def _cancel_order_async(self, order_id):
         """Cancel order on IB event loop thread."""
-        self.ib.cancelOrder(order_id)
+        # ib.cancelOrder() expects an Order object, not an int
+        order = None
+        for trade in self.ib.openTrades():
+            if trade.order.orderId == order_id:
+                order = trade.order
+                break
+        if order is None:
+            order = Order(orderId=order_id)
+        self.ib.cancelOrder(order)
 
     def cancel_order(self, order_id):
         self._run_ib(self._cancel_order_async(order_id))
