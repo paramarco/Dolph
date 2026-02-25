@@ -34,14 +34,22 @@ class OrderIB:
         """
         # Extraer el precio según el tipo de orden
         price = None
-        order = self._raw.order
-        if order.orderType in ('STP', 'STP LMT'):
-            if hasattr(order, 'auxPrice') and order.auxPrice and order.auxPrice < self._UNSET_DOUBLE:
-                price = order.auxPrice
-        if price is None and hasattr(order, 'lmtPrice') and order.lmtPrice and order.lmtPrice < self._UNSET_DOUBLE:
-            price = order.lmtPrice
-        if price is None and hasattr(self._raw.orderStatus, 'avgFillPrice') and self._raw.orderStatus.avgFillPrice:
-            price = self._raw.orderStatus.avgFillPrice
+        try:
+            order = self._raw.order
+            if order.orderType in ('STP', 'STP LMT'):
+                aux = getattr(order, 'auxPrice', None)
+                if isinstance(aux, (int, float)) and 0 < aux < self._UNSET_DOUBLE:
+                    price = aux
+            if price is None:
+                lmt = getattr(order, 'lmtPrice', None)
+                if isinstance(lmt, (int, float)) and 0 < lmt < self._UNSET_DOUBLE:
+                    price = lmt
+            if price is None:
+                avg = getattr(self._raw.orderStatus, 'avgFillPrice', None)
+                if isinstance(avg, (int, float)) and avg > 0:
+                    price = avg
+        except Exception:
+            pass
         
         msg = f"OrderIB(id={self.id}, symbol={self.symbol}, side={self.side}, "
         msg += f"type={self.type}, "
