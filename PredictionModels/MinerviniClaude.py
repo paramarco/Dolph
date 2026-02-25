@@ -892,6 +892,7 @@ class MinerviniClaude:
             # Simulation counters for DEBUG logging
             stats_signals = 0
             stats_skip_hours = 0
+            stats_skip_margin = 0
             stats_skip_position_open = 0
             stats_skip_exposure = 0
             stats_tp = 0
@@ -941,8 +942,9 @@ class MinerviniClaude:
                     continue
 
                 # Mirror DolphRobot.evaluatePosition() min_margin check
-                min_abs_margin = 3 * (0.01 + entry_price * 0.0002)
+                min_abs_margin = 3 * (max(entry_price * 0.001, 0.005) + entry_price * 0.0002)
                 if m_abs < min_abs_margin:
+                    stats_skip_margin += 1
                     continue
 
                 # Realistic IB transaction cost: max($1.00, qty × $0.005) per side
@@ -1097,6 +1099,7 @@ class MinerviniClaude:
                 log.debug(
                     f"seccode={self.seccode} simulation: "
                     f"signals={stats_signals} skip_hours={stats_skip_hours} "
+                    f"skip_margin={stats_skip_margin} "
                     f"skip_position_open={stats_skip_position_open} skip_exposure={stats_skip_exposure} | "
                     f"trades={trades_opened} TP={stats_tp} TP_fast={stats_tp_fast} SL={stats_sl} "
                     f"exit_timeout={stats_exit_timeout} forced_close={stats_forced_close} expired={stats_expired} "

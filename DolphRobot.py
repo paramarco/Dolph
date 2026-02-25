@@ -502,8 +502,9 @@ class Dolph:
 
         # Minimum margin protection: margin must cover at least 3xCosts, aka:
         # the estimated round-trip transaction cost (commission + slippage)
+        # Uses max(proportional, fixed_floor) so low-priced stocks aren't unfairly blocked
         if takePosition in ['long', 'short']:
-            cost_per_share = 0.01 + entryPrice * 0.0002  # $0.01 commission + 0.02% slippage
+            cost_per_share = max(entryPrice * 0.001, 0.005) + entryPrice * 0.0002
             min_margin = round(3 * cost_per_share, 4)
             if margin < min_margin:
                 self.logger.info(
