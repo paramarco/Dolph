@@ -201,8 +201,8 @@ securities = [
     # UK - London Stock Exchange
     _sec_eu('BARC', market='LSE', timezone='Europe/London', currency='GBP',
             primary_exchange='LSE',
-            trading_times=(dt.time(8, 15), dt.time(16, 00)),
-            time2close=dt.time(16, 23)),  # Barclays - LSE 8:00-16:30 London
+            trading_times=(dt.time(9, 46), dt.time(14, 40)),
+            time2close=dt.time(14, 45)),  # Barclays - banking, beta 1.98
     # ==================== JAPAN - TSE (6 securities) ====================
     # High intraday liquidity + high price fluctuation
     # _sec_jp('9984'),      # SoftBank Group   - tech/investment, beta ~1.5, avg intraday range 2-3%

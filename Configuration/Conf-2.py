@@ -119,8 +119,8 @@ securities = [
     # UK - London Stock Exchange
     _sec_eu('BARC', market='LSE', timezone='Europe/London', currency='GBP',
             primary_exchange='LSE',
-            trading_times=(dt.time(9, 46), dt.time(15, 40)), 
-            time2close=dt.time(15, 45)),  # Barclays - banking, beta 1.98
+            trading_times=(dt.time(9, 46), dt.time(14, 40)),
+            time2close=dt.time(14, 45)),  # Barclays - banking, beta 1.98
 ]
 
 logLevel = logging.DEBUG
