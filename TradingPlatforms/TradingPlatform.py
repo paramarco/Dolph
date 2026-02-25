@@ -297,6 +297,24 @@ class TradingPlatform(ABC):
                     # Restore in-memory entry_time lookup from persisted Position
                     if pos.entry_time is not None:
                         self.position_entry_filled_at[pos.seccode] = pos.entry_time
+                    elif pos.exitOrderRequested:
+                        # Position was filled but entry_time wasn't persisted (legacy).
+                        # Try to get fill time from IB trade, fallback to now(UTC).
+                        fill_time = None
+                        try:
+                            for trade in self.ib.trades():
+                                if trade.order.orderId == pos.entry_id and trade.fills:
+                                    fill_time = trade.fills[-1].time
+                                    if fill_time.tzinfo is None:
+                                        fill_time = fill_time.replace(tzinfo=datetime.timezone.utc)
+                                    break
+                        except Exception:
+                            pass
+                        if fill_time is None:
+                            fill_time = datetime.datetime.now(datetime.timezone.utc)
+                            log.warning(f"entry_time not found for {pos.seccode} (entry_id={pos.entry_id}), using current UTC time")
+                        pos.entry_time = fill_time
+                        self.position_entry_filled_at[pos.seccode] = fill_time
                
         except Exception as e:
             log.error(f"Failed to load monitored positions: {e}")
@@ -694,6 +712,9 @@ class TradingPlatform(ABC):
             sec_tz = pytz.timezone(sec.get('timezone', defaut_tz ))
             sec_time2close = sec.get('time2close', getattr(cm, 'time2close', default_time2close ))
             exit_timeout = sec.get('params', {}).get('exitTimeSeconds', cm.exitTimeSeconds)
+            # Skip positions whose entry hasn't been filled yet (no exit orders)
+            if not mp.exitOrderRequested:
+                continue
             entry_time = mp.entry_time or self.position_entry_filled_at.get(mp.seccode)
             if entry_time is None:
                 log.error(f'skipping timeout check for {mp.seccode}: entry_time is None')
