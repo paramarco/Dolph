@@ -28,11 +28,8 @@ else
   echo "Killing the process with PID: $pid"
   kill -2 "$pid"
   echo "Process killed successfully."
+  sleep 7
 fi
-
-# Delete old log file
-echo "Deleting old log file..."
-rm -rf ${instance}/Dolph/log/Dolph.log
 
 # Remove the old Dolph directory
 echo "Removing the old Dolph directory..."
@@ -44,13 +41,13 @@ git clone https://github.com/paramarco/Dolph.git ${instance}/Dolph
 cd ${instance}/Dolph
 mkdir log
 
-# Replacing template for TradingPlatfomSettings ...
-echo "Replacing template for TradingPlatfomSettings ..."
+# Replacing TradingPlatfomSettings-$1.py of the container by the TradingPlatfomSettings.py in the instance ...
+echo "Replacing TradingPlatfomSettings-$1.py of the container by the TradingPlatfomSettings.py in the instance ..."
 cp /home/dolph_user/TradingPlatfomSettings-$1.py ${instance}/Dolph/Configuration/TradingPlatfomSettings.py
 
-# Replacing template for Conf.py ...
-echo "Replacing template for Conf.py  ..."
-cp /home/dolph_user/Conf-$1.py ${instance}/Dolph/Configuration/Conf.py
+# Replacing Conf-X.py of the instance in the repository by the Conf.py for the instance ...
+echo "Replacing Conf-X.py of the instance in the repository by the Conf.py for the instance  ..."
+cp ${instance}/Dolph/Configuration/Conf-$1.py ${instance}/Dolph/Configuration/Conf.py
 
 
 # Launch the application
