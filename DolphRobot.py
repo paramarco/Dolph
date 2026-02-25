@@ -419,11 +419,15 @@ class Dolph:
     
     
     def positionAssessment (self, security):
-        
+
         seccode = security['seccode']
         params = security['params']
 
-        timeClose, priceClose = self.getLastClose( seccode)
+        result = self.getLastClose( seccode)
+        if result is None:
+            self.logger.warning(f"seccode={seccode} no market data available, skipping")
+            return 0, 0
+        timeClose, priceClose = result
         cash_balance = self.tp.get_cash_balance()
         net_balance = self.tp.get_net_balance()
         factorMargin_Position = params['positionMargin']        

@@ -167,10 +167,10 @@ def _sec_hk(code, decimals=2,
     }
 
 securities = [
-    # --- US & EU temporarily disabled for Asia-only INIT_DB ---
-    _sec('TSLA'),
+    # --- Only STLAM for INIT_DB load ---
+    # _sec('TSLA'),
     # _sec('INTC', decimals=3),
-    _sec('AMD'),
+    # _sec('AMD'),
     # _sec('SOFI'),
     # _sec('MARA'),
     # _sec('RIVN'),
@@ -194,7 +194,7 @@ securities = [
     # _sec_eu('STMPA', market='SBF', timezone='Europe/Paris', primary_exchange='SBF'),    # STMicroelectronics - semiconductor, beta 1.22
     # # Italy - Borsa Italiana
     # _sec_eu('UCG', market='BVME', timezone='Europe/Rome', primary_exchange='BVME'),     # UniCredit - banking, beta 1.28
-    # _sec_eu('STLAM', market='BVME', timezone='Europe/Rome', primary_exchange='BVME'),   # Stellantis - automotive, beta 1.56
+    _sec_eu('STLAM', market='BVME', timezone='Europe/Rome', primary_exchange='BVME'),   # Stellantis - automotive, beta 1.56
     # # UK - London Stock Exchange
     # _sec_eu('BARC', market='LSE', timezone='Europe/London', currency='GBP',
     #         primary_exchange='LSE',
