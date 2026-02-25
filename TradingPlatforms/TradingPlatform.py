@@ -2466,17 +2466,22 @@ class IBTradingPlatform(TradingPlatform):
         (e.g. filled or cancelled while bot was offline) and removes them.
         Also detects ghost positions where the entry was rejected by IB (Error 460)
         but the position was already added to monitoredPositions.
+        Also repairs positions missing one exit order (TP or SL) by re-creating the bracket.
         """
         active_exit_ids = {o.id for o in self.monitoredExitOrders}
         active_entry_ids = {o.id for o in self.monitoredOrders}
         ib_order_ids = {t.order.orderId for t in self.ib.openTrades()}
         orphaned = []
+        repair = []
         for mp in self.monitoredPositions:
             if mp.exit_tp_id is not None and mp.exit_sl_id is not None:
-                tp_active = mp.exit_tp_id in active_exit_ids
-                sl_active = mp.exit_sl_id in active_exit_ids
+                tp_active = mp.exit_tp_id in active_exit_ids or mp.exit_tp_id in ib_order_ids
+                sl_active = mp.exit_sl_id in active_exit_ids or mp.exit_sl_id in ib_order_ids
                 if not tp_active and not sl_active:
                     orphaned.append(mp)
+                elif tp_active != sl_active:
+                    # One exit order is missing — needs bracket repair
+                    repair.append(mp)
             elif mp.exit_tp_id is None and mp.exit_sl_id is None:
                 # Ghost position: entry was rejected (e.g. Error 460) before being filled.
                 # Entry is not in monitoredOrders and not in IB open trades.
@@ -2492,6 +2497,59 @@ class IBTradingPlatform(TradingPlatform):
                         f"- removing from monitoredPositions")
             self.position_closed_at[mp.seccode] = close_time
             self.monitoredPositions.remove(mp)
+        for mp in repair:
+            self._repairExitBracket(mp, active_exit_ids, ib_order_ids)
+
+    def _repairExitBracket(self, mp, active_exit_ids, ib_order_ids):
+        """Cancel the surviving exit order and re-create a full TP+SL bracket."""
+        # Only attempt repair once per position to avoid infinite loops
+        if not hasattr(self, '_bracket_repair_attempted'):
+            self._bracket_repair_attempted = set()
+        if mp.seccode in self._bracket_repair_attempted:
+            return
+        self._bracket_repair_attempted.add(mp.seccode)
+
+        tp_active = mp.exit_tp_id in active_exit_ids or mp.exit_tp_id in ib_order_ids
+        sl_active = mp.exit_sl_id in active_exit_ids or mp.exit_sl_id in ib_order_ids
+        missing = "SL" if tp_active and not sl_active else "TP"
+        surviving_id = mp.exit_tp_id if tp_active else mp.exit_sl_id
+
+        log.warning(f"Repairing bracket for {mp.seccode}: {missing} order missing "
+                    f"(TP={mp.exit_tp_id} active={tp_active}, SL={mp.exit_sl_id} active={sl_active})")
+        try:
+            # Cancel the surviving order
+            self.cancel_order(surviving_id)
+            self.monitoredExitOrders = [o for o in self.monitoredExitOrders if o.id != surviving_id]
+            log.info(f"Cancelled surviving {('TP' if tp_active else 'SL')} order {surviving_id} for {mp.seccode}")
+
+            # Re-create full bracket
+            exit_action = "SELL" if mp.takePosition == "long" else "BUY"
+            trigger_price_tp = "{0:0.{prec}f}".format(
+                round(mp.exitPrice, mp.decimals), prec=mp.decimals)
+            trigger_price_sl = "{0:0.{prec}f}".format(
+                round(mp.stoploss, mp.decimals), prec=mp.decimals)
+
+            res_tp, res_sl = self.newExitOrder(
+                None, mp.seccode, None, exit_action,
+                mp.quantity, trigger_price_sl, trigger_price_tp,
+                None, None, None, False)
+
+            if res_tp is not None and res_sl is not None:
+                mp.exit_tp_id = res_tp.order.orderId
+                mp.exit_sl_id = res_sl.order.orderId
+                mp.exitOrderRequested = True
+                # Register in monitoredExitOrders
+                tp_order_ib = OrderIB(res_tp)
+                sl_order_ib = OrderIB(res_sl)
+                if tp_order_ib not in self.monitoredExitOrders:
+                    self.monitoredExitOrders.append(tp_order_ib)
+                if sl_order_ib not in self.monitoredExitOrders:
+                    self.monitoredExitOrders.append(sl_order_ib)
+                log.info(f"Bracket repaired for {mp.seccode}: new TP={mp.exit_tp_id}, new SL={mp.exit_sl_id}")
+            else:
+                log.error(f"Failed to repair bracket for {mp.seccode}: newExitOrder returned None")
+        except Exception as e:
+            log.error(f"Error repairing bracket for {mp.seccode}: {e}")
 
     def reconcileBrokerPositions(self):
         """Interactive Brokers
