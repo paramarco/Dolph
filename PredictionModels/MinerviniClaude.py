@@ -1027,6 +1027,15 @@ class MinerviniClaude:
                         # Fast TP bonus: 20% reward for hitting TP in < half exitTimeSeconds
                         tp_profit *= 1.20
                         stats_tp_fast += 1
+
+                    # Reward TPs in the optimal profit zone [OPTIMAL_TP_MIN, OPTIMAL_TP_MAX] USD
+                    # Inside zone: 2.5x multiplier
+                    # Outside zone: 0.3x penalty (considerable reduction)
+                    if cm.OPTIMAL_TP_MIN <= tp_profit <= cm.OPTIMAL_TP_MAX:
+                        tp_profit *= 2.5
+                    else:
+                        tp_profit *= 0.3
+
                     total_profit += tp_profit
                     close_bar = entry_idx + 1 + tp_first
                     stats_tp += 1

@@ -723,9 +723,6 @@ class TradingPlatform(ABC):
             current_time_in_sec_tz = now_utc.astimezone(sec_tz).time()
             seconds_open = (now_utc - entry_time).total_seconds()
             pred_signal = self.getLastPredictionSignal(mp.seccode)
-            if pred_signal is None:
-                log.error(f'closing position for {mp.seccode} with None pred_signal')
-                continue
             sec_trading_times = sec.get('tradingTimes', cm.tradingTimes)
             endOfTradingTimes = sec_trading_times[1]
 
@@ -733,9 +730,14 @@ class TradingPlatform(ABC):
             reason = ''
 
             # Condition 1: current time in security's timezone exceeds time2close
+            # This is a hard deadline — close regardless of prediction signal
             if current_time_in_sec_tz > sec_time2close:
                 should_close = True
                 reason = (f'time2close exceeded ({current_time_in_sec_tz} > {sec_time2close} in {sec.get("timezone", defaut_tz)})')
+
+            # Conditions 2 and 3 require a valid prediction signal
+            if not should_close and pred_signal is None:
+                continue
 
             # Condition 2: after endOfTradingTimes but before time2close, close if prediction is opposite
             if not should_close and endOfTradingTimes < current_time_in_sec_tz < sec_time2close and pred_signal != mp.takePosition:
@@ -2530,6 +2532,9 @@ class IBTradingPlatform(TradingPlatform):
                         relink.append(mp)
                     else:
                         orphaned.append(mp)
+            else:
+                # Mixed case: one exit_id set, the other None — needs bracket repair
+                repair.append(mp)
 
         # Re-link: find correct exit orders from IB open trades
         relinked = False

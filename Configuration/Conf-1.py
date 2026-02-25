@@ -168,3 +168,9 @@ correction = 0.0
 spread = 0.0
 
 openaikey = platform['secrets']['openaikey']
+
+# ===================================
+# Calibration Simulation Parameters
+# ===================================
+OPTIMAL_TP_MIN = 18.0
+OPTIMAL_TP_MAX = 24.0
