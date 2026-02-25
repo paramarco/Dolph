@@ -159,11 +159,6 @@ logLevel = logging.INFO
 MODE = 'TEST_OFFLINE' # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL' | 'INIT_DB'
 periods = ['1Min'] #periods = ['1Min','30Min']
 numDaysHistCandles = 3
-
-calibrationPauseSeconds = 900  # 15 min
-calibration_timezone = 'Asia/Tokyo'
-calibration_active_hours = (0, 8)
-
 current_tz = pytz.timezone('Asia/Tokyo')
 # Localize the 'since' and 'until' datetime objects to the specified timezone
 since = current_tz.localize(dt.datetime.now() - dt.timedelta(days=numDaysHistCandles))
@@ -173,8 +168,6 @@ between_time = (
     current_tz.localize(dt.datetime.strptime('16:00', '%H:%M')).time()
 )
 tradingTimes = (dt.time(9, 5), dt.time(15, 20))
-
-
 numTestSample = 500
 TrainingHour = 10  # 10:00
 currentTestIndex = 0

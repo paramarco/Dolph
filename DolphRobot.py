@@ -224,57 +224,48 @@ class Dolph:
             self._getPredictionModel(sec, period )            
 
 
-    def _check_calibration_window(self):
-        """Return True if within calibration active hours, else sleep until next window."""
+    def _is_outside_trading_hours(self, sec):
+        """Return True if current time is outside the security's tradingTimes
+        (i.e. the market is closed and calibration is allowed)."""
         import pytz
-        cal_tz = pytz.timezone(getattr(cm, 'calibration_timezone', 'America/New_York'))
-        now_local = dt.datetime.now(cal_tz)
-        start_h, end_h = getattr(cm, 'calibration_active_hours', (0, 24))
-        if start_h <= now_local.hour < end_h:
-            return True
-        tomorrow_start = (now_local + dt.timedelta(days=1)).replace(
-            hour=start_h, minute=0, second=0, microsecond=0)
-        sleep_secs = (tomorrow_start - now_local).total_seconds()
-        self.logger.info(
-            f"Outside calibration window ({start_h}:00-{end_h}:00 {cal_tz}), "
-            f"current={now_local.strftime('%H:%M')}, sleeping {sleep_secs:.0f}s")
-        time.sleep(sleep_secs)
-        return False
+        sec_tz = pytz.timezone(sec.get('timezone', 'America/New_York'))
+        now_local = dt.datetime.now(sec_tz)
+        trading_start, trading_end = sec.get('tradingTimes',
+            getattr(cm, 'tradingTimes', (dt.time(9, 30), dt.time(16, 0))))
+        current_time = now_local.time()
+        if trading_start <= current_time <= trading_end:
+            self.logger.info(
+                f"seccode={sec['seccode']} within trading hours "
+                f"({trading_start}-{trading_end} {sec_tz}), "
+                f"current={now_local.strftime('%H:%M')}, skipping calibration")
+            return False
+        return True
 
-    def _post_calibration(self):
-        """Save calibrated params to DB, clear cache, sleep before next round."""
-        self.logger.info("TEST_OFFLINE calibration complete, saving params to DB...")
-        self.ds.saveSecurityParamsToDB(self.securities)
-        for sec in self.securities:
-            self.logger.info(f"Calibrated {sec['seccode']}: {sec['params']}")
-        self.logger.info("All calibrated params saved to DB.")
-        for sec in self.securities:
-            sec['models'] = {}
+    def _post_calibration_single(self, sec):
+        """Save calibrated params for a single security to DB and clear its cache."""
+        self.ds.saveSecurityParamsToDB([sec])
+        self.logger.info(f"Calibrated and saved {sec['seccode']}: {sec['params']}")
+        sec['models'] = {}
         import PredictionModels.MinerviniClaude as mc
-        mc.MinerviniClaude._calibration_cache.clear()
-        pause = getattr(cm, 'calibrationPauseSeconds', 900)
-        self.logger.info(f"Sleeping {pause}s before next calibration round...")
-        time.sleep(pause)
+        if sec['seccode'] in mc.MinerviniClaude._calibration_cache:
+            del mc.MinerviniClaude._calibration_cache[sec['seccode']]
 
     def predict(self):
 
         self.logger.info(f" Step 2/3: Predict")
 
-        if self.MODE == 'TEST_OFFLINE':
-            if not self._check_calibration_window():
-                return
-
         for period in self.periods:
             for sec in self.securities:
-                self.loadModel(sec, period)
                 if self.MODE == 'TEST_OFFLINE':
-                    continue
-                prediction = sec['models'][period].predict(self.data[period], sec, period)
-                self.storePrediction(sec, prediction, period)
+                    if not self._is_outside_trading_hours(sec):
+                        continue
+                    self.loadModel(sec, period)
+                    self._post_calibration_single(sec)
+                else:
+                    self.loadModel(sec, period)
+                    prediction = sec['models'][period].predict(self.data[period], sec, period)
+                    self.storePrediction(sec, prediction, period)
 
-        if self.MODE == 'TEST_OFFLINE':
-            self._post_calibration()
-        
         self.logger.info(f" Step 2/3: ✓ COMPLETED")
 
    

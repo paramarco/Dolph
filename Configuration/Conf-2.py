@@ -128,11 +128,6 @@ logLevel = logging.DEBUG
 MODE = 'TEST_OFFLINE' # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL' | 'INIT_DB'
 periods = ['1Min'] #periods = ['1Min','30Min']
 numDaysHistCandles = 89
-
-calibrationPauseSeconds = 900  # 15 min
-calibration_timezone = 'Europe/Berlin'
-calibration_active_hours = (0, 8)
-
 simulation_net_balance = 29000
 
 current_tz = pytz.timezone('America/New_York')
