@@ -273,9 +273,9 @@ class Dolph:
         for period in self.periods:
             for sec in self.securities:
                 if self.MODE == 'TEST_OFFLINE':
-                    if not self._is_outside_trading_hours(sec):
-                        self._calibration_pause()
-                        continue
+                    # if not self._is_outside_trading_hours(sec):
+                    #     self._calibration_pause()
+                    #     continue
                     self.loadModel(sec, period)
                     self._post_calibration_single(sec)
                     
