@@ -589,7 +589,7 @@ class DataServer:
         periods = self.periods
         
         log.debug(f"searchData called: since={since}, until={until}")
-        
+
         tb, te = self.between_time
         agg_dict = {
             'minprice': 'min',
@@ -624,7 +624,12 @@ class DataServer:
                         since = since.replace(tzinfo=pytz.UTC)
 
                     df = df.loc[since:]
+
+                    # Filter by between_time in the security's local timezone
+                    sec_tz = pytz.timezone(sec.get('timezone', 'America/New_York'))
+                    df.index = df.index.tz_convert(sec_tz)
                     df = df.between_time(tb, te)
+                    df.index = df.index.tz_convert('UTC')
 
                     # Resampling
                     resampled_df = df.resample(p, closed='right', origin='start_day', convention='end').agg(agg_dict).dropna()

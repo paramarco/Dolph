@@ -197,10 +197,7 @@ securities = [
     _sec_eu('UCG', market='BVME', timezone='Europe/Rome', primary_exchange='BVME'),     # UniCredit - banking, beta 1.28
     _sec_eu('STLAM', market='BVME', timezone='Europe/Rome', primary_exchange='BVME'),   # Stellantis - automotive, beta 1.56
     # UK - London Stock Exchange
-    _sec_eu('BARC', market='LSE', timezone='Europe/London', currency='GBP',
-            primary_exchange='LSE',
-            trading_times=(dt.time(8, 0), dt.time(16, 30)),
-            time2close=dt.time(16, 25)),  # Barclays - banking, beta 1.98
+    _sec_eu('BARC', market='LSE', timezone='Europe/London', currency='GBP', primary_exchange='LSE'),  # Barclays - banking, beta 1.98
     # ==================== JAPAN - TSE (6 securities) ====================
     # High intraday liquidity + high price fluctuation
     # _sec_jp('9984'),      # SoftBank Group   - tech/investment, beta ~1.5, avg intraday range 2-3%
@@ -225,6 +222,7 @@ MODE = 'OPERATIONAL' # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' |
 periods = ['1Min'] #periods = ['1Min','30Min']
 numDaysHistCandles = 3
 calibrationPauseSeconds = 3600  # 1 hour
+simulation_net_balance = 29000
 current_tz = pytz.timezone('America/New_York')
 # Localize the 'since' and 'until' datetime objects to the specified timezone
 since = current_tz.localize(dt.datetime.now() - dt.timedelta(days=numDaysHistCandles))
