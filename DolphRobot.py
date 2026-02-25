@@ -253,6 +253,19 @@ class Dolph:
         if sec['seccode'] in mc.MinerviniClaude._calibration_cache:
             del mc.MinerviniClaude._calibration_cache[sec['seccode']]
 
+    def _calibration_pause(self):
+        """Sleep calibrationPauseSeconds split into 7 logged intervals."""
+        pause_total = getattr(cm, 'calibrationPauseSeconds', 0)
+        if pause_total <= 0:
+            return
+        num_checks = 7
+        interval = pause_total / num_checks
+        self.logger.info(f"Calibration pause: {pause_total}s total, {num_checks} checks every {interval:.0f}s")
+        for i in range(1, num_checks + 1):
+            time.sleep(interval)
+            self.logger.info(f"Calibration pause check {i}/{num_checks} — {i * interval:.0f}s / {pause_total}s elapsed")
+        self.logger.info(f"Calibration pause complete, resuming.")
+
     def predict(self):
 
         self.logger.info(f" Step 2/3: Predict")
@@ -264,6 +277,7 @@ class Dolph:
                         continue
                     self.loadModel(sec, period)
                     self._post_calibration_single(sec)
+                    self._calibration_pause()
                 else:
                     if not self._is_outside_trading_hours(sec):
                         self.loadModel(sec, period)
@@ -272,7 +286,7 @@ class Dolph:
 
         self.logger.info(f" Step 2/3: ✓ COMPLETED")
 
-   
+
     def displayPredictions (self):
         
         period = self.periods[-1]

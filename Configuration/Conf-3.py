@@ -159,6 +159,7 @@ logLevel = logging.INFO
 MODE = 'TEST_OFFLINE' # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' | 'OPERATIONAL' | 'INIT_DB'
 periods = ['1Min'] #periods = ['1Min','30Min']
 numDaysHistCandles = 3
+calibrationPauseSeconds = 3600  # 1 hour
 current_tz = pytz.timezone('Asia/Tokyo')
 # Localize the 'since' and 'until' datetime objects to the specified timezone
 since = current_tz.localize(dt.datetime.now() - dt.timedelta(days=numDaysHistCandles))
