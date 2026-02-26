@@ -84,6 +84,8 @@ class Position:
             self.entry_time = entry_time
         # entry_limit_prices := list of limit entry attempts with price, time, order_id
         self.entry_limit_prices = entry_limit_prices if entry_limit_prices else []
+        # close_retry_count := number of times a market close order was cancelled and restored
+        self.close_retry_count = 0
 
     def __str__(self):
         
@@ -690,10 +692,21 @@ class TradingPlatform(ABC):
             # Restore position that was removed prematurely (e.g. market was closed)
             saved = self._market_close_positions.pop(order.id, None)
             if saved is not None:
-                saved.exitOrderAlreadyCancelled = False
-                self.monitoredPositions.append(saved)
-                log.warning(f'market close order {order.id} CANCELLED for {saved.seccode}, '
-                            f'position restored to monitoredPositions')
+                saved.close_retry_count = getattr(saved, 'close_retry_count', 0) + 1
+                if saved.close_retry_count >= 3:
+                    # Stop retrying — market is likely closed; position stays tracked
+                    # but won't trigger further close attempts until next session
+                    saved.exitOrderAlreadyCancelled = True
+                    self.monitoredPositions.append(saved)
+                    log.warning(f'market close order {order.id} CANCELLED for {saved.seccode}, '
+                                f'retry limit reached ({saved.close_retry_count}x), '
+                                f'position parked in monitoredPositions (no further close attempts)')
+                else:
+                    saved.exitOrderAlreadyCancelled = False
+                    self.monitoredPositions.append(saved)
+                    log.warning(f'market close order {order.id} CANCELLED for {saved.seccode}, '
+                                f'position restored to monitoredPositions '
+                                f'(retry {saved.close_retry_count}/3)')
             else:
                 log.warning(f'market close order {order.id} cancelled but no saved position to restore')
         return True
