@@ -1070,7 +1070,8 @@ class MinerviniClaude:
                     continue
 
                 # Mirror DolphRobot.evaluatePosition() min_margin check
-                min_abs_margin = 3 * (max(entry_price * 0.001, 0.005) + entry_price * 0.0002)
+                # IB: ~$0.02/share round-trip, proportional floor 0.01% for expensive stocks
+                min_abs_margin = 3 * max(0.02, entry_price * 0.0001)
                 if m_abs < min_abs_margin:
                     stats_skip_margin += 1
                     continue
