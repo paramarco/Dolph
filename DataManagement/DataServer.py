@@ -36,7 +36,6 @@ class DataServer:
         self.periods = cm.periods
         self.securities = cm.securities
         self.currentTestIndex = cm.currentTestIndex
-        self.current_tz = cm.current_tz
         self.lastUpdate = None
         self._init_securities()
 

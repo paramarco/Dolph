@@ -468,10 +468,10 @@ class Dolph:
             # FIXME: Can the decimals be automatically calculated?            
             decimals, marketId = security['decimals'], security['market']
             # FIXME: Are these parameters automatically calculated?
-            exitTimeSeconds = params.get('exitTimeSeconds', cm.exitTimeSeconds)
-            k = params.get('stopLossCoefficient', cm.stopLossCoefficient ) 
-            correction = params.get('correction', cm.correction) 
-            spread = params.get('spread', cm.spread)
+            exitTimeSeconds = params['exitTimeSeconds']
+            k = params['stopLossCoefficient']
+            correction = params.get('correction', 0.0)
+            spread = params.get('spread', 0.0)
             
             decimals = int(decimals)                   
             ct = self.tp.getTradingPlatformTime()

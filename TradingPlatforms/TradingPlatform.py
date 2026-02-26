@@ -564,11 +564,10 @@ class TradingPlatform(ABC):
     
     
     def getExpDate(self, seccode):
-        """common — uses per-security entryTimeSeconds if available."""
+        """common — uses per-security entryTimeSeconds."""
         tradingPlatformTime = self.getTradingPlatformTime()
-        default_entry_timeout = getattr(cm, 'entryTimeSeconds', 3600)
         sec = next((s for s in self.securities if s['seccode'] == seccode), {})
-        entry_timeout = sec.get('params', {}).get('entryTimeSeconds', default_entry_timeout)
+        entry_timeout = sec['params']['entryTimeSeconds']
         plusNsec = datetime.timedelta(seconds=entry_timeout)
         tradingPlatformTime_plusNsec = tradingPlatformTime + plusNsec
 
@@ -646,7 +645,6 @@ class TradingPlatform(ABC):
     def cancelTimedoutEntries(self):
         """common"""
         orders_to_cancel = []
-        default_entry_timeout = getattr(cm, 'entryTimeSeconds', 3600)
         currentTime = datetime.datetime.now(timezone.utc)
 
         for mp in list(self.monitoredPositions):
@@ -654,7 +652,7 @@ class TradingPlatform(ABC):
                 if mp.entry_id == mo.id:
                     # Per-security entry timeout
                     sec = next((s for s in self.securities if s['seccode'] == mp.seccode), {})
-                    entry_timeout = sec.get('params', {}).get('entryTimeSeconds', default_entry_timeout)
+                    entry_timeout = sec['params']['entryTimeSeconds']
                     nSec = datetime.timedelta(seconds=entry_timeout)
                     expTime = mo.time + nSec
                     if currentTime > expTime:
@@ -714,7 +712,7 @@ class TradingPlatform(ABC):
             sec = next((s for s in self.securities if s['seccode'] == mp.seccode), {})
             sec_tz = pytz.timezone(sec.get('timezone', defaut_tz ))
             sec_time2close = sec.get('time2close', getattr(cm, 'time2close', default_time2close ))
-            exit_timeout = sec.get('params', {}).get('exitTimeSeconds', cm.exitTimeSeconds)
+            exit_timeout = sec['params']['exitTimeSeconds']
             # Skip positions whose entry hasn't been filled yet (no exit orders)
             if not mp.exitOrderRequested:
                 continue
