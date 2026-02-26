@@ -6,7 +6,7 @@ import logging
 from Configuration import TradingPlatfomSettings as tps
 
 platform = tps.platform
-# INTC base params used as starting point for all securities (calibration will optimize)
+
 _BASE_PARAMS = {
     'algorithm': 'MinerviniClaude',
     'entryByMarket': False,
@@ -16,7 +16,9 @@ _BASE_PARAMS = {
     'positionMargin': 0.003,
     'stopLossCoefficient': 8,
     'period': '1Min',
-    # VCP
+    # ===== Phase Detection Parameters =====
+    # Expansion:  (ATR_slope > threshold AND Bollinger width percentile high)
+    # Trend: ( ADX above threshold, strong directional movement) and (EMA alignment either bullish or bearish)
     'VCP_ATR_SLOPE_EXPANSION': 0.1620308857142857,
     'VCP_BB_WIDTH_PERCENTILE_EXPANSION': 0.24499999999999997,
     'VCP_ADX_TREND_THRESHOLD': 13,
@@ -24,14 +26,14 @@ _BASE_PARAMS = {
     'EMA_FAST': 14,
     'EMA_MID': 16,
     'EMA_SLOW': 24,
-    'RSI_PERIOD': 23,
-    'ATR_PERIOD': 19,
-    'ATR_SLOPE_WINDOW': 5,
-    'ADX_PERIOD': 13,
-    'BB_WINDOW': 10,
+    'RSI_PERIOD': 23,       # RSI (Momentum Filter). to Confirm directional entries, Filter false breakouts
+    'ATR_PERIOD': 19,       # ATR CALCULATION. to measure volatility level
+    'ATR_SLOPE_WINDOW': 5,  # ATR SLOPE. Measures volatility expansion / contraction speed
+    'ADX_PERIOD': 13,       # ADX + DI (Trend Strength). to confirm directional strength, to filter ranging markets
+    'BB_WINDOW': 10,        # BOLLINGER BAND WIDTH. Measures compression vs expansion of volatility
     'BB_STD': 1,
     'BB_PERCENTILE_WINDOW': 49,
-    'FVP_WINDOW': 47,
+    'FVP_WINDOW': 47,       # FAIR VALUE PRICE (FVP). Rolling mean of close. Used for mean-reversion during expansion
     # Expansion Phase Thresholds
     'EXPANSION_DEVIATION_THRESHOLD': 0.000245,
     'EXPANSION_RSI_SHORT_MIN': 20,
@@ -49,7 +51,7 @@ _BASE_PARAMS = {
     'MARGIN_TREND_ATR_MULTIPLIER': 2.0,
     'MARGIN_TREND_MIN': 0.003,
     'MARGIN_TREND_MAX': 0.010,
-    # Calibration Parameters (3 months lookback for TEST_OFFLINE)
+    # Calibration Parameters (3 months lookback for mode = TEST_OFFLINE)
     'CALIBRATION_LOOKBACK_DAYS': 90,
     'CALIBRATION_LIMIT_RESULTS': 40000,
     'CALIBRATION_MIN_ROWS': 1000,
@@ -149,9 +151,10 @@ def _sec_jp(code, decimals=0,
 # Trading hours: 9:30-12:00 (morning) + 13:00-16:00 (afternoon), lunch break
 # IB: exchange SMART, primaryExchange SEHK, currency HKD
 # ---------------------------------------------------------------------------
-def _sec_hk(code, decimals=2,
+def _sec_hk(code, 
+            decimals=2,
             trading_times=(dt.time(9, 35), dt.time(15, 55)),
-            time2close=dt.time(15, 58)):
+            time2close=dt.time(15, 58)  ):
     return {
         'seccode': code,
         'board': 'EQTY',
@@ -272,83 +275,10 @@ spread = 0.0
 
 openaikey = platform['secrets']['openaikey']
 
-# ===== Phase Detection Parameters =====
-# Expansion:  (ATR_slope > threshold AND Bollinger width percentile high)
-# Trend: ( ADX above threshold, strong directional movement) and (EMA alignment either bullish or bearish)
-VCP_ATR_SLOPE_EXPANSION = 0.15
-VCP_BB_WIDTH_PERCENTILE_EXPANSION = 0.5
-VCP_ADX_TREND_THRESHOLD = 25
-
-# Indicator Periods
-EMA_FAST = 9
-EMA_MID = 21
-EMA_SLOW = 50
-
-RSI_PERIOD = 14             # RSI (Momentum Filter). to Confirm directional entries, Filter false breakouts  
-
-ATR_PERIOD = 14             # ATR CALCULATION. to measure volatility level
-ATR_SLOPE_WINDOW = 5        # ATR SLOPE. Measures volatility expansion / contraction speed
-
-ADX_PERIOD = 14             # ADX + DI (Trend Strength). to confirm directional strength, to filter ranging markets
-
-BB_WINDOW = 20              # BOLLINGER BAND WIDTH. Measures compression vs expansion of volatility
-BB_STD = 2
-BB_PERCENTILE_WINDOW = 100
-
-FVP_WINDOW = 30             # FAIR VALUE PRICE (FVP). Rolling mean of close. Used for mean-reversion during expansion
-
-# ===============================
-# Expansion Phase Thresholds
-# ===============================
-EXPANSION_DEVIATION_THRESHOLD = 0.0005
-EXPANSION_RSI_SHORT_MIN = 40
-EXPANSION_RSI_LONG_MAX = 60
-
-# ===============================
-# Trend Phase Thresholds
-# ===============================
-TREND_RSI_LONG_MIN = 40
-TREND_RSI_LONG_MAX = 70
-
-TREND_RSI_SHORT_MIN = 30
-TREND_RSI_SHORT_MAX = 60
-
-# ===================================
-# Margin Adaptation Parameters
-# ===================================
-
-# Contraction Phase
-MARGIN_CONTRACTION_FIXED = 0.0015
-
-# Expansion Phase
-MARGIN_EXPANSION_MULTIPLIER = 1.5
-MARGIN_EXPANSION_MIN = 0.004
-MARGIN_EXPANSION_MAX = 0.015
-
-# Trend Phase
-MARGIN_TREND_ATR_MULTIPLIER = 2.0
-MARGIN_TREND_MIN = 0.003
-MARGIN_TREND_MAX = 0.010
-
-# ===================================
-# Calibration Parameters
-# ===================================
-
-CALIBRATION_LOOKBACK_DAYS = 90
-CALIBRATION_LIMIT_RESULTS = 5000
-CALIBRATION_MIN_ROWS = 1000
-
-CALIBRATION_MARGIN_MIN = 0.001
-CALIBRATION_MARGIN_MAX = 0.015
-CALIBRATION_MARGIN_STEPS = 10
 
 # ===================================
 # Calibration Simulation Parameters
 # ===================================
-
-CALIBRATION_LOOKAHEAD_BARS = 60
-CALIBRATION_STOPLOSS_MULTIPLIER = 5.0
-CALIBRATION_DEFAULT_MARGIN = 0.003
 # TP reward as ratio of cash_4_position (currency-independent)
 OPTIMAL_TP_RATIO_MIN = 0.0035
 OPTIMAL_TP_RATIO_MAX = 0.0046
@@ -359,20 +289,6 @@ FREQ_TARGET_MIN = 3.0
 FREQ_TARGET_MAX = 12.0
 FREQ_SIGNAL_CONVERSION = 0.04
 
-# ==========================================
-# Volume Analysis Parameters
-# ==========================================
-
-VOLUME_AVG_WINDOW = 20
-VOLUME_SLOPE_WINDOW = 5
-
-BIG_VOLUME_THRESHOLD = 1.8
-EXTREME_VOLUME_THRESHOLD = 2.5
-
-BIG_BODY_ATR_THRESHOLD = 1.2
-EXTREME_BODY_ATR_THRESHOLD = 2.0
-
-DIVERGENCE_LOOKBACK = 10
 
 # ==========================================
 # BUYING_CLIMAX
