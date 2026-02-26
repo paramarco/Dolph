@@ -5,6 +5,13 @@ Single-pass parser that incrementally builds lookup maps to avoid
 counting startup/restore artifacts as real exits. Uses the last
 reportCurrentOpenPositions block as ground truth for open positions.
 
+Tracks:
+  - Entries filled (Order is Filled-Monitored)
+  - Exits by TP/SL (exitOrder Filled)
+  - Expired entries: cancelTimedoutEntries (entry order didn't fill in time)
+  - Forced closes: cancelTimedoutExits (position closed by market order due to
+    time2close, opposite prediction after endOfTradingTimes, or exitTimeSeconds)
+
 Usage: python3 monitor.py [logfile]
 Default logfile: /home/dolph_user/data/5/Dolph/log/Dolph.log
 """
@@ -51,8 +58,12 @@ def resolve_exit(oid_val):
 
 
 # --- Event counters ---
-entries = tp_count = sl_count = expired_entries = 0
+entries = tp_count = sl_count = 0
+expired_entries = 0       # cancelTimedoutEntries: entry didn't fill in time
+forced_closes = 0         # cancelTimedoutExits: position closed by market order
 last_entry_sec = last_tp_sec = last_sl_sec = ''
+last_exp_entry_sec = ''   # last seccode of an expired entry
+last_forced_sec = ''      # last seccode of a forced close
 first_entry_seen = False
 
 # Position report tracking (ground truth for open positions)
@@ -120,9 +131,20 @@ for line in lines:
         entries += 1
         first_entry_seen = True
 
-    # Entry cancelled (timed out)
+    # Entry cancelled (timed out) — cancelTimedoutEntries
     if 'cancelTimedoutEntries' in line and 'Cancelling Order' in line:
         expired_entries += 1
+        m = re.search(r'symbol=(\w+)', line)
+        if m:
+            last_exp_entry_sec = m.group(1)
+
+    # Forced position close — cancelTimedoutExits triggers closeExit
+    # Pattern: "closing position for BBVA: reason..."
+    if 'closing position for' in line:
+        forced_closes += 1
+        m = re.search(r'closing position for (\w+)', line)
+        if m:
+            last_forced_sec = m.group(1)
 
     # Exit order filled and removed
     if 'exitOrder:' in line and 'Filled' in line and 'deleted' in line:
@@ -149,7 +171,8 @@ for line in lines:
         snapshots.append((
             current_ts, entries, tp_count, sl_count,
             bal_match.group(1), last_entry_sec, last_tp_sec, last_sl_sec,
-            expired_entries
+            expired_entries, last_exp_entry_sec,
+            forced_closes, last_forced_sec
         ))
 
 # ---------------------------------------------------------------------------
@@ -159,11 +182,11 @@ seen = OrderedDict()
 for s in snapshots:
     seen[s[0]] = s
 
-print('| Hora  | Entradas | TP | SL | Exp | Balance     | Ultima Entrada | Ultimo TP | Ultimo SL |')
-print('|-------|----------|----|----|-----|-------------|----------------|-----------|-----------|')
+print('| Hora  | Entr | TP | SL | ExpE | Ult.ExpE | ClsX | Ult.ClsX | Balance     | Ult.Entrada | Ult.TP    | Ult.SL    |')
+print('|-------|------|----|----|------|----------|------|----------|-------------|-------------|-----------|-----------|')
 for minute, data in seen.items():
-    _, e, t, s, b, esec, tsec, ssec, exp = data
-    print(f'| {minute} | {e:>8} | {t:>2} | {s:>2} | {exp:>3} | ${b:>10} | {esec:<14} | {tsec:<9} | {ssec:<9} |')
+    _, e, t, s, b, esec, tsec, ssec, expe, expe_sec, clsx, clsx_sec = data
+    print(f'| {minute} | {e:>4} | {t:>2} | {s:>2} | {expe:>4} | {expe_sec:<8} | {clsx:>4} | {clsx_sec:<8} | ${b:>10} | {esec:<11} | {tsec:<9} | {ssec:<9} |')
 
 # Current open positions from last reportCurrentOpenPositions (ground truth)
 if current_positions:
