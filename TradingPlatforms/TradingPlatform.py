@@ -2525,6 +2525,9 @@ class IBTradingPlatform(TradingPlatform):
         relink = []   # positions confirmed in IB but with stale/missing exit IDs
         repair = []
         for mp in self.monitoredPositions:
+            # Skip parked positions (market close retry limit reached)
+            if getattr(mp, 'exitOrderAlreadyCancelled', False) and mp.exit_tp_id is None and mp.exit_sl_id is None:
+                continue
             if mp.exit_tp_id is not None and mp.exit_sl_id is not None:
                 tp_active = mp.exit_tp_id in active_exit_ids or mp.exit_tp_id in ib_order_ids
                 sl_active = mp.exit_sl_id in active_exit_ids or mp.exit_sl_id in ib_order_ids
