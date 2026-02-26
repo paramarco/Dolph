@@ -37,7 +37,7 @@ class Position:
                  decimals, client, exitTime=None, correction=None, spread=None, bymarket = False,
                  entry_id=None, exit_tp_id=None, exit_sl_id=None, exit_order_no=None , union = None,
                  expdate = None, buysell = None , exitOrderRequested = None, exitOrderAlreadyCancelled = None,
-                 entry_time=None, entry_limit_prices=None) :
+                 entry_time=None, entry_limit_prices=None, close_retry_count=0) :
         
         # id:= transactionid of the first order, "your entry" of the Position
         # will be assigned once upon successful entry of the Position
@@ -85,7 +85,7 @@ class Position:
         # entry_limit_prices := list of limit entry attempts with price, time, order_id
         self.entry_limit_prices = entry_limit_prices if entry_limit_prices else []
         # close_retry_count := number of times a market close order was cancelled and restored
-        self.close_retry_count = 0
+        self.close_retry_count = close_retry_count
 
     def __str__(self):
         
@@ -2525,8 +2525,12 @@ class IBTradingPlatform(TradingPlatform):
         relink = []   # positions confirmed in IB but with stale/missing exit IDs
         repair = []
         for mp in self.monitoredPositions:
-            # Skip parked positions (market close retry limit reached)
+            # Parked positions (market close retry limit reached):
+            # - If no longer in IB portfolio → treat as orphaned (auto-remove)
+            # - If still in IB portfolio → skip (avoid spam, wait for market open)
             if getattr(mp, 'exitOrderAlreadyCancelled', False) and mp.exit_tp_id is None and mp.exit_sl_id is None:
+                if mp.seccode not in ib_portfolio_seccodes:
+                    orphaned.append(mp)
                 continue
             if mp.exit_tp_id is not None and mp.exit_sl_id is not None:
                 tp_active = mp.exit_tp_id in active_exit_ids or mp.exit_tp_id in ib_order_ids
