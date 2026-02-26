@@ -178,5 +178,12 @@ openaikey = platform['secrets']['openaikey']
 # ===================================
 # Calibration Simulation Parameters
 # ===================================
-OPTIMAL_TP_MIN = 18.0
-OPTIMAL_TP_MAX = 24.0
+# TP reward as ratio of cash_4_position (currency-independent)
+OPTIMAL_TP_RATIO_MIN = 0.0035
+OPTIMAL_TP_RATIO_MAX = 0.0046
+# Expired trade penalty: multiplier of round_trip_cost per expired trade
+EXPIRED_PENALTY_FACTOR = 0.5
+# Dynamic frequency target bounds (trades/day per security)
+FREQ_TARGET_MIN = 3.0
+FREQ_TARGET_MAX = 12.0
+FREQ_SIGNAL_CONVERSION = 0.04

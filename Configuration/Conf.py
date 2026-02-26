@@ -345,8 +345,18 @@ CALIBRATION_MARGIN_STEPS = 10
 CALIBRATION_LOOKAHEAD_BARS = 60
 CALIBRATION_STOPLOSS_MULTIPLIER = 5.0
 CALIBRATION_DEFAULT_MARGIN = 0.003
-OPTIMAL_TP_MIN = 18.0
-OPTIMAL_TP_MAX = 24.0
+# TP reward as ratio of cash_4_position (currency-independent)
+# Replaces absolute USD range — works equally for USD, EUR, GBP, JPY securities
+# 0.35% of $5220 ≈ $18.27 / 0.46% ≈ $24.01 (equivalent to old $18-$24 range)
+OPTIMAL_TP_RATIO_MIN = 0.0035
+OPTIMAL_TP_RATIO_MAX = 0.0046
+# Expired trade penalty: multiplier of round_trip_cost per expired trade
+EXPIRED_PENALTY_FACTOR = 0.5
+# Dynamic frequency target bounds (trades/day per security)
+FREQ_TARGET_MIN = 3.0
+FREQ_TARGET_MAX = 12.0
+# Expected ratio of eligible signals converting to actual trades
+FREQ_SIGNAL_CONVERSION = 0.04
 
 # ==========================================
 # Volume Analysis Parameters

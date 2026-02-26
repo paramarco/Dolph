@@ -32,6 +32,11 @@ class MinerviniClaude:
     })
 
     def __init__(self, data, security, dolph):
+        """Initialize the prediction model for a single security.
+
+        Loads 1-minute OHLCV data, sets up security params, and runs
+        calibration (TEST_OFFLINE) or loads cached params (OPERATIONAL).
+        """
         if '1Min' in data:
             self.df = data['1Min'].copy()
 
@@ -82,16 +87,24 @@ class MinerviniClaude:
     # =====================================================
 
     def build_model(self):
+        """No-op. MinerviniClaude uses rule-based signals, no ML model to build."""
         pass
 
     def train(self):
+        """No-op. Calibration replaces traditional training (see _calibrate_params_from_db)."""
         pass
 
     def load_trained_model(self, security):
+        """No-op. Returns True for interface compatibility with DolphRobot."""
         return True
 
     def predict(self, df, sec, period):
+        """Generate a trading signal (long/short/no-go) for the current bar.
 
+        Pipeline: prepare OHLCV → compute indicators → detect VCP phase →
+        generate signal with confidence score → adapt margin to volatility.
+        Returns dict with 'signal' and 'confidence'.
+        """
         try:
             seccode = sec['seccode']
             entryPrice = exitPrice = 0.0
@@ -155,7 +168,11 @@ class MinerviniClaude:
     # =====================================================
 
     def _prepare_ohlcv(self, df):
+        """Filter raw DataFrame by seccode and rename columns to standard OHLCV format.
 
+        Input columns: mnemonic, startprice, maxprice, minprice, endprice, addedvolume.
+        Output columns: open, high, low, close, volume (indexed by datetime).
+        """
         # Filter by mnemonic
         if 'mnemonic' in df.columns:
             df = df[df['mnemonic'] == self.seccode].copy()
@@ -241,6 +258,11 @@ class MinerviniClaude:
         return df
 
     def _rsi_series(self, series, period):
+        """Compute Relative Strength Index (RSI) using exponential moving average.
+
+        RSI measures momentum on a 0-100 scale. Used to confirm directional
+        entries and filter overbought/oversold extremes.
+        """
         delta = series.diff()
         gain = delta.clip(lower=0)
         loss = -delta.clip(upper=0)
@@ -250,6 +272,11 @@ class MinerviniClaude:
         return 100 - (100 / (1 + rs))
 
     def _atr(self, df, period):
+        """Compute Average True Range (ATR) — measures volatility level.
+
+        True Range = max(high-low, |high-prev_close|, |low-prev_close|).
+        ATR = rolling mean of TR over `period` bars.
+        """
         high_low = df['high'] - df['low']
         high_close = abs(df['high'] - df['close'].shift())
         low_close = abs(df['low'] - df['close'].shift())
@@ -257,7 +284,11 @@ class MinerviniClaude:
         return tr.rolling(period).mean()
 
     def _adx(self, df, period):
+        """Compute ADX (Average Directional Index) with +DI and -DI.
 
+        ADX measures trend strength (0-100). +DI/-DI indicate bullish/bearish
+        directional movement. Used to confirm trend phase and filter ranging markets.
+        """
         plus_dm = df['high'].diff()
         minus_dm = -df['low'].diff()
 
@@ -326,7 +357,11 @@ class MinerviniClaude:
         return 'contraction'
 
     def _detect_phase_vectorized(self, df, params):
-        """Vectorized phase detection for all bars. Returns boolean masks."""
+        """Vectorized phase detection for all bars (calibration version).
+
+        Same logic as _detect_phase but applied to the entire DataFrame at once.
+        Returns (expansion_mask, trend_mask, bullish, bearish) boolean Series.
+        """
         bullish = (df['EMA_FAST'] > df['EMA_MID']) & (df['EMA_MID'] > df['EMA_SLOW'])
         bearish = (df['EMA_FAST'] < df['EMA_MID']) & (df['EMA_MID'] < df['EMA_SLOW'])
 
@@ -346,7 +381,12 @@ class MinerviniClaude:
     # =====================================================
 
     def _generate_signal(self, df, phase):
+        """Generate a single trading signal for the latest bar (real-time prediction).
 
+        Scores long and short independently using phase-specific rules and volume
+        context. Returns dict with 'signal' (long/short/no-go), 'confidence'
+        (0-1 directional conviction), and 'volume_contexts' (active patterns).
+        """
         p = self.params
         long_score = 0.0
         short_score = 0.0
@@ -482,7 +522,11 @@ class MinerviniClaude:
             return {'signal': 'short', 'confidence': confidence, 'volume_contexts': active_contexts}
 
     def _generate_signals_vectorized(self, df, params, expansion_mask, trend_mask, bullish, bearish):
-        """Vectorized signal generation for all bars. Returns int8 array: 0=no-go, 1=long, -1=short."""
+        """Vectorized signal generation for all bars (calibration version).
+
+        Same scoring logic as _generate_signal but applied to the full DataFrame
+        at once for performance. Returns int8 numpy array: 0=no-go, 1=long, -1=short.
+        """
         long_score  = pd.Series(0.0, index=df.index)
         short_score = pd.Series(0.0, index=df.index)
 
@@ -604,7 +648,13 @@ class MinerviniClaude:
     # =====================================================
 
     def _adapt_margin(self, sec, phase, df):
+        """Adapt positionMargin based on the current VCP phase (real-time prediction).
 
+        Contraction: fixed tight margin (low volatility).
+        Expansion: BB_width proportional (breakout amplitude).
+        Trend: ATR-normalized (sustained directional volatility).
+        Writes the computed margin into sec['params']['positionMargin'].
+        """
         p = self.params
         latest = df.iloc[-1]        # Get latest indicator values
         close = latest['close']     # Current price (used to normalize ATR)
@@ -644,7 +694,11 @@ class MinerviniClaude:
         sec['params']['positionMargin'] = float(m)
 
     def _compute_margin_vectorized(self, df, params, expansion_mask, trend_mask):
-        """Vectorized margin computation for all bars. Returns numpy array of margin factors."""
+        """Vectorized margin computation for all bars (calibration version).
+
+        Same logic as _adapt_margin but applied to the full DataFrame at once.
+        Returns numpy array of margin factors (one per bar).
+        """
         margin_factor = np.full(len(df), params['MARGIN_CONTRACTION_FIXED'])
 
         exp_raw     = (df['BB_width'] * params['MARGIN_EXPANSION_MULTIPLIER']).values
@@ -761,8 +815,36 @@ class MinerviniClaude:
             log.error(f"{self.seccode}: calibration failed: {e}")
 
 
+    @staticmethod
+    def _tp_reward_gaussian(tp_profit, optimal_min, optimal_max):
+        """Gaussian reward multiplier for TP profit.
+
+        Smooth bell curve centered on the optimal TP range, replacing the old
+        binary step function (2.5x inside / 0.3x outside) that created an
+        8.33:1 discontinuity at the range boundaries.
+
+        Returns:
+            float multiplier:
+              - ~2.5 at center of [optimal_min, optimal_max]
+              - ~1.6 at range edges (±1 sigma)
+              - ~0.6 at ±2 sigma
+              - 0.3 floor far outside the range
+        """
+        center = (optimal_min + optimal_max) / 2.0
+        # sigma = half the range width → edges of range sit at ±1 sigma
+        sigma = (optimal_max - optimal_min) / 2.0
+        if sigma <= 0:
+            return 1.0
+        z = (tp_profit - center) / sigma
+        # peak=2.2 + floor=0.3 → 2.5 at center, decays smoothly outside
+        return 0.3 + 2.2 * np.exp(-0.5 * z * z)
+
     def _make_candidates(self, base_value, steps=8):
-        """Generate candidate values: -30% to +30% of base in `steps` steps."""
+        """Generate candidate values in [-30%, +30%] of base for coordinate descent.
+
+        For int params: rounds to int, deduplicates, enforces minimum of 1.
+        For float params: returns `steps` linearly spaced candidates.
+        """
         candidates = [base_value * (1 + f) for f in np.linspace(-0.3, 0.3, steps)]
         if isinstance(base_value, int):
             candidates = [max(1, int(round(c))) for c in candidates]
@@ -778,22 +860,32 @@ class MinerviniClaude:
 
 
     def _compute_indicators_for_calibration(self, df, params):
-        """Like _compute_indicators but takes explicit params dict and uses
-        a fast numpy-based BB_width_pctile (avoids slow pandas lambda)."""
+        """Compute all technical indicators for calibration backtesting.
+
+        Same indicators as _compute_indicators but takes an explicit params dict
+        (instead of self.params) and uses a fast numpy-based BB_width percentile
+        (avoids the slow pandas lambda). Called once per indicator-param candidate.
+        """
+        # EMA (Exponential Moving Averages) — trend alignment and pullback detection
         df['EMA_FAST'] = df['close'].ewm(span=int(params['EMA_FAST'])).mean()
         df['EMA_MID']  = df['close'].ewm(span=int(params['EMA_MID'])).mean()
         df['EMA_SLOW'] = df['close'].ewm(span=int(params['EMA_SLOW'])).mean()
+        # RSI (Relative Strength Index) — momentum filter, overbought/oversold
         df['RSI']      = self._rsi_series(df['close'], int(params['RSI_PERIOD']))
+        # ATR (Average True Range) — volatility level measurement
         df['ATR']      = self._atr(df, int(params['ATR_PERIOD']))
+        # ATR slope — volatility expansion/contraction speed
         df['ATR_slope'] = df['ATR'].diff(int(params['ATR_SLOPE_WINDOW']))
+        # ADX + DI (Average Directional Index) — trend strength and direction
         df['ADX'], df['+DI'], df['-DI'] = self._adx(df, int(params['ADX_PERIOD']))
 
+        # BB (Bollinger Band) width — volatility compression vs expansion
         bb_win = int(params['BB_WINDOW'])
         ma  = df['close'].rolling(bb_win).mean()
         std = df['close'].rolling(bb_win).std()
         df['BB_width'] = (params['BB_STD'] * std) / ma.replace(0, np.nan)
 
-        # Fast BB_width percentile using numpy
+        # BB width percentile — relative position within rolling volatility history (fast numpy version)
         bb_vals = df['BB_width'].values
         pctile_win = int(params['BB_PERCENTILE_WINDOW'])
         pctile = np.full(len(bb_vals), np.nan)
@@ -804,6 +896,7 @@ class MinerviniClaude:
                 pctile[i] = np.sum(valid <= valid[-1]) / len(valid)
         df['BB_width_pctile'] = pctile
 
+        # FVP (Fair Value Price) — statistical center for mean-reversion in expansion phase
         df['FVP'] = df['close'].rolling(int(params['FVP_WINDOW'])).mean()
         df.dropna(inplace=True)
         return df
@@ -904,6 +997,11 @@ class MinerviniClaude:
             stats_max_concurrent = 0
 
             total_profit = 0.0
+
+            # Mejora 1: Optimal TP range as % of cash_4_position (currency-independent)
+            # Replaces the old absolute USD range that ignored EUR/GBP/JPY differences
+            optimal_tp_min = cash_4_position * getattr(cm, 'OPTIMAL_TP_RATIO_MIN', 0.0035)
+            optimal_tp_max = cash_4_position * getattr(cm, 'OPTIMAL_TP_RATIO_MAX', 0.0046)
 
             for i in range(n - lookahead - 2):
                 sig = signals[i]
@@ -1028,13 +1126,10 @@ class MinerviniClaude:
                         tp_profit *= 1.20
                         stats_tp_fast += 1
 
-                    # Reward TPs in the optimal profit zone [OPTIMAL_TP_MIN, OPTIMAL_TP_MAX] USD
-                    # Inside zone: 2.5x multiplier
-                    # Outside zone: 0.3x penalty (considerable reduction)
-                    if cm.OPTIMAL_TP_MIN <= tp_profit <= cm.OPTIMAL_TP_MAX:
-                        tp_profit *= 2.5
-                    else:
-                        tp_profit *= 0.3
+                    # Mejora 2: Gaussian reward — smooth bell curve centered on optimal range
+                    # Replaces the old binary step function (2.5x/0.3x) that had a harsh
+                    # 8.33:1 discontinuity at the range boundaries
+                    tp_profit *= self._tp_reward_gaussian(tp_profit, optimal_tp_min, optimal_tp_max)
 
                     total_profit += tp_profit
                     close_bar = entry_idx + 1 + tp_first
@@ -1070,6 +1165,10 @@ class MinerviniClaude:
                     stats_forced_close += 1
                 else:
                     # Expired (no TP, no SL, no timeout, no forced close in window)
+                    # Mejora 3: Penalize expired trades — wasted position slot = opportunity cost
+                    # Uses actual round_trip_cost of this trade × configurable factor
+                    expired_penalty_factor = getattr(cm, 'EXPIRED_PENALTY_FACTOR', 0.5)
+                    total_profit -= round_trip_cost * expired_penalty_factor
                     close_bar = end
                     stats_expired += 1
 
@@ -1084,9 +1183,13 @@ class MinerviniClaude:
                     if len(active_positions) > stats_max_concurrent:
                         stats_max_concurrent = len(active_positions)
 
-            # Trade frequency scoring: reward ~4 trades/day, penalize deviation
+            # Mejora 4: Dynamic trades/day target adapted per security
+            # Stocks with higher signal density get a higher acceptable frequency,
+            # so high-signal securities (e.g. MARA 9.5/day) are not penalized unfairly
             trades_opened = stats_tp + stats_sl + stats_expired + stats_forced_close + stats_exit_timeout
             num_trading_days = 1
+            trades_per_day = 0.0
+            dynamic_target = 0.0
             if use_trading_hours and trades_opened > 0:
                 # Count unique trading days in the simulation window
                 trading_days = set()
@@ -1097,9 +1200,19 @@ class MinerviniClaude:
                         trading_days.add(bar_local.date())
                 num_trading_days = max(len(trading_days), 1)
                 trades_per_day = trades_opened / num_trading_days
-                target_trades_per_day = 4.0
+
+                # Dynamic target: derive from this security's signal density
+                # eligible = signals that passed trading-hours filter (before margin/position checks)
+                eligible_per_day = max((stats_signals - stats_skip_hours) / num_trading_days, 1.0)
+                # FREQ_SIGNAL_CONVERSION = expected % of eligible signals → actual trades
+                # (limited by position_open blocking, margin filter, exposure limits)
+                freq_conv = getattr(cm, 'FREQ_SIGNAL_CONVERSION', 0.04)
+                freq_min = getattr(cm, 'FREQ_TARGET_MIN', 3.0)
+                freq_max = getattr(cm, 'FREQ_TARGET_MAX', 12.0)
+                dynamic_target = min(max(eligible_per_day * freq_conv, freq_min), freq_max)
+
                 # Gaussian-like multiplier: 1.0 at target, decays as deviation increases
-                freq_deviation = abs(trades_per_day - target_trades_per_day) / target_trades_per_day
+                freq_deviation = abs(trades_per_day - dynamic_target) / dynamic_target
                 freq_multiplier = max(0.5, 1.0 - 0.25 * freq_deviation)
                 total_profit *= freq_multiplier
 
@@ -1113,7 +1226,8 @@ class MinerviniClaude:
                     f"trades={trades_opened} TP={stats_tp} TP_fast={stats_tp_fast} SL={stats_sl} "
                     f"exit_timeout={stats_exit_timeout} forced_close={stats_forced_close} expired={stats_expired} "
                     f"max_concurrent={stats_max_concurrent} "
-                    f"trades/day={trades_opened / num_trading_days:.1f} "
+                    f"trades/day={trades_per_day:.1f} freq_target={dynamic_target:.1f} "
+                    f"optimal_tp=[{optimal_tp_min:.1f},{optimal_tp_max:.1f}] "
                     f"profit={total_profit:.2f}"
                 )
 
@@ -1126,7 +1240,14 @@ class MinerviniClaude:
 
 
     def _volume_context(self, df):
+        """Analyze volume patterns on the latest bar for signal scoring.
 
+        Detects six Wyckoff-inspired contexts: healthy (price-volume alignment),
+        absorption (high volume, small body), trust (big body + big volume),
+        divergence (price up, volume down), stopping_volume (exhaustion),
+        buying_climax (overextended breakout), and no_supply (pullback on low volume).
+        Returns dict of bool flags.
+        """
         p = self.params
         latest = df.iloc[-1]
 
