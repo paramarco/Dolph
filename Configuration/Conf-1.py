@@ -167,6 +167,12 @@ def _sec_hk(code, decimals=2,
 
 securities = [
     # ==================== AMERICAS - NASDAQ (14 securities) ====================
+    _sec('HOOD'),                 # Robinhood      - fintech/trading, volatile, range 3-5%
+    _sec('SMCI'),                 # Super Micro    - AI servers, extreme volatility, range 4-8%
+    _sec('DKNG'),                 # DraftKings     - sports betting, volatile, range 2-4%
+    _sec('MSTR'),                 # MicroStrategy  - bitcoin treasury, extreme volatility, range 4-8%
+    _sec('AMZN'),                 # Amazon         - e-commerce/cloud, liquid, range 1.5-2.5%
+    _sec('MSFT'),                 # Microsoft      - tech megacap, liquid, range 1-2%
     _sec('TSLA'),                 # Tesla          - EV/energy, very volatile, range 2-4%
     _sec('AMD'),                  # AMD            - semiconductor, high beta ~1.7, range 2-3%
     _sec('AAPL'),                 # Apple          - tech megacap, liquid, range 1-2%
@@ -175,12 +181,7 @@ securities = [
     _sec('SOFI'),                 # SoFi           - fintech, high beta ~1.8, range 3-5%
     _sec('MARA'),                 # MARA Holdings  - bitcoin mining, extreme volatility, range 4-8%
     _sec('RIVN'),                 # Rivian         - EV startup, volatile, range 3-5%
-    _sec('HOOD'),                 # Robinhood      - fintech/trading, volatile, range 3-5%
-    _sec('SMCI'),                 # Super Micro    - AI servers, extreme volatility, range 4-8%
-    _sec('DKNG'),                 # DraftKings     - sports betting, volatile, range 2-4%
-    _sec('MSTR'),                 # MicroStrategy  - bitcoin treasury, extreme volatility, range 4-8%
-    _sec('AMZN'),                 # Amazon         - e-commerce/cloud, liquid, range 1.5-2.5%
-    _sec('MSFT'),                 # Microsoft      - tech megacap, liquid, range 1-2%
+
     # ==================== EUROPE (12 securities) ====================
     # # Germany - XETRA
     # _sec_eu('RHM'),             # Rheinmetall    - defense, high beta ~1.5, range 2-3%

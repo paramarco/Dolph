@@ -182,12 +182,6 @@ securities = [
     # _sec('AMZN'),               # Amazon         - e-commerce/cloud, liquid, range 1.5-2.5%
     # _sec('MSFT'),               # Microsoft      - tech megacap, liquid, range 1-2%
     # ==================== EUROPE (12 securities) ====================
-    # Germany - XETRA
-    _sec_eu('RHM'),               # Rheinmetall    - defense, high beta ~1.5, range 2-3%
-    _sec_eu('SBX'),               # Stabilus       - industrial, moderate volatility, range 1.5-2.5%
-    _sec_eu('IFX'),               # Infineon       - semiconductor, beta 1.83, range 2-3%
-    _sec_eu('DBK'),               # Deutsche Bank  - banking, beta 1.46, range 1.5-2.5%
-    _sec_eu('ENR'),               # Siemens Energy - energy, beta 1.60-1.81, range 2-3%
     # Spain - BME
     _sec_eu('BBVA', market='BME', timezone='Europe/Madrid', primary_exchange='BM'),    # BBVA           - banking, beta 1.25, range 1.5-2.5%
     _sec_eu('SAN', market='BME', timezone='Europe/Madrid', primary_exchange='BM'),     # Santander      - banking, beta 1.20, range 1.5-2.5%
@@ -202,6 +196,13 @@ securities = [
             primary_exchange='LSE',
             trading_times=(dt.time(9, 46), dt.time(14, 40)),
             time2close=dt.time(14, 45)),  # Barclays       - banking, beta 1.98, range 2-3%
+    # Germany - XETRA
+    _sec_eu('RHM'),               # Rheinmetall    - defense, high beta ~1.5, range 2-3%
+    _sec_eu('SBX'),               # Stabilus       - industrial, moderate volatility, range 1.5-2.5%
+    _sec_eu('IFX'),               # Infineon       - semiconductor, beta 1.83, range 2-3%
+    _sec_eu('DBK'),               # Deutsche Bank  - banking, beta 1.46, range 1.5-2.5%
+    _sec_eu('ENR'),               # Siemens Energy - energy, beta 1.60-1.81, range 2-3%
+
     # ==================== JAPAN - TSE (6 securities) ====================
     # _sec_jp('9984'),             # SoftBank Group  - tech/investment, beta ~1.5, range 2-3%
     # _sec_jp('8035'),             # Tokyo Electron  - semiconductor equip, very volatile, range 2-4%
