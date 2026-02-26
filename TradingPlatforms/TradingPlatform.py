@@ -564,11 +564,14 @@ class TradingPlatform(ABC):
     
     
     def getExpDate(self, seccode):
-        """common"""
+        """common — uses per-security entryTimeSeconds if available."""
         tradingPlatformTime = self.getTradingPlatformTime()
-        plusNsec = datetime.timedelta( seconds=cm.entryTimeSeconds)
+        default_entry_timeout = getattr(cm, 'entryTimeSeconds', 3600)
+        sec = next((s for s in self.securities if s['seccode'] == seccode), {})
+        entry_timeout = sec.get('params', {}).get('entryTimeSeconds', default_entry_timeout)
+        plusNsec = datetime.timedelta(seconds=entry_timeout)
         tradingPlatformTime_plusNsec = tradingPlatformTime + plusNsec
-        
+
         return tradingPlatformTime_plusNsec
     
     

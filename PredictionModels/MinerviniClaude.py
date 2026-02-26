@@ -22,7 +22,7 @@ class MinerviniClaude:
     # Params excluded from optimization (non-numeric or meta-calibration)
     _EXCLUDE_PARAMS = frozenset({
         'algorithm', 'entryByMarket', 'period',
-        'exitTimeSeconds', 'entryTimeSeconds', 'minNumPastSamples',
+        'exitTimeSeconds', 'minNumPastSamples',
         'CALIBRATION_LOOKBACK_DAYS', 'CALIBRATION_LIMIT_RESULTS',
         'CALIBRATION_MIN_ROWS', 'CALIBRATION_MARGIN_MIN',
         'CALIBRATION_MARGIN_MAX', 'CALIBRATION_MARGIN_STEPS',
@@ -975,6 +975,11 @@ class MinerviniClaude:
                 'exitTimeSeconds', getattr(cm, 'exitTimeSeconds', 11400))
             exit_timeout_bars = int(exit_time_seconds / 60)
 
+            # entryTimeSeconds -> bars for fill simulation
+            entry_time_seconds = int(params.get(
+                'entryTimeSeconds', getattr(cm, 'entryTimeSeconds', 360)))
+            entry_timeout_bars = max(1, entry_time_seconds // 60)
+
             # Exposure and position tracking for TEST_OFFLINE
             track_constraints = (cm.MODE == 'TEST_OFFLINE')
             active_positions = []  # each: {'dir': 1/-1, 'exposure': float, 'close_bar': int}
@@ -988,6 +993,7 @@ class MinerviniClaude:
             stats_skip_margin = 0
             stats_skip_position_open = 0
             stats_skip_exposure = 0
+            stats_entry_expired = 0  # entry LMT order didn't fill within entryTimeSeconds
             stats_tp = 0
             stats_tp_fast = 0  # TP hit in < half exitTimeSeconds
             stats_sl = 0
@@ -1031,9 +1037,34 @@ class MinerviniClaude:
                         stats_skip_hours += 1
                         continue
 
-                # Entry at bar i+2 (n+1)
-                entry_idx   = i + 2
-                entry_price = closes[entry_idx]
+                # Entry fill simulation: LMT order at closes[i+2], search
+                # entry_timeout_bars for the price to cross the limit.
+                # BUY LMT fills when low <= limit; SELL LMT fills when high >= limit.
+                limit_bar = i + 2
+                if limit_bar >= n:
+                    continue
+                limit_price = closes[limit_bar]
+                fill_end = min(limit_bar + entry_timeout_bars, n)
+                entry_idx = -1
+                for fb in range(limit_bar, fill_end):
+                    if sig == 1 and lows[fb] <= limit_price:
+                        entry_idx = fb
+                        break
+                    elif sig == -1 and highs[fb] >= limit_price:
+                        entry_idx = fb
+                        break
+                if entry_idx < 0:
+                    # Entry order expired — didn't fill within entryTimeSeconds
+                    stats_entry_expired += 1
+                    expired_penalty_factor = getattr(cm, 'EXPIRED_PENALTY_FACTOR', 0.5)
+                    # Estimate round_trip_cost for penalty using limit_price
+                    est_qty = round(cash_4_position / limit_price)
+                    if est_qty > 0:
+                        est_rtc = max(1.0, est_qty * 0.005) * 2
+                        total_profit -= est_rtc * expired_penalty_factor
+                    continue
+
+                entry_price = limit_price  # filled at our limit price
                 m_abs       = entry_price * margin_factor[i]
                 quantity    = round(cash_4_position / entry_price)
                 if quantity <= 0:
@@ -1187,6 +1218,7 @@ class MinerviniClaude:
             # Stocks with higher signal density get a higher acceptable frequency,
             # so high-signal securities (e.g. MARA 9.5/day) are not penalized unfairly
             trades_opened = stats_tp + stats_sl + stats_expired + stats_forced_close + stats_exit_timeout
+            total_signals_attempted = trades_opened + stats_entry_expired
             num_trading_days = 1
             trades_per_day = 0.0
             dynamic_target = 0.0
@@ -1222,7 +1254,8 @@ class MinerviniClaude:
                     f"seccode={self.seccode} simulation: "
                     f"signals={stats_signals} skip_hours={stats_skip_hours} "
                     f"skip_margin={stats_skip_margin} "
-                    f"skip_position_open={stats_skip_position_open} skip_exposure={stats_skip_exposure} | "
+                    f"skip_position_open={stats_skip_position_open} skip_exposure={stats_skip_exposure} "
+                    f"entry_expired={stats_entry_expired} | "
                     f"trades={trades_opened} TP={stats_tp} TP_fast={stats_tp_fast} SL={stats_sl} "
                     f"exit_timeout={stats_exit_timeout} forced_close={stats_forced_close} expired={stats_expired} "
                     f"max_concurrent={stats_max_concurrent} "
