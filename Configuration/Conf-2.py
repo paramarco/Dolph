@@ -102,8 +102,8 @@ def _sec(code, decimals=2, timezone='America/New_York', currency='USD',
 
 def _sec_eu(code, decimals=2, market='XETRA', timezone='Europe/Berlin',
             currency='EUR', exchange='SMART', primary_exchange='IBIS',
-            trading_times=(dt.time(9, 46), dt.time(15, 40)),
-            time2close=dt.time(15, 45)):
+            trading_times=(dt.time(9, 16), dt.time(15, 30)),
+            time2close=dt.time(15, 38)):
     return {
         'seccode': code,
         'board': 'EQTY',
