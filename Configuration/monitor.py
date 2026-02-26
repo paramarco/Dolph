@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Monitor Instance 5 trading activity from log file.
 
-Parses the operational log to track entries, exits (TP/SL), expired entries,
-and balance snapshots. Uses multiple lookup strategies to resolve seccode
-and TP/SL type from exit order fill events.
+Single-pass parser that incrementally builds lookup maps to avoid
+counting startup/restore artifacts as real exits. Uses the last
+reportCurrentOpenPositions block as ground truth for open positions.
 
 Usage: python3 monitor.py [logfile]
 Default logfile: /home/dolph_user/data/5/Dolph/log/Dolph.log
@@ -17,103 +17,99 @@ log_file = sys.argv[1] if len(sys.argv) > 1 else '/home/dolph_user/data/5/Dolph/
 with open(log_file) as f:
     lines = f.readlines()
 
-# ---------------------------------------------------------------------------
-# Phase 1: Build lookup maps from entire log (single pass)
-# ---------------------------------------------------------------------------
-
-# Map A: exit_tp_id/exit_sl_id → (seccode, 'TP'/'SL') from position reports
-# e.g. exit_tp_id=9800 → ('BBVA', 'TP'), exit_sl_id=9801 → ('BBVA', 'SL')
-exit_id_map = {}
-
-# Map B: entry_id → seccode from position reports (works even when exit IDs are None)
-entry_seccode = {}
-
-# Map C: IB buy-side order id → (symbol, 'TP'/'SL') from OrderIB lines
-# type=LMT on buy-side = TP exit, type=STP on buy-side = SL exit
-ib_exit_map = {}
-
-# Map D: entry_id → IB TP order id from triggerExitOrder
-# "Exit order <entry_id> successfully in IB OrderId: <ib_tp_id>"
-entry_to_ib_tp = {}
-
-for line in lines:
-    # Position reports with numeric exit IDs
-    m = re.search(
-        r'seccode=(\w+).*entry_id=(\d+).*exit_tp_id=(\d+) exit_sl_id=(\d+)', line
-    )
-    if m:
-        sec = m.group(1)
-        entry_seccode[m.group(2)] = sec
-        exit_id_map[m.group(3)] = (sec, 'TP')
-        exit_id_map[m.group(4)] = (sec, 'SL')
-        continue
-
-    # Position reports with entry_id but exit IDs may be None
-    m = re.search(r'seccode=(\w+).*entry_id=(\d+)', line)
-    if m:
-        entry_seccode[m.group(2)] = m.group(1)
-
-    # OrderIB buy-side exit orders (TP = LMT, SL = STP)
-    m = re.search(r'OrderIB\(id=(\d+), symbol=(\w+), side=buy, type=(LMT|STP)', line)
-    if m:
-        kind = 'TP' if m.group(3) == 'LMT' else 'SL'
-        ib_exit_map[m.group(1)] = (m.group(2), kind)
-
-    # triggerExitOrder: entry_id → IB exit order ID (logs the TP order)
-    m = re.search(r'Exit order (\d+) successfully in IB OrderId: (\d+)', line)
-    if m:
-        entry_to_ib_tp[m.group(1)] = m.group(2)
+# --- Incrementally built lookup maps (populated during single pass) ---
+exit_id_map = {}      # exit_tp_id/sl_id → (seccode, 'TP'/'SL')
+entry_seccode = {}    # entry_id → seccode
+ib_exit_map = {}      # ib_order_id → (symbol, 'TP'/'SL')
+entry_to_ib_tp = {}   # entry_id → ib_tp_order_id
 
 
-def _resolve_exit(oid_val):
+def resolve_exit(oid_val):
     """Resolve seccode and TP/SL type for a filled exit order ID.
 
-    Tries multiple lookup strategies:
+    Tries multiple strategies using the incrementally built maps:
     1. Direct match on exit_tp_id/exit_sl_id from position reports
     2. Match on IB order type (LMT=TP, STP=SL)
     3. Match on entry_id → seccode (with TP/SL inferred from IB order map)
     Returns (seccode, 'TP'/'SL') or None.
     """
-    # Strategy 1: exact exit_tp_id / exit_sl_id match
     info = exit_id_map.get(oid_val)
     if info:
         return info
-
-    # Strategy 2: IB order type match (buy LMT=TP, buy STP=SL)
     info = ib_exit_map.get(oid_val)
     if info:
         return info
-
-    # Strategy 3: the filled ID is the entry_id
     sec = entry_seccode.get(oid_val)
     if sec:
-        # Try to determine TP vs SL via the IB exit order map
         ib_tp_id = entry_to_ib_tp.get(oid_val)
         if ib_tp_id:
             tp_info = ib_exit_map.get(ib_tp_id)
             if tp_info:
                 return (sec, tp_info[1])
         return (sec, 'TP')  # default to TP when type is unknown
-
     return None
 
 
-# ---------------------------------------------------------------------------
-# Phase 2: Process trading events (single pass)
-# ---------------------------------------------------------------------------
+# --- Event counters ---
 entries = tp_count = sl_count = expired_entries = 0
-last_entry_sec = ''
-last_tp_sec = ''
-last_sl_sec = ''
-open_positions = {}   # entry_id → seccode (track currently open positions)
+last_entry_sec = last_tp_sec = last_sl_sec = ''
+first_entry_seen = False
+
+# Position report tracking (ground truth for open positions)
+in_pos_report = False
+report_positions = {}     # positions in the block being parsed
+current_positions = {}    # last fully parsed position report
+
 snapshots = []
+current_ts = ''
 
 for line in lines:
+    # Track latest timestamp for non-timestamped continuation lines
     ts_match = re.match(r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2})', line)
-    if not ts_match:
+    if ts_match:
+        current_ts = ts_match.group(1)[11:16]
+
+    # --- Position report block: "monitored Positions: N" ---
+    if 'monitored Positions:' in line:
+        in_pos_report = True
+        report_positions = {}
         continue
 
-    # Entry: Dolph.takePosition sending a position
+    if in_pos_report:
+        # Position lines start with whitespace + "position="
+        if re.match(r'\s+position=', line):
+            m = re.search(r'seccode=(\w+).*entry_id=(\d+)', line)
+            if m:
+                sec, eid = m.group(1), m.group(2)
+                report_positions[eid] = sec
+                entry_seccode[eid] = sec
+                m2 = re.search(r'exit_tp_id=(\d+) exit_sl_id=(\d+)', line)
+                if m2:
+                    exit_id_map[m2.group(1)] = (sec, 'TP')
+                    exit_id_map[m2.group(2)] = (sec, 'SL')
+            continue
+        else:
+            # Non-position line → end of report block
+            in_pos_report = False
+            current_positions = dict(report_positions)
+            # Fall through to process this line normally
+
+    # --- Build IB exit map from OrderIB buy-side lines ---
+    m = re.search(r'OrderIB\(id=(\d+), symbol=(\w+), side=buy, type=(LMT|STP)', line)
+    if m:
+        kind = 'TP' if m.group(3) == 'LMT' else 'SL'
+        ib_exit_map[m.group(1)] = (m.group(2), kind)
+
+    # --- triggerExitOrder: entry_id → IB TP order id ---
+    m = re.search(r'Exit order (\d+) successfully in IB OrderId: (\d+)', line)
+    if m:
+        entry_to_ib_tp[m.group(1)] = m.group(2)
+
+    # --- Only process timestamped events below ---
+    if not current_ts:
+        continue
+
+    # Entry: takePosition sending a position
     if 'Dolph.takePosition' in line and 'sending a' in line:
         sec_match = re.search(r'seccode:(\w+)', line)
         if sec_match:
@@ -122,10 +118,7 @@ for line in lines:
     # Entry filled
     if 'Order is Filled-Monitored' in line:
         entries += 1
-        eid = re.search(r'exitOrderRequested: (\d+)', line)
-        if eid:
-            sec = entry_seccode.get(eid.group(1), last_entry_sec)
-            open_positions[eid.group(1)] = sec
+        first_entry_seen = True
 
     # Entry cancelled (timed out)
     if 'cancelTimedoutEntries' in line and 'Cancelling Order' in line:
@@ -133,10 +126,12 @@ for line in lines:
 
     # Exit order filled and removed
     if 'exitOrder:' in line and 'Filled' in line and 'deleted' in line:
+        # Skip startup/restore artifacts: exit fills before first real entry
+        if not first_entry_seen:
+            continue
         oid = re.search(r'exitOrder: (\d+)', line)
         if oid:
-            oid_val = oid.group(1)
-            info = _resolve_exit(oid_val)
+            info = resolve_exit(oid.group(1))
             if info:
                 sec, kind = info
                 if kind == 'TP':
@@ -147,20 +142,18 @@ for line in lines:
                     last_sl_sec = sec
             else:
                 tp_count += 1  # complete fallback: unknown exit
-            # Remove from open positions
-            open_positions.pop(oid_val, None)
 
     # Balance snapshot
     bal_match = re.search(r'net_balance=([\d.]+)', line)
     if bal_match:
         snapshots.append((
-            ts_match.group(1)[11:16], entries, tp_count, sl_count,
+            current_ts, entries, tp_count, sl_count,
             bal_match.group(1), last_entry_sec, last_tp_sec, last_sl_sec,
             expired_entries
         ))
 
 # ---------------------------------------------------------------------------
-# Phase 3: Output
+# Output
 # ---------------------------------------------------------------------------
 seen = OrderedDict()
 for s in snapshots:
@@ -172,8 +165,8 @@ for minute, data in seen.items():
     _, e, t, s, b, esec, tsec, ssec, exp = data
     print(f'| {minute} | {e:>8} | {t:>2} | {s:>2} | {exp:>3} | ${b:>10} | {esec:<14} | {tsec:<9} | {ssec:<9} |')
 
-# Current open positions summary
-if open_positions:
-    print(f'\nPosiciones abiertas: {len(open_positions)}')
-    for eid, sec in open_positions.items():
+# Current open positions from last reportCurrentOpenPositions (ground truth)
+if current_positions:
+    print(f'\nPosiciones abiertas: {len(current_positions)}')
+    for eid, sec in current_positions.items():
         print(f'  entry_id={eid}  seccode={sec}')
