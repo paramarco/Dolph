@@ -10,7 +10,7 @@ platform = tps.platform
 _BASE_PARAMS = {
     'algorithm': 'MinerviniClaude',
     'entryByMarket': False,
-    'exitTimeSeconds': 11400,
+    'exitTimeSeconds': 7200,
     'entryTimeSeconds': 360,
     'minNumPastSamples': 51,
     'positionMargin': 0.003,
