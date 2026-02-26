@@ -265,8 +265,8 @@ openaikey = platform['secrets']['openaikey']
 # Calibration Simulation Parameters
 # Used via getattr(cm, 'KEY', default) in MinerviniClaude._simulate_profit()
 # ===================================
-OPTIMAL_TP_RATIO_MIN = 0.003
-OPTIMAL_TP_RATIO_MAX = 0.004
+OPTIMAL_TP_RATIO_MIN = 0.0033
+OPTIMAL_TP_RATIO_MAX = 0.0043
 EXPIRED_PENALTY_FACTOR = 0.5
 FREQ_TARGET_MIN = 3.0
 FREQ_TARGET_MAX = 12.0
