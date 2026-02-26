@@ -515,12 +515,12 @@ class Dolph:
             takePosition = 'no-go'
             entryPrice = stoploss = exitPrice = 0
 
-        # Minimum margin protection: margin must cover at least 3xCosts, aka:
-        # the estimated round-trip transaction cost (commission + slippage)
-        # Uses max(proportional, fixed_floor) so low-priced stocks aren't unfairly blocked
+        # Minimum margin protection: margin must cover at least 3x round-trip cost.
+        # IB US equities: ~$0.005/share commission + ~$0.005/share slippage per side
+        # Round-trip: ~$0.02/share. For non-USD (EU/JP/HK) use proportional floor.
         if takePosition in ['long', 'short']:
-            cost_per_share = max(entryPrice * 0.001, 0.005) + entryPrice * 0.0002
-            min_margin = round(3 * cost_per_share, 4)
+            round_trip_cost = max(0.02, entryPrice * 0.0001)
+            min_margin = round(3 * round_trip_cost, 4)
             if margin < min_margin:
                 self.logger.info(
                     f'seccode:{seccode} margin ${margin:.4f} below min ${min_margin:.4f} '
