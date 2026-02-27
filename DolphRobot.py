@@ -520,7 +520,8 @@ class Dolph:
         # Round-trip: ~$0.02/share. For non-USD (EU/JP/HK) use proportional floor.
         if takePosition in ['long', 'short']:
             round_trip_cost = max(0.02, entryPrice * 0.0001)
-            min_margin = round(3 * round_trip_cost, 4)
+            _margin_mult = getattr(cm, 'MIN_ABS_MARGIN_MULTIPLIER', 1.5)
+            min_margin = round(_margin_mult * round_trip_cost, 4)
             if margin < min_margin:
                 self.logger.info(
                     f'seccode:{seccode} margin ${margin:.4f} below min ${min_margin:.4f} '

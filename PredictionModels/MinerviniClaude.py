@@ -1072,7 +1072,8 @@ class MinerviniClaude:
 
                 # Mirror DolphRobot.evaluatePosition() min_margin check
                 # IB: ~$0.02/share round-trip, proportional floor 0.01% for expensive stocks
-                min_abs_margin = 3 * max(0.02, entry_price * 0.0001)
+                _margin_mult = getattr(cm, 'MIN_ABS_MARGIN_MULTIPLIER', 1.5)
+                min_abs_margin = _margin_mult * max(0.02, entry_price * 0.0001)
                 if m_abs < min_abs_margin:
                     stats_skip_margin += 1
                     continue
