@@ -995,6 +995,7 @@ class MinerviniClaude:
             stats_entry_expired = 0  # entry LMT order didn't fill within entryTimeSeconds
             stats_tp = 0
             stats_tp_fast = 0  # TP hit in < half exitTimeSeconds
+            stats_tp_time_sum = 0  # sum of bars to TP (for avg tracking)
             stats_sl = 0
             stats_expired = 0
             stats_forced_close = 0
@@ -1152,9 +1153,15 @@ class MinerviniClaude:
                 if tp_first <= sl_first and tp_first <= lookahead and tp_first < deadline_bar:
                     # TP hit before any deadline
                     tp_profit = quantity * m_abs - round_trip_cost
+                    # Velocidad TP: recompensa continua exponencial
+                    # tp_speed_ratio: 0.0 = instantáneo, 1.0 = en el timeout
+                    tp_speed_ratio = tp_first / max(exit_timeout_bars, 1)
+                    TP_SPEED_MAX_BONUS = getattr(cm, 'TP_SPEED_MAX_BONUS', 0.50)
+                    TP_SPEED_DECAY = getattr(cm, 'TP_SPEED_DECAY', 3.0)
+                    tp_speed_multiplier = 1.0 + TP_SPEED_MAX_BONUS * np.exp(-TP_SPEED_DECAY * tp_speed_ratio)
+                    tp_profit *= tp_speed_multiplier
+                    stats_tp_time_sum += tp_first
                     if tp_first < half_exit_timeout:
-                        # Fast TP bonus: 20% reward for hitting TP in < half exitTimeSeconds
-                        tp_profit *= 1.20
                         stats_tp_fast += 1
 
                     # Mejora 2: Gaussian reward — smooth bell curve centered on optimal range
@@ -1178,8 +1185,9 @@ class MinerviniClaude:
                         pnl = (close_price - entry_price) * quantity - round_trip_cost
                     else:
                         pnl = (entry_price - close_price) * quantity - round_trip_cost
-                    # Penalty: subtract extra 50% of round_trip_cost for params that cause timeouts
-                    pnl -= round_trip_cost * 0.5
+                    # Penalty: configurable exit timeout penalty (default 1.0×RTC)
+                    EXIT_TIMEOUT_PENALTY = getattr(cm, 'EXIT_TIMEOUT_PENALTY', 1.0)
+                    pnl -= round_trip_cost * EXIT_TIMEOUT_PENALTY
                     total_profit += pnl
                     close_bar = close_idx
                     stats_exit_timeout += 1
@@ -1191,6 +1199,9 @@ class MinerviniClaude:
                         pnl = (close_price - entry_price) * quantity - round_trip_cost
                     else:
                         pnl = (entry_price - close_price) * quantity - round_trip_cost
+                    # Penalty: forced close at market close = failed to reach TP
+                    FORCED_CLOSE_PENALTY = getattr(cm, 'FORCED_CLOSE_PENALTY', 0.75)
+                    pnl -= round_trip_cost * FORCED_CLOSE_PENALTY
                     total_profit += pnl
                     close_bar = close_idx
                     stats_forced_close += 1
@@ -1248,6 +1259,22 @@ class MinerviniClaude:
                 freq_multiplier = max(0.5, 1.0 - 0.25 * freq_deviation)
                 total_profit *= freq_multiplier
 
+            # Multiplicador global de eficiencia TP: premia alta tasa de TPs
+            if trades_opened > 0:
+                tp_ratio = stats_tp / trades_opened
+                TP_EFF_WEIGHT = getattr(cm, 'TP_EFFICIENCY_WEIGHT', 0.30)
+                tp_eff_mult = 1.0 + TP_EFF_WEIGHT * (tp_ratio - 0.5) * 2
+                # 100% TP → ×1.30, 50% TP → ×1.00, 0% TP → ×0.70
+                total_profit *= max(0.5, tp_eff_mult)
+
+            # Multiplicador global de eficiencia de entradas: penaliza entradas expiradas
+            if total_signals_attempted > 0:
+                entry_fill_ratio = trades_opened / total_signals_attempted
+                ENTRY_EFF_WEIGHT = getattr(cm, 'ENTRY_EFFICIENCY_WEIGHT', 0.20)
+                entry_eff_mult = 1.0 - ENTRY_EFF_WEIGHT * (1.0 - entry_fill_ratio)
+                # 100% fill → ×1.00, 50% fill → ×0.90, 0% fill → ×0.80
+                total_profit *= max(0.7, entry_eff_mult)
+
             # DEBUG summary for this simulation run
             if track_constraints:
                 log.debug(
@@ -1257,6 +1284,7 @@ class MinerviniClaude:
                     f"skip_position_open={stats_skip_position_open} skip_exposure={stats_skip_exposure} "
                     f"entry_expired={stats_entry_expired} | "
                     f"trades={trades_opened} TP={stats_tp} TP_fast={stats_tp_fast} SL={stats_sl} "
+                    f"avg_tp_bars={stats_tp_time_sum/max(stats_tp,1):.1f} "
                     f"exit_timeout={stats_exit_timeout} forced_close={stats_forced_close} expired={stats_expired} "
                     f"max_concurrent={stats_max_concurrent} "
                     f"trades/day={trades_per_day:.1f} freq_target={dynamic_target:.1f} "
