@@ -76,6 +76,8 @@ _BASE_PARAMS = {
     # Final Decision Scoring
     'MIN_TOTAL_SCORE': 0.735,
     'MIN_CONFIDENCE': 0.294,
+    # Volume Confirmation Gate (Idea #3)
+    'MIN_RELATIVE_VOLUME': 0.8,
     # Position Management
     'POSITION_COOLDOWN_SECONDS': 300,
 }
@@ -287,3 +289,21 @@ EXPIRED_PENALTY_FACTOR = 0.5
 FREQ_TARGET_MIN = 3.0
 FREQ_TARGET_MAX = 12.0
 FREQ_SIGNAL_CONVERSION = 0.04
+
+# ===================================
+# Ideas #2-#6 Parameters
+# Used via getattr(cm, 'KEY', default) in MinerviniClaude.py
+# ===================================
+# Idea #2: Multi-pass coordinate descent
+MAX_CALIBRATION_PASSES = 2
+MIN_CALIBRATION_IMPROVEMENT = 0.01
+# Idea #3: Volume confirmation gate (module-level fallback)
+MIN_RELATIVE_VOLUME = 0.8
+# Idea #4: Margin dynamic cost floor
+MIN_ABS_MARGIN_MULTIPLIER = 1.5
+# Idea #5: Dynamic signal threshold by phase
+EXPANSION_SCORE_MULT = 1.2
+TREND_SCORE_MULT = 0.9
+# Idea #6: Trailing TP in simulation
+TRAILING_TP_ENABLED = True
+TRAILING_TP_RETRACE = 0.50

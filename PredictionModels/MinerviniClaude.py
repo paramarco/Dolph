@@ -27,7 +27,9 @@ class MinerviniClaude:
         'CALIBRATION_MIN_ROWS', 'CALIBRATION_MARGIN_MIN',
         'CALIBRATION_MARGIN_MAX', 'CALIBRATION_MARGIN_STEPS',
         'CALIBRATION_LOOKAHEAD_BARS', 'BUYING_CLIMAX_COOLDOWN_SECONDS',
-        'POSITION_COOLDOWN_SECONDS'
+        'POSITION_COOLDOWN_SECONDS',
+        'MAX_CALIBRATION_PASSES', 'MIN_CALIBRATION_IMPROVEMENT',
+        'TRAILING_TP_ENABLED'
     })
 
     def __init__(self, data, security, dolph):
@@ -399,6 +401,13 @@ class MinerviniClaude:
         if phase == 'contraction':
             return {'signal': 'no-go', 'confidence': 0.0, 'volume_contexts': []}
 
+        # Volume confirmation gate
+        volume_avg = df['volume'].rolling(p.get('VOLUME_AVG_WINDOW', 4)).mean().iloc[-1]
+        relative_volume = latest['volume'] / volume_avg if volume_avg > 0 else 0
+        MIN_REL_VOL = p.get('MIN_RELATIVE_VOLUME', getattr(cm, 'MIN_RELATIVE_VOLUME', 0.8))
+        if relative_volume < MIN_REL_VOL:
+            return {'signal': 'no-go', 'confidence': 0.0, 'volume_contexts': []}
+
         # ---------------------------------------------------------
         # EXPANSION PHASE
         #   Mean-reversion relative to Fair Value Price (FVP)
@@ -500,10 +509,17 @@ class MinerviniClaude:
 
         confidence = abs(score_diff) / total_score
 
-        # ---- Low energy filter ---- cm.MIN_TOTAL_SCORE = 1.5
-        # Minimum intensity filter. Avoid trades when there is very little total energy.
-        # Floor minimum prevents calibration from over-relaxing this threshold.
-        min_score = max(p['MIN_TOTAL_SCORE'], 0.50)
+        # ---- Low energy filter with dynamic phase threshold (Idea #5) ----
+        base_min_score = max(p['MIN_TOTAL_SCORE'], 0.50)
+        EXPANSION_SCORE_MULT = getattr(cm, 'EXPANSION_SCORE_MULT', 1.2)
+        TREND_SCORE_MULT = getattr(cm, 'TREND_SCORE_MULT', 0.9)
+
+        if phase == 'expansion':
+            min_score = base_min_score * EXPANSION_SCORE_MULT
+        elif phase == 'trend':
+            min_score = base_min_score * TREND_SCORE_MULT
+        else:
+            min_score = base_min_score
         if total_score < min_score:
             return {'signal': 'no-go', 'confidence': 0.0, 'volume_contexts': active_contexts}
 
@@ -632,13 +648,27 @@ class MinerviniClaude:
         # Contraction phase = no-go (wait for breakout)
         contraction_mask = ~expansion_mask & ~trend_mask
         min_conf  = max(params['MIN_CONFIDENCE'], 0.15)
-        min_score = max(params['MIN_TOTAL_SCORE'], 0.50)
+
+        # Dynamic signal threshold by phase (Idea #5)
+        base_min_score = max(params['MIN_TOTAL_SCORE'], 0.50)
+        EXPANSION_SCORE_MULT = getattr(cm, 'EXPANSION_SCORE_MULT', 1.2)
+        TREND_SCORE_MULT = getattr(cm, 'TREND_SCORE_MULT', 0.9)
+
+        min_score_arr = np.full(len(df), base_min_score)
+        min_score_arr[expansion_mask.values] = base_min_score * EXPANSION_SCORE_MULT
+        min_score_arr[trend_mask.values] = base_min_score * TREND_SCORE_MULT
 
         # 0 = no-go, 1 = long, -1 = short
         signals = np.zeros(len(df), dtype=np.int8)
-        valid = (~contraction_mask) & (total_score >= min_score) & (confidence >= min_conf)
+        valid = (~contraction_mask) & (total_score.values >= min_score_arr) & (confidence >= min_conf)
         signals[(valid & (score_diff > 0)).values]  =  1
         signals[(valid & (score_diff < 0)).values]  = -1
+
+        # Volume confirmation gate (Idea #3)
+        volume_avg = df['volume'].rolling(params.get('VOLUME_AVG_WINDOW', 4)).mean()
+        relative_volume = df['volume'] / volume_avg.replace(0, np.nan)
+        MIN_REL_VOL = params.get('MIN_RELATIVE_VOLUME', getattr(cm, 'MIN_RELATIVE_VOLUME', 0.8))
+        signals[relative_volume.values < MIN_REL_VOL] = 0
 
         return signals
 
@@ -689,6 +719,11 @@ class MinerviniClaude:
         else:
             m = p['MARGIN_CONTRACTION_FIXED']           # cm.MARGIN_CONTRACTION_FIXED = 0.0015
 
+        # Dynamic cost floor (Idea #4): ensure margin covers transaction costs
+        _margin_mult = getattr(cm, 'MIN_ABS_MARGIN_MULTIPLIER', 1.5)
+        cost_floor = _margin_mult * max(0.02, close * 0.0001) / close
+        m = max(m, cost_floor)
+
         # Apply computed margin to security parameters
         sec['params']['positionMargin'] = float(m)
 
@@ -709,6 +744,12 @@ class MinerviniClaude:
         trend_clamped = np.clip(trend_raw, params['MARGIN_TREND_MIN'], params['MARGIN_TREND_MAX'])
         trend_idx     = trend_mask.values
         margin_factor[trend_idx] = trend_clamped[trend_idx]
+
+        # Dynamic cost floor: ensure margin covers transaction costs (Idea #4)
+        closes = df['close'].values
+        _margin_mult = getattr(cm, 'MIN_ABS_MARGIN_MULTIPLIER', 1.5)
+        cost_floor = _margin_mult * np.maximum(0.02, closes * 0.0001) / closes
+        margin_factor = np.maximum(margin_factor, cost_floor)
 
         return margin_factor
 
@@ -779,22 +820,34 @@ class MinerviniClaude:
                 if best_value != base_value:
                     log.info(f"{self.seccode}: {param_name}: {base_value} -> {best_value} (score={best_score:.6f})")
 
-            # ---- Phase 2: Non-indicator params (cache indicators, cheaper) ----
+            # ---- Phase 2: Iterative refinement of non-indicator params ----
             cached_df = self._compute_indicators_for_calibration(hist.copy(), best_params)
+            MAX_CALIBRATION_PASSES = getattr(cm, 'MAX_CALIBRATION_PASSES', 2)
+            MIN_CALIBRATION_IMPROVEMENT = getattr(cm, 'MIN_CALIBRATION_IMPROVEMENT', 0.01)
+            prev_score = self._simulate_profit(hist, best_params, indicator_df=cached_df)
 
-            for param_name, base_value in other_group:
-                candidates = self._make_candidates(base_value, 8)
-                best_score = -np.inf
-                best_value = base_value
-                for c in candidates:
-                    best_params[param_name] = c
-                    score = self._simulate_profit(hist, best_params, indicator_df=cached_df)
-                    if score > best_score:
-                        best_score = score
-                        best_value = c
-                best_params[param_name] = best_value
-                if best_value != base_value:
-                    log.info(f"{self.seccode}: {param_name}: {base_value} -> {best_value} (score={best_score:.6f})")
+            for pass_num in range(MAX_CALIBRATION_PASSES):
+                for param_name, _ in other_group:
+                    base_value = best_params[param_name]
+                    candidates = self._make_candidates(base_value, 8)
+                    best_score = -np.inf
+                    best_value = base_value
+                    for c in candidates:
+                        best_params[param_name] = c
+                        score = self._simulate_profit(hist, best_params, indicator_df=cached_df)
+                        if score > best_score:
+                            best_score = score
+                            best_value = c
+                    best_params[param_name] = best_value
+                    if best_value != base_value:
+                        log.info(f"{self.seccode}: pass {pass_num+1} {param_name}: {base_value} -> {best_value} (score={best_score:.6f})")
+
+                current_score = self._simulate_profit(hist, best_params, indicator_df=cached_df)
+                improvement = (current_score - prev_score) / max(abs(prev_score), 1.0)
+                log.info(f"{self.seccode}: calibration pass {pass_num+1} complete, score={current_score:.2f}, improvement={improvement:.2%}")
+                if improvement < MIN_CALIBRATION_IMPROVEMENT:
+                    break
+                prev_score = current_score
 
             # ---- Save optimized params ----
             MinerviniClaude._calibration_cache[self.seccode] = dict(best_params)
@@ -1153,7 +1206,47 @@ class MinerviniClaude:
                 # Determine outcome and close bar
                 if tp_first <= sl_first and tp_first <= lookahead and tp_first < deadline_bar:
                     # TP hit before any deadline
-                    tp_profit = quantity * m_abs - round_trip_cost
+                    standard_tp_profit = quantity * m_abs
+
+                    # Trailing TP (Idea #6): after TP hit, scan forward for excess via trailing stop
+                    TRAILING_TP_ENABLED = getattr(cm, 'TRAILING_TP_ENABLED', True)
+                    TRAILING_TP_RETRACE = getattr(cm, 'TRAILING_TP_RETRACE', 0.50)
+
+                    if TRAILING_TP_ENABLED and (start + tp_first + 1) < min(start + deadline_bar, n):
+                        trail_start = start + tp_first
+                        trail_end = min(start + deadline_bar, n)
+
+                        if sig == 1:  # long
+                            best_high = tp_price
+                            trail_exit_price = None
+                            for tb in range(trail_start, trail_end):
+                                if highs[tb] > best_high:
+                                    best_high = highs[tb]
+                                trail_stop = tp_price + (best_high - tp_price) * (1 - TRAILING_TP_RETRACE)
+                                if lows[tb] <= trail_stop and best_high > tp_price:
+                                    trail_exit_price = trail_stop
+                                    break
+                            if trail_exit_price is None:
+                                trail_exit_price = closes[trail_end - 1]
+                            trailing_profit = (trail_exit_price - entry_price) * quantity
+                        else:  # short
+                            best_low = tp_price
+                            trail_exit_price = None
+                            for tb in range(trail_start, trail_end):
+                                if lows[tb] < best_low:
+                                    best_low = lows[tb]
+                                trail_stop = tp_price - (tp_price - best_low) * (1 - TRAILING_TP_RETRACE)
+                                if highs[tb] >= trail_stop and best_low < tp_price:
+                                    trail_exit_price = trail_stop
+                                    break
+                            if trail_exit_price is None:
+                                trail_exit_price = closes[trail_end - 1]
+                            trailing_profit = (entry_price - trail_exit_price) * quantity
+
+                        tp_profit = max(standard_tp_profit, trailing_profit) - round_trip_cost
+                    else:
+                        tp_profit = standard_tp_profit - round_trip_cost
+
                     # Velocidad TP: recompensa continua exponencial
                     # tp_speed_ratio: 0.0 = instantáneo, 1.0 = en el timeout
                     tp_speed_ratio = tp_first / max(exit_timeout_bars, 1)
