@@ -31,6 +31,12 @@ else
   sleep 7
 fi
 
+# Preserve logs before removing old Dolph directory
+if [ -d "${instance}/Dolph/log" ]; then
+  echo "Preserving logs..."
+  mv ${instance}/Dolph/log ${instance}/Dolph_log_backup
+fi
+
 # Remove the old Dolph directory
 echo "Removing the old Dolph directory..."
 rm -rf ${instance}/Dolph/
@@ -39,7 +45,14 @@ rm -rf ${instance}/Dolph/
 echo "Cloning the Dolph repository from GitHub..."
 git clone https://github.com/paramarco/Dolph.git ${instance}/Dolph
 cd ${instance}/Dolph
-mkdir log
+
+# Restore preserved logs or create empty log directory
+if [ -d "${instance}/Dolph_log_backup" ]; then
+  echo "Restoring logs..."
+  mv ${instance}/Dolph_log_backup ${instance}/Dolph/log
+else
+  mkdir log
+fi
 
 # Replacing TradingPlatfomSettings-$1.py of the container by the TradingPlatfomSettings.py in the instance ...
 echo "Replacing TradingPlatfomSettings-$1.py of the container by the TradingPlatfomSettings.py in the instance ..."
