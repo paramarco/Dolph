@@ -187,38 +187,28 @@ securities = [
     # _sec('AFRM'),               # Affirm         - fintech/BNPL, high beta ~2.5, range 3-5%
     # _sec('PLTR'),               # Palantir       - AI/data analytics, high beta ~2.5, range 3-5%
     # _sec('SHOP', primary_exchange='NYSE'),  # Shopify        - e-commerce platform, beta ~2.0, range 2-4%
-    # ==================== EUROPE (12 securities) ====================
-    # Spain - BME
+    # ==================== EUROPE  ====================
+    _sec_eu('ASML', market='AEB', timezone='Europe/Amsterdam', primary_exchange='AEB'),  # ASML Holding   - semiconductor equip, beta ~1.3, range 2-3%
+    _sec_eu('BNP', market='SBF', timezone='Europe/Paris', primary_exchange='SBF'),       # BNP Paribas    - banking, beta ~1.3, range 1.5-2.5%
+    _sec_eu('CBK'), # Commerzbank    - banking, beta ~1.4, range 2-3%
     _sec_eu('BBVA', market='BME', timezone='Europe/Madrid', primary_exchange='BM'),    # BBVA           - banking, beta 1.25, range 1.5-2.5%
     _sec_eu('SAN', market='BME', timezone='Europe/Madrid', primary_exchange='BM'),     # Santander      - banking, beta 1.20, range 1.5-2.5%
-    # France - Euronext Paris
     _sec_eu('GLE', market='SBF', timezone='Europe/Paris', primary_exchange='SBF'),     # Societe Gen.   - banking, beta 1.39, range 2-3%
-    # _sec_eu('STMPA', market='SBF', timezone='Europe/Paris', primary_exchange='SBF'),   # STMicro        - semiconductor, beta 1.22, range 2-3%
-    # Italy - Borsa Italiana
+    #_sec_eu('STMPA', market='SBF', timezone='Europe/Paris', primary_exchange='SBF'),   # STMicro        - semiconductor, beta 1.22, range 2-3%
     _sec_eu('UCG', market='BVME', timezone='Europe/Rome', primary_exchange='BVME'),    # UniCredit      - banking, beta 1.28, range 2-3%
-    # _sec_eu('STLAM', market='BVME', timezone='Europe/Rome', primary_exchange='BVME'),# Stellantis     - automotive, beta 1.56 (FIXME: IB contract not found)
-    # UK - London Stock Exchange
-    # _sec_eu('BARC', market='LSE', timezone='Europe/London', currency='GBP',
-    #         primary_exchange='LSE',
-    #         trading_times=(dt.time(9, 46), dt.time(14, 40)),
-    #         time2close=dt.time(14, 45)),  # Barclays       - banking, beta 1.98, range 2-3%
-    # Germany - XETRA
-    # _sec_eu('RHM'),             # Rheinmetall    - defense, high beta ~1.5, range 2-3%
+    # _sec_eu('RHM'),               # Rheinmetall    - defense, high beta ~1.5, range 2-3%
     _sec_eu('SBX'),               # Stabilus       - industrial, moderate volatility, range 1.5-2.5%
     _sec_eu('IFX'),               # Infineon       - semiconductor, beta 1.83, range 2-3%
     _sec_eu('DBK'),               # Deutsche Bank  - banking, beta 1.46, range 1.5-2.5%
     _sec_eu('ENR'),               # Siemens Energy - energy, beta 1.60-1.81, range 2-3%
-    # Netherlands - Euronext Amsterdam
-    _sec_eu('ASML', market='AEB', timezone='Europe/Amsterdam', primary_exchange='AEB'),  # ASML Holding   - semiconductor equip, beta ~1.3, range 2-3%
-    # France - Euronext Paris (new)
-    _sec_eu('BNP', market='SBF', timezone='Europe/Paris', primary_exchange='SBF'),       # BNP Paribas    - banking, beta ~1.3, range 1.5-2.5%
-    # Germany - XETRA (new)
-    _sec_eu('CBK'),               # Commerzbank    - banking, beta ~1.4, range 2-3%
-    # UK - London Stock Exchange (new)
     _sec_eu('FLTR', market='LSE', timezone='Europe/London', currency='GBP',
             primary_exchange='LSE',
             trading_times=(dt.time(9, 46), dt.time(14, 40)),
             time2close=dt.time(14, 45)),  # Flutter Entert. - sports betting, beta ~1.3, range 2-3%
+    # _sec_eu('BARC', market='LSE', timezone='Europe/London', currency='GBP',
+    #         primary_exchange='LSE',
+    #         trading_times=(dt.time(9, 46), dt.time(14, 40)),
+    #         time2close=dt.time(14, 45)),  # Barclays       - banking, beta 1.98, range 2-3%
 
     # ==================== JAPAN - TSE (6 securities) ====================
     # _sec_jp('9984'),             # SoftBank Group  - tech/investment, beta ~1.5, range 2-3%

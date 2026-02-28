@@ -168,26 +168,25 @@ def _sec_hk(code, decimals=2,
     }
 
 securities = [
-    # ==================== AMERICAS - NASDAQ (14 securities) ====================
+    # ==================== AMERICAS - NASDAQ  ====================
+    _sec('PENN'),                 # Penn Entertain.- sports betting (ESPN Bet), beta ~2.0, range 3-5%
+    _sec('AFRM'),                 # Affirm         - fintech/BNPL, high beta ~2.5, range 3-5%
+    _sec('PLTR'),                 # Palantir       - AI/data analytics, high beta ~2.5, range 3-5%
+    _sec('SHOP', primary_exchange='NYSE'),  # Shopify        - e-commerce platform, beta ~2.0, range 2-4%
     _sec('HOOD'),                 # Robinhood      - fintech/trading, volatile, range 3-5%
     _sec('SMCI'),                 # Super Micro    - AI servers, extreme volatility, range 4-8%
     _sec('DKNG'),                 # DraftKings     - sports betting, volatile, range 2-4%
     _sec('MSTR'),                 # MicroStrategy  - bitcoin treasury, extreme volatility, range 4-8%
     _sec('AMZN'),                 # Amazon         - e-commerce/cloud, liquid, range 1.5-2.5%
-    _sec('MSFT'),                 # Microsoft      - tech megacap, liquid, range 1-2%
+    #_sec('MSFT'),                 # Microsoft      - tech megacap, liquid, range 1-2%
     _sec('TSLA'),                 # Tesla          - EV/energy, very volatile, range 2-4%
     _sec('AMD'),                  # AMD            - semiconductor, high beta ~1.7, range 2-3%
-    _sec('AAPL'),                 # Apple          - tech megacap, liquid, range 1-2%
+    #_sec('AAPL'),                 # Apple          - tech megacap, liquid, range 1-2%
     _sec('INTC', decimals=3),     # Intel          - semiconductor, moderate volatility, range 1.5-2.5%
     _sec('NVDA'),                 # NVIDIA         - AI/GPU, very volatile, range 2-4%
     _sec('SOFI'),                 # SoFi           - fintech, high beta ~1.8, range 3-5%
     _sec('MARA'),                 # MARA Holdings  - bitcoin mining, extreme volatility, range 4-8%
     _sec('RIVN'),                 # Rivian         - EV startup, volatile, range 3-5%
-    _sec('PENN'),                 # Penn Entertain.- sports betting (ESPN Bet), beta ~2.0, range 3-5%
-    _sec('AFRM'),                 # Affirm         - fintech/BNPL, high beta ~2.5, range 3-5%
-    _sec('PLTR'),                 # Palantir       - AI/data analytics, high beta ~2.5, range 3-5%
-    _sec('SHOP', primary_exchange='NYSE'),  # Shopify        - e-commerce platform, beta ~2.0, range 2-4%
-
     # ==================== EUROPE (12 securities) ====================
     # # Germany - XETRA
     # _sec_eu('RHM'),             # Rheinmetall    - defense, high beta ~1.5, range 2-3%
