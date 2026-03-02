@@ -80,6 +80,11 @@ _BASE_PARAMS = {
     'MIN_RELATIVE_VOLUME': 0.8,
     # Position Management
     'POSITION_COOLDOWN_SECONDS': 300,
+    # Confidence Penalties
+    'NO_VOLUME_CONFIDENCE_PENALTY': 0.40,
+    'MOMENTUM_LOOKBACK': 5,
+    'COUNTER_TREND_THRESHOLD': 0.003,
+    'COUNTER_TREND_FACTOR': 10.0,
 }
 
 def _sec(code, decimals=2, timezone='America/New_York', currency='USD',

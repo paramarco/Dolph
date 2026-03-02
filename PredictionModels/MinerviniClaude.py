@@ -484,7 +484,9 @@ class MinerviniClaude:
             short_score += 0.7
 
         if context['absorption']:
-            short_score += 0.6
+            if latest['close'] < latest['open']:  # bearish candle = distribution
+                short_score += 0.6
+            # bullish candle absorption = ambiguous (possible accumulation), no score
 
         if context['trust']:
             if latest['close'] > latest['open']:
@@ -522,6 +524,32 @@ class MinerviniClaude:
             min_score = base_min_score
         if total_score < min_score:
             return {'signal': 'no-go', 'confidence': 0.0, 'volume_contexts': active_contexts}
+
+        # ---- Volume support penalty ----
+        if score_diff > 0:  # long signal
+            has_vol_support = (context.get('no_supply') or context.get('stopping_volume')
+                               or (context.get('trust') and latest['close'] > latest['open']))
+        else:  # short signal
+            has_vol_support = (context.get('absorption') or context.get('divergence')
+                               or context.get('buying_climax')
+                               or (context.get('trust') and latest['close'] <= latest['open']))
+
+        if not has_vol_support:
+            NO_VOL_PENALTY = p.get('NO_VOLUME_CONFIDENCE_PENALTY', 0.40)
+            confidence *= (1.0 - NO_VOL_PENALTY)
+
+        # ---- Counter-trend price momentum penalty ----
+        MOMENTUM_LOOKBACK = int(p.get('MOMENTUM_LOOKBACK', 5))
+        COUNTER_TREND_THRESHOLD = p.get('COUNTER_TREND_THRESHOLD', 0.003)
+        COUNTER_TREND_FACTOR = p.get('COUNTER_TREND_FACTOR', 10.0)
+
+        if len(df) > MOMENTUM_LOOKBACK + 1:
+            price_change = latest['close'] / df['close'].iloc[-(MOMENTUM_LOOKBACK + 1)] - 1.0
+            is_counter = ((score_diff > 0 and price_change < -COUNTER_TREND_THRESHOLD)
+                       or (score_diff < 0 and price_change > COUNTER_TREND_THRESHOLD))
+            if is_counter:
+                penalty = min(0.7, abs(price_change) * COUNTER_TREND_FACTOR)
+                confidence *= (1.0 - penalty)
 
         # ---- Conflict filter ----  cm.MIN_CONFIDENCE = 0.6
         # Minimum conviction filter. Avoid trades when there is internal conflict.
@@ -595,7 +623,9 @@ class MinerviniClaude:
         price_slope = df['close'].diff(vol_slope_win)
 
         absorption = (rel_volume > params['BIG_VOLUME_THRESHOLD']) & (rel_body < 0.5)
-        short_score[absorption] += 0.6
+        bearish_candle_vol = df['close'] < df['open']
+        short_score[absorption & bearish_candle_vol] += 0.6
+        # bullish absorption = ambiguous, no score contribution
 
         div_lb = int(params['DIVERGENCE_LOOKBACK'])
         divergence = (
@@ -644,6 +674,32 @@ class MinerviniClaude:
         confidence  = pd.Series(0.0, index=df.index)
         nonzero     = total_score > 0
         confidence[nonzero] = abs(score_diff[nonzero]) / total_score[nonzero]
+
+        # ---- Volume support penalty ----
+        long_vol_support = no_supply | stopping_vol | (trust & bullish_candle)
+        short_vol_support = absorption | divergence | buying_climax | (trust & ~bullish_candle)
+
+        no_vol_support = pd.Series(False, index=df.index)
+        no_vol_support[(score_diff > 0) & ~long_vol_support] = True
+        no_vol_support[(score_diff < 0) & ~short_vol_support] = True
+
+        NO_VOL_PENALTY = params.get('NO_VOLUME_CONFIDENCE_PENALTY', 0.40)
+        confidence[no_vol_support] *= (1.0 - NO_VOL_PENALTY)
+
+        # ---- Counter-trend price momentum penalty ----
+        MOMENTUM_LOOKBACK = int(params.get('MOMENTUM_LOOKBACK', 5))
+        COUNTER_TREND_THRESHOLD = params.get('COUNTER_TREND_THRESHOLD', 0.003)
+        COUNTER_TREND_FACTOR = params.get('COUNTER_TREND_FACTOR', 10.0)
+
+        price_change = df['close'] / df['close'].shift(MOMENTUM_LOOKBACK) - 1.0
+        price_change.iloc[:MOMENTUM_LOOKBACK] = 0  # avoid artifacts
+
+        counter_long = (score_diff > 0) & (price_change < -COUNTER_TREND_THRESHOLD)
+        counter_short = (score_diff < 0) & (price_change > COUNTER_TREND_THRESHOLD)
+        counter_mask = counter_long | counter_short
+
+        penalty = (price_change.abs() * COUNTER_TREND_FACTOR).clip(upper=0.7)
+        confidence[counter_mask] *= (1.0 - penalty[counter_mask])
 
         # Contraction phase = no-go (wait for breakout)
         contraction_mask = ~expansion_mask & ~trend_mask
@@ -848,6 +904,12 @@ class MinerviniClaude:
                 if improvement < MIN_CALIBRATION_IMPROVEMENT:
                     break
                 prev_score = current_score
+
+            # ---- Clamp params with hard limits ----
+            MAX_SL_COEFF = getattr(cm, 'MAX_STOP_LOSS_COEFFICIENT', 5)
+            if best_params.get('stopLossCoefficient', 0) > MAX_SL_COEFF:
+                log.info(f"{self.seccode}: clamping stopLossCoefficient {best_params['stopLossCoefficient']} -> {MAX_SL_COEFF}")
+                best_params['stopLossCoefficient'] = MAX_SL_COEFF
 
             # ---- Save optimized params ----
             MinerviniClaude._calibration_cache[self.seccode] = dict(best_params)
