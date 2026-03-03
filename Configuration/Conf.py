@@ -319,3 +319,4 @@ CALIBRATION_MIN_TRADES_PER_DAY = 0.5
 CALIBRATION_FILL_SLIPPAGE = 0.0001
 # Walk-forward: train on first 67%, validate on last 33% (prevents overfitting)
 CALIBRATION_TRAIN_RATIO = 0.67
+CALIBRATION_TEST_WEIGHT = 0.40

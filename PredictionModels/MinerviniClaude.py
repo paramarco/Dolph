@@ -873,12 +873,20 @@ class MinerviniClaude:
                 return
 
             # ---- Walk-forward split: train on first portion, validate on unseen data ----
-            # Prevents overfitting: optimizer never sees test data during parameter search.
+            # Score = weighted blend of train + test. Test weight forces optimizer to
+            # choose params that generalize, not just memorize the train period.
             TRAIN_RATIO = getattr(cm, 'CALIBRATION_TRAIN_RATIO', 0.67)
+            TEST_WEIGHT = getattr(cm, 'CALIBRATION_TEST_WEIGHT', 0.40)
             split_idx = int(len(hist) * TRAIN_RATIO)
             train_df = hist.iloc[:split_idx].copy()
             test_df  = hist.iloc[split_idx:].copy()
-            log.info(f"{self.seccode}: walk-forward split: train={len(train_df)} bars, test={len(test_df)} bars")
+            log.info(f"{self.seccode}: walk-forward split: train={len(train_df)} bars, test={len(test_df)} bars, test_weight={TEST_WEIGHT}")
+
+            def _blended_score(params, train_indicator_df=None, test_indicator_df=None):
+                """Score = (1-w)*train + w*test. Forces generalization."""
+                s_train = self._simulate_profit(train_df, params, indicator_df=train_indicator_df)
+                s_test  = self._simulate_profit(test_df, params, indicator_df=test_indicator_df)
+                return (1.0 - TEST_WEIGHT) * s_train + TEST_WEIGHT * s_test
 
             # Working copy of params to optimize
             best_params = dict(p)
@@ -893,9 +901,9 @@ class MinerviniClaude:
             indicator_group = [(k, v) for k, v in optimizable if k in self._INDICATOR_PARAMS]
             other_group     = [(k, v) for k, v in optimizable if k not in self._INDICATOR_PARAMS]
 
-            # Baseline score (on TRAIN data only)
-            baseline = self._simulate_profit(train_df, best_params)
-            log.info(f"{self.seccode}: calibration baseline profit score={baseline:.6f} (train)")
+            # Baseline score (blended train+test)
+            baseline = _blended_score(best_params)
+            log.info(f"{self.seccode}: calibration baseline score={baseline:.6f} (blended)")
 
             # ---- Phase 1: Indicator params (each step recomputes indicators) ----
             for param_name, base_value in indicator_group:
@@ -904,7 +912,7 @@ class MinerviniClaude:
                 best_value = base_value
                 for c in candidates:
                     best_params[param_name] = c
-                    score = self._simulate_profit(train_df, best_params)
+                    score = _blended_score(best_params)
                     if score > best_score:
                         best_score = score
                         best_value = c
@@ -914,9 +922,10 @@ class MinerviniClaude:
 
             # ---- Phase 2: Iterative refinement of non-indicator params ----
             cached_train_df = self._compute_indicators_for_calibration(train_df.copy(), best_params)
+            cached_test_df  = self._compute_indicators_for_calibration(test_df.copy(), best_params)
             MAX_CALIBRATION_PASSES = getattr(cm, 'MAX_CALIBRATION_PASSES', 2)
             MIN_CALIBRATION_IMPROVEMENT = getattr(cm, 'MIN_CALIBRATION_IMPROVEMENT', 0.01)
-            prev_score = self._simulate_profit(train_df, best_params, indicator_df=cached_train_df)
+            prev_score = _blended_score(best_params, cached_train_df, cached_test_df)
 
             for pass_num in range(MAX_CALIBRATION_PASSES):
                 for param_name, _ in other_group:
@@ -926,7 +935,7 @@ class MinerviniClaude:
                     best_value = base_value
                     for c in candidates:
                         best_params[param_name] = c
-                        score = self._simulate_profit(train_df, best_params, indicator_df=cached_train_df)
+                        score = _blended_score(best_params, cached_train_df, cached_test_df)
                         if score > best_score:
                             best_score = score
                             best_value = c
@@ -934,17 +943,17 @@ class MinerviniClaude:
                     if best_value != base_value:
                         log.info(f"{self.seccode}: pass {pass_num+1} {param_name}: {base_value} -> {best_value} (score={best_score:.6f})")
 
-                current_score = self._simulate_profit(train_df, best_params, indicator_df=cached_train_df)
+                current_score = _blended_score(best_params, cached_train_df, cached_test_df)
                 improvement = (current_score - prev_score) / max(abs(prev_score), 1.0)
-                log.info(f"{self.seccode}: calibration pass {pass_num+1} complete, score={current_score:.2f}, improvement={improvement:.2%} (train)")
+                log.info(f"{self.seccode}: calibration pass {pass_num+1} complete, score={current_score:.2f}, improvement={improvement:.2%} (blended)")
                 if improvement < MIN_CALIBRATION_IMPROVEMENT:
                     break
                 prev_score = current_score
 
-            # ---- Out-of-sample validation on TEST data ----
+            # ---- Final diagnostic: train vs test breakdown ----
             train_score = self._simulate_profit(train_df, best_params)
             test_score  = self._simulate_profit(test_df, best_params)
-            log.info(f"{self.seccode}: walk-forward result: train={train_score:.2f}, test={test_score:.2f}")
+            log.info(f"{self.seccode}: walk-forward result: train={train_score:.2f}, test={test_score:.2f}, ratio={test_score/max(abs(train_score),1.0):.2f}")
 
             # ---- Save optimized params ----
             # Note: stopLossCoefficient is NOT clamped here — stored value (e.g. 8) is used
