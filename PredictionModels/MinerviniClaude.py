@@ -933,13 +933,10 @@ class MinerviniClaude:
                     break
                 prev_score = current_score
 
-            # ---- Clamp params with hard limits ----
-            MAX_SL_COEFF = getattr(cm, 'MAX_STOP_LOSS_COEFFICIENT', 5)
-            if best_params.get('stopLossCoefficient', 0) > MAX_SL_COEFF:
-                log.info(f"{self.seccode}: clamping stopLossCoefficient {best_params['stopLossCoefficient']} -> {MAX_SL_COEFF}")
-                best_params['stopLossCoefficient'] = MAX_SL_COEFF
-
             # ---- Save optimized params ----
+            # Note: stopLossCoefficient is NOT clamped here — stored value (e.g. 8) is used
+            # by OPERATIONAL as-is. The [1.5, 3.0] clamp only applies inside _simulate_profit()
+            # during calibration to enforce realistic RR ratios for parameter search.
             MinerviniClaude._calibration_cache[self.seccode] = dict(best_params)
 
             for k, v in best_params.items():
@@ -1100,7 +1097,12 @@ class MinerviniClaude:
             closes = df['close'].values
             highs  = df['high'].values
             lows   = df['low'].values
-            sl_coeff  = params['stopLossCoefficient']
+            # Clamp SL coefficient to [1.5, 3.0] during calibration for realistic RR ratios.
+            # With coef=5 → RR=1:5 → need >83% win rate (unstable intraday).
+            # With coef=3 → RR=1:3 → need >75%. With coef=1.5 → RR=1:1.5 → need >60%.
+            _MIN_SL_COEFF = getattr(cm, 'MIN_STOP_LOSS_COEFFICIENT', 1.5)
+            _MAX_SL_COEFF = getattr(cm, 'MAX_STOP_LOSS_COEFFICIENT', 3.0)
+            sl_coeff  = max(_MIN_SL_COEFF, min(_MAX_SL_COEFF, params['stopLossCoefficient']))
             lookahead = int(params['CALIBRATION_LOOKAHEAD_BARS'])
             n = len(df)
 
