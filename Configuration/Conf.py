@@ -317,6 +317,7 @@ CALIBRATION_DD_AVERSION = 0.10
 CALIBRATION_MIN_TRADES_PER_DAY = 0.5
 # Conservative fill simulation: require directional cross + slippage
 CALIBRATION_FILL_SLIPPAGE = 0.0001
+CALIBRATION_MAX_VOLUME_PARTICIPATION = 0.10
 # Walk-forward: train on first 67%, validate on last 33% (prevents overfitting)
 CALIBRATION_TRAIN_RATIO = 0.67
 CALIBRATION_TEST_WEIGHT = 0.40

@@ -1116,9 +1116,10 @@ class MinerviniClaude:
                     net_balance = 20000.0
             cash_4_position = net_balance * cm.factorPosition_Balance
 
-            closes = df['close'].values
-            highs  = df['high'].values
-            lows   = df['low'].values
+            closes  = df['close'].values
+            highs   = df['high'].values
+            lows    = df['low'].values
+            volumes = df['volume'].values
             # Clamp SL coefficient to [1.5, 3.0] during calibration for realistic RR ratios.
             # With coef=5 → RR=1:5 → need >83% win rate (unstable intraday).
             # With coef=3 → RR=1:3 → need >75%. With coef=1.5 → RR=1:1.5 → need >60%.
@@ -1230,15 +1231,27 @@ class MinerviniClaude:
                 # Reserve capital: block new signals while this LMT order is pending
                 pending_until_bar = fill_end
 
+                # Volume participation: order can only fill if candle volume can absorb it.
+                # MAX_PARTICIPATION=0.10 means order cannot exceed 10% of candle volume.
+                # Deterministic (no randomness) so optimizer produces stable scores.
+                MAX_PARTICIPATION = getattr(cm, 'CALIBRATION_MAX_VOLUME_PARTICIPATION', 0.10)
+                est_quantity = round(cash_4_position / limit_price) if limit_price > 0 else 0
+
                 entry_idx = -1
                 for fb in range(limit_bar, fill_end):
                     prev_close = closes[fb - 1] if fb > 0 else closes[fb]
                     if sig == 1 and prev_close > limit_price and lows[fb] <= limit_price:
-                        # BUY LMT: price was above limit, then dropped to it → realistic fill
+                        # BUY LMT: price crossed down to limit — check volume can absorb
+                        bar_vol = volumes[fb]
+                        if bar_vol > 0 and est_quantity > bar_vol * MAX_PARTICIPATION:
+                            continue  # insufficient liquidity, try next bar
                         entry_idx = fb
                         break
                     elif sig == -1 and prev_close < limit_price and highs[fb] >= limit_price:
-                        # SELL LMT: price was below limit, then rose to it → realistic fill
+                        # SELL LMT: price crossed up to limit — check volume can absorb
+                        bar_vol = volumes[fb]
+                        if bar_vol > 0 and est_quantity > bar_vol * MAX_PARTICIPATION:
+                            continue  # insufficient liquidity, try next bar
                         entry_idx = fb
                         break
                 if entry_idx < 0:
