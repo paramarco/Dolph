@@ -75,7 +75,7 @@ _BASE_PARAMS = {
     'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
     # Final Decision Scoring
     'MIN_TOTAL_SCORE': 0.735,
-    'MIN_CONFIDENCE': 0.294,
+    'MIN_CONFIDENCE': 0.8,
     # Volume Confirmation Gate (Idea #3)
     'MIN_RELATIVE_VOLUME': 0.8,
     # Position Management

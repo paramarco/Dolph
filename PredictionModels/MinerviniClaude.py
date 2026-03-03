@@ -29,7 +29,8 @@ class MinerviniClaude:
         'CALIBRATION_LOOKAHEAD_BARS', 'BUYING_CLIMAX_COOLDOWN_SECONDS',
         'POSITION_COOLDOWN_SECONDS',
         'MAX_CALIBRATION_PASSES', 'MIN_CALIBRATION_IMPROVEMENT',
-        'TRAILING_TP_ENABLED'
+        'TRAILING_TP_ENABLED',
+        'MIN_CONFIDENCE'
     })
 
     def __init__(self, data, security, dolph):
@@ -482,6 +483,8 @@ class MinerviniClaude:
 
         if context['divergence']:
             short_score += 0.7
+            long_score -= 0.3  # penalize long: price-volume divergence warns against buying
+            long_score = max(0.0, long_score)
 
         if context['absorption']:
             if latest['close'] < latest['open']:  # bearish candle = distribution
@@ -497,6 +500,12 @@ class MinerviniClaude:
         if context['stopping_volume']:
             long_score += 0.6
 
+        if context['healthy']:
+            if latest['close'] > latest['open']:   # bullish confirmed by volume
+                long_score += 0.3
+            else:                                    # bearish confirmed by volume
+                short_score += 0.3
+
         # =============================
         # FINAL DECISION
         # =============================
@@ -510,6 +519,11 @@ class MinerviniClaude:
             return {'signal': 'no-go', 'confidence': 0.0, 'volume_contexts': active_contexts}
 
         confidence = abs(score_diff) / total_score
+
+        # Scale confidence by signal strength - prevent conf=1.0 on minimal evidence
+        MIN_QUALITY_SCORE = 1.5
+        quality_factor = min(1.0, total_score / MIN_QUALITY_SCORE)
+        confidence *= quality_factor
 
         # ---- Low energy filter with dynamic phase threshold (Idea #5) ----
         base_min_score = max(p['MIN_TOTAL_SCORE'], 0.50)
@@ -554,7 +568,7 @@ class MinerviniClaude:
         # ---- Conflict filter ----  cm.MIN_CONFIDENCE = 0.6
         # Minimum conviction filter. Avoid trades when there is internal conflict.
         # Floor minimum prevents calibration from over-relaxing this threshold.
-        min_conf = max(p['MIN_CONFIDENCE'], 0.15)
+        min_conf = max(p['MIN_CONFIDENCE'], 0.80)
         if confidence < min_conf:
             return {'signal': 'no-go', 'confidence': 0.0, 'volume_contexts': active_contexts}
 
@@ -633,6 +647,8 @@ class MinerviniClaude:
             (df['volume'] < df['volume'].shift(div_lb))
         )
         short_score[divergence] += 0.7
+        long_score[divergence] -= 0.3
+        long_score = long_score.clip(lower=0.0)
 
         no_supply = (price_slope < 0) & (rel_volume < 0.7)
         long_score[no_supply & bullish] += 0.8
@@ -651,6 +667,13 @@ class MinerviniClaude:
             (df['close'] > df['low'] + candle_range * 0.3)
         )
         long_score[stopping_vol] += 0.6
+
+        healthy = (
+            ((price_slope > 0) & (df['volume'].diff(vol_slope_win) > 0)) |
+            ((price_slope < 0) & (df['volume'].diff(vol_slope_win) < 0))
+        )
+        long_score[healthy & bullish_candle] += 0.3
+        short_score[healthy & ~bullish_candle] += 0.3
 
         bc_lb       = int(params['BUYING_CLIMAX_LOOKBACK'])
         bc_trend_lb = int(params['BUYING_CLIMAX_TREND_LOOKBACK'])
@@ -674,6 +697,11 @@ class MinerviniClaude:
         confidence  = pd.Series(0.0, index=df.index)
         nonzero     = total_score > 0
         confidence[nonzero] = abs(score_diff[nonzero]) / total_score[nonzero]
+
+        # Scale by signal strength
+        MIN_QUALITY_SCORE = 1.5
+        quality_factor = (total_score / MIN_QUALITY_SCORE).clip(upper=1.0)
+        confidence *= quality_factor
 
         # ---- Volume support penalty ----
         long_vol_support = no_supply | stopping_vol | (trust & bullish_candle)
@@ -703,7 +731,7 @@ class MinerviniClaude:
 
         # Contraction phase = no-go (wait for breakout)
         contraction_mask = ~expansion_mask & ~trend_mask
-        min_conf  = max(params['MIN_CONFIDENCE'], 0.15)
+        min_conf  = max(params['MIN_CONFIDENCE'], 0.80)
 
         # Dynamic signal threshold by phase (Idea #5)
         base_min_score = max(params['MIN_TOTAL_SCORE'], 0.50)
