@@ -302,3 +302,5 @@ TREND_SCORE_MULT = 0.9
 # Idea #6: Trailing TP in simulation
 TRAILING_TP_ENABLED = True
 TRAILING_TP_RETRACE = 0.50
+# SL aversion: proportional penalty on real SL losses during calibration
+CALIBRATION_SL_AVERSION = 0.15

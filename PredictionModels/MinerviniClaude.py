@@ -1143,6 +1143,7 @@ class MinerviniClaude:
             stats_tp_fast = 0  # TP hit in < half exitTimeSeconds
             stats_tp_time_sum = 0  # sum of bars to TP (for avg tracking)
             stats_sl = 0
+            stats_sl_loss = 0.0  # cumulative real SL loss (for proportional penalty)
             stats_expired = 0
             stats_forced_close = 0
             stats_exit_timeout = 0  # closed by exitTimeSeconds timeout
@@ -1359,7 +1360,9 @@ class MinerviniClaude:
                     stats_tp += 1
                 elif sl_first < tp_first and sl_first <= lookahead and sl_first < deadline_bar:
                     # SL hit before any deadline
-                    total_profit -= quantity * sl_coeff * m_abs + round_trip_cost
+                    sl_loss = quantity * sl_coeff * m_abs + round_trip_cost
+                    total_profit -= sl_loss
+                    stats_sl_loss += sl_loss
                     close_bar = entry_idx + 1 + sl_first
                     stats_sl += 1
                 elif exit_timeout_bar <= forced_close_bar and exit_timeout_bar <= lookahead:
@@ -1449,10 +1452,11 @@ class MinerviniClaude:
                     f"profit={total_profit:.2f}"
                 )
 
-            # SL aversion: penalize SL frequency so optimizer prefers fewer, higher-quality entries.
-            # Two strategies with PnL=0 are NOT equal: 2 SL + 2 TP is stable, 20 SL + 20 TP is fragile.
-            SL_PENALTY = getattr(cm, 'CALIBRATION_SL_PENALTY', 10.0)
-            total_profit -= SL_PENALTY * stats_sl
+            # SL aversion: penalize proportional to real SL losses so optimizer prefers
+            # fewer, higher-quality entries. Scales automatically with position size/capital.
+            # alpha=0.15 means each $100 of SL loss costs an extra $15 in the objective.
+            SL_AVERSION_ALPHA = getattr(cm, 'CALIBRATION_SL_AVERSION', 0.15)
+            total_profit -= SL_AVERSION_ALPHA * stats_sl_loss
 
             return total_profit
 
