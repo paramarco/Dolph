@@ -1337,21 +1337,10 @@ class MinerviniClaude:
                     else:
                         tp_profit = standard_tp_profit - round_trip_cost
 
-                    # Velocidad TP: recompensa continua exponencial
-                    # tp_speed_ratio: 0.0 = instantáneo, 1.0 = en el timeout
-                    tp_speed_ratio = tp_first / max(exit_timeout_bars, 1)
-                    TP_SPEED_MAX_BONUS = getattr(cm, 'TP_SPEED_MAX_BONUS', 0.50)
-                    TP_SPEED_DECAY = getattr(cm, 'TP_SPEED_DECAY', 3.0)
-                    tp_speed_multiplier = 1.0 + TP_SPEED_MAX_BONUS * np.exp(-TP_SPEED_DECAY * tp_speed_ratio)
-                    tp_profit *= tp_speed_multiplier
+                    # Stats only (no reward shaping — score = net_profit)
                     stats_tp_time_sum += tp_first
                     if tp_first < half_exit_timeout:
                         stats_tp_fast += 1
-
-                    # Mejora 2: Gaussian reward — smooth bell curve centered on optimal range
-                    # Replaces the old binary step function (2.5x/0.3x) that had a harsh
-                    # 8.33:1 discontinuity at the range boundaries
-                    tp_profit *= self._tp_reward_gaussian(tp_profit, optimal_tp_min, optimal_tp_max)
 
                     total_profit += tp_profit
                     close_bar = entry_idx + 1 + tp_first
@@ -1369,9 +1358,6 @@ class MinerviniClaude:
                         pnl = (close_price - entry_price) * quantity - round_trip_cost
                     else:
                         pnl = (entry_price - close_price) * quantity - round_trip_cost
-                    # Penalty: configurable exit timeout penalty (default 1.0×RTC)
-                    EXIT_TIMEOUT_PENALTY = getattr(cm, 'EXIT_TIMEOUT_PENALTY', 1.0)
-                    pnl -= round_trip_cost * EXIT_TIMEOUT_PENALTY
                     total_profit += pnl
                     close_bar = close_idx
                     stats_exit_timeout += 1
@@ -1383,18 +1369,12 @@ class MinerviniClaude:
                         pnl = (close_price - entry_price) * quantity - round_trip_cost
                     else:
                         pnl = (entry_price - close_price) * quantity - round_trip_cost
-                    # Penalty: forced close at market close = failed to reach TP
-                    FORCED_CLOSE_PENALTY = getattr(cm, 'FORCED_CLOSE_PENALTY', 0.75)
-                    pnl -= round_trip_cost * FORCED_CLOSE_PENALTY
                     total_profit += pnl
                     close_bar = close_idx
                     stats_forced_close += 1
                 else:
                     # Expired (no TP, no SL, no timeout, no forced close in window)
-                    # Mejora 3: Penalize expired trades — wasted position slot = opportunity cost
-                    # Uses actual round_trip_cost of this trade × configurable factor
-                    expired_penalty_factor = getattr(cm, 'EXPIRED_PENALTY_FACTOR', 0.5)
-                    total_profit -= round_trip_cost * expired_penalty_factor
+                    # No artificial penalty — score = net_profit only
                     close_bar = end
                     stats_expired += 1
 
@@ -1438,26 +1418,7 @@ class MinerviniClaude:
                 freq_max = getattr(cm, 'FREQ_TARGET_MAX', 12.0)
                 dynamic_target = min(max(eligible_per_day * freq_conv, freq_min), freq_max)
 
-                # Gaussian-like multiplier: 1.0 at target, decays as deviation increases
-                freq_deviation = abs(trades_per_day - dynamic_target) / dynamic_target
-                freq_multiplier = max(0.5, 1.0 - 0.25 * freq_deviation)
-                total_profit *= freq_multiplier
-
-            # Multiplicador global de eficiencia TP: premia alta tasa de TPs
-            if trades_opened > 0:
-                tp_ratio = stats_tp / trades_opened
-                TP_EFF_WEIGHT = getattr(cm, 'TP_EFFICIENCY_WEIGHT', 0.30)
-                tp_eff_mult = 1.0 + TP_EFF_WEIGHT * (tp_ratio - 0.5) * 2
-                # 100% TP → ×1.30, 50% TP → ×1.00, 0% TP → ×0.70
-                total_profit *= max(0.5, tp_eff_mult)
-
-            # Multiplicador global de eficiencia de entradas: penaliza entradas expiradas
-            if total_signals_attempted > 0:
-                entry_fill_ratio = trades_opened / total_signals_attempted
-                ENTRY_EFF_WEIGHT = getattr(cm, 'ENTRY_EFFICIENCY_WEIGHT', 0.20)
-                entry_eff_mult = 1.0 - ENTRY_EFF_WEIGHT * (1.0 - entry_fill_ratio)
-                # 100% fill → ×1.00, 50% fill → ×0.90, 0% fill → ×0.80
-                total_profit *= max(0.7, entry_eff_mult)
+                # Stats only — no frequency/efficiency multipliers (score = net_profit)
 
             # DEBUG summary for this simulation run
             if track_constraints:
