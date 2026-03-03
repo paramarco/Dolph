@@ -872,6 +872,14 @@ class MinerviniClaude:
                 )
                 return
 
+            # ---- Walk-forward split: train on first portion, validate on unseen data ----
+            # Prevents overfitting: optimizer never sees test data during parameter search.
+            TRAIN_RATIO = getattr(cm, 'CALIBRATION_TRAIN_RATIO', 0.67)
+            split_idx = int(len(hist) * TRAIN_RATIO)
+            train_df = hist.iloc[:split_idx].copy()
+            test_df  = hist.iloc[split_idx:].copy()
+            log.info(f"{self.seccode}: walk-forward split: train={len(train_df)} bars, test={len(test_df)} bars")
+
             # Working copy of params to optimize
             best_params = dict(p)
 
@@ -885,9 +893,9 @@ class MinerviniClaude:
             indicator_group = [(k, v) for k, v in optimizable if k in self._INDICATOR_PARAMS]
             other_group     = [(k, v) for k, v in optimizable if k not in self._INDICATOR_PARAMS]
 
-            # Baseline score
-            baseline = self._simulate_profit(hist, best_params)
-            log.info(f"{self.seccode}: calibration baseline profit score={baseline:.6f}")
+            # Baseline score (on TRAIN data only)
+            baseline = self._simulate_profit(train_df, best_params)
+            log.info(f"{self.seccode}: calibration baseline profit score={baseline:.6f} (train)")
 
             # ---- Phase 1: Indicator params (each step recomputes indicators) ----
             for param_name, base_value in indicator_group:
@@ -896,7 +904,7 @@ class MinerviniClaude:
                 best_value = base_value
                 for c in candidates:
                     best_params[param_name] = c
-                    score = self._simulate_profit(hist, best_params)
+                    score = self._simulate_profit(train_df, best_params)
                     if score > best_score:
                         best_score = score
                         best_value = c
@@ -905,10 +913,10 @@ class MinerviniClaude:
                     log.info(f"{self.seccode}: {param_name}: {base_value} -> {best_value} (score={best_score:.6f})")
 
             # ---- Phase 2: Iterative refinement of non-indicator params ----
-            cached_df = self._compute_indicators_for_calibration(hist.copy(), best_params)
+            cached_train_df = self._compute_indicators_for_calibration(train_df.copy(), best_params)
             MAX_CALIBRATION_PASSES = getattr(cm, 'MAX_CALIBRATION_PASSES', 2)
             MIN_CALIBRATION_IMPROVEMENT = getattr(cm, 'MIN_CALIBRATION_IMPROVEMENT', 0.01)
-            prev_score = self._simulate_profit(hist, best_params, indicator_df=cached_df)
+            prev_score = self._simulate_profit(train_df, best_params, indicator_df=cached_train_df)
 
             for pass_num in range(MAX_CALIBRATION_PASSES):
                 for param_name, _ in other_group:
@@ -918,7 +926,7 @@ class MinerviniClaude:
                     best_value = base_value
                     for c in candidates:
                         best_params[param_name] = c
-                        score = self._simulate_profit(hist, best_params, indicator_df=cached_df)
+                        score = self._simulate_profit(train_df, best_params, indicator_df=cached_train_df)
                         if score > best_score:
                             best_score = score
                             best_value = c
@@ -926,12 +934,17 @@ class MinerviniClaude:
                     if best_value != base_value:
                         log.info(f"{self.seccode}: pass {pass_num+1} {param_name}: {base_value} -> {best_value} (score={best_score:.6f})")
 
-                current_score = self._simulate_profit(hist, best_params, indicator_df=cached_df)
+                current_score = self._simulate_profit(train_df, best_params, indicator_df=cached_train_df)
                 improvement = (current_score - prev_score) / max(abs(prev_score), 1.0)
-                log.info(f"{self.seccode}: calibration pass {pass_num+1} complete, score={current_score:.2f}, improvement={improvement:.2%}")
+                log.info(f"{self.seccode}: calibration pass {pass_num+1} complete, score={current_score:.2f}, improvement={improvement:.2%} (train)")
                 if improvement < MIN_CALIBRATION_IMPROVEMENT:
                     break
                 prev_score = current_score
+
+            # ---- Out-of-sample validation on TEST data ----
+            train_score = self._simulate_profit(train_df, best_params)
+            test_score  = self._simulate_profit(test_df, best_params)
+            log.info(f"{self.seccode}: walk-forward result: train={train_score:.2f}, test={test_score:.2f}")
 
             # ---- Save optimized params ----
             # Note: stopLossCoefficient is NOT clamped here — stored value (e.g. 8) is used
@@ -1150,6 +1163,8 @@ class MinerviniClaude:
             stats_max_concurrent = 0
 
             total_profit = 0.0
+            peak_profit = 0.0   # high-water mark for max drawdown tracking
+            max_drawdown = 0.0  # worst peak-to-trough decline
             pending_until_bar = -1  # bar until which capital is reserved for a pending LMT order
 
             # Mejora 1: Optimal TP range as % of cash_4_position (currency-independent)
@@ -1194,7 +1209,9 @@ class MinerviniClaude:
 
                 # Entry fill simulation: LMT order at closes[i+2], search
                 # entry_timeout_bars for the price to cross the limit.
-                # BUY LMT fills when low <= limit; SELL LMT fills when high >= limit.
+                # Conservative fill: require price to cross FROM the correct direction
+                # (prev bar close must be on opposite side of limit) to avoid fills
+                # that assume favorable intra-candle order with 1-min OHLC data.
                 limit_bar = i + 2
                 if limit_bar >= n:
                     continue
@@ -1206,10 +1223,13 @@ class MinerviniClaude:
 
                 entry_idx = -1
                 for fb in range(limit_bar, fill_end):
-                    if sig == 1 and lows[fb] <= limit_price:
+                    prev_close = closes[fb - 1] if fb > 0 else closes[fb]
+                    if sig == 1 and prev_close > limit_price and lows[fb] <= limit_price:
+                        # BUY LMT: price was above limit, then dropped to it → realistic fill
                         entry_idx = fb
                         break
-                    elif sig == -1 and highs[fb] >= limit_price:
+                    elif sig == -1 and prev_close < limit_price and highs[fb] >= limit_price:
+                        # SELL LMT: price was below limit, then rose to it → realistic fill
                         entry_idx = fb
                         break
                 if entry_idx < 0:
@@ -1218,7 +1238,14 @@ class MinerviniClaude:
                     stats_entry_expired += 1
                     continue
 
-                entry_price = limit_price  # filled at our limit price
+                # Apply slippage: fill slightly worse than limit price.
+                # Prevents backtest from assuming perfect fills at exact limit.
+                # Default 0.01% ≈ $0.01 on $100 stock (half spread for liquid names).
+                FILL_SLIPPAGE = getattr(cm, 'CALIBRATION_FILL_SLIPPAGE', 0.0001)
+                if sig == 1:
+                    entry_price = limit_price * (1.0 + FILL_SLIPPAGE)   # buy slightly higher
+                else:
+                    entry_price = limit_price * (1.0 - FILL_SLIPPAGE)   # sell slightly lower
                 m_abs       = entry_price * margin_factor[i]
                 quantity    = round(cash_4_position / entry_price)
                 if quantity <= 0:
@@ -1393,6 +1420,13 @@ class MinerviniClaude:
                     close_bar = end
                     stats_expired += 1
 
+                # Update max drawdown after each trade outcome
+                if total_profit > peak_profit:
+                    peak_profit = total_profit
+                drawdown = peak_profit - total_profit
+                if drawdown > max_drawdown:
+                    max_drawdown = drawdown
+
                 # Track exposure and position
                 if track_constraints:
                     new_exp = quantity * entry_price
@@ -1457,6 +1491,18 @@ class MinerviniClaude:
             # alpha=0.15 means each $100 of SL loss costs an extra $15 in the objective.
             SL_AVERSION_ALPHA = getattr(cm, 'CALIBRATION_SL_AVERSION', 0.15)
             total_profit -= SL_AVERSION_ALPHA * stats_sl_loss
+
+            # Max drawdown penalty: penalize SL clustering / deep equity curves.
+            # 5 SL in 10 min is worse than 5 SL spread over 3 months even if total loss is equal.
+            # beta=0.10 means $500 max drawdown costs extra $50 in the objective.
+            DD_AVERSION_BETA = getattr(cm, 'CALIBRATION_DD_AVERSION', 0.10)
+            total_profit -= DD_AVERSION_BETA * max_drawdown
+
+            # Min activity: prevent ultra-selective strategies (2 trades in 90 days = luck, not edge).
+            # Scales score linearly when below threshold so optimizer can't game it with 0 trades.
+            MIN_TRADES_PER_DAY = getattr(cm, 'CALIBRATION_MIN_TRADES_PER_DAY', 0.5)
+            if num_trading_days > 0 and trades_per_day < MIN_TRADES_PER_DAY:
+                total_profit *= trades_per_day / MIN_TRADES_PER_DAY
 
             return total_profit
 
