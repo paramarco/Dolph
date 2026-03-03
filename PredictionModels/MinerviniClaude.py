@@ -1136,6 +1136,7 @@ class MinerviniClaude:
             stats_skip_position_open = 0
             stats_skip_exposure = 0
             stats_entry_expired = 0  # entry LMT order didn't fill within entryTimeSeconds
+            stats_blocked_pending = 0  # signal skipped because capital reserved for pending LMT
             stats_tp = 0
             stats_tp_fast = 0  # TP hit in < half exitTimeSeconds
             stats_tp_time_sum = 0  # sum of bars to TP (for avg tracking)
@@ -1164,7 +1165,7 @@ class MinerviniClaude:
                 # Capital is reserved → cannot enter new trades. This is the real
                 # opportunity cost of unfilled orders (no artificial penalty needed).
                 if i < pending_until_bar:
-                    stats_entry_expired += 1
+                    stats_blocked_pending += 1
                     continue
 
                 # Trading hours filter
@@ -1436,7 +1437,7 @@ class MinerviniClaude:
                     f"signals={stats_signals} skip_hours={stats_skip_hours} "
                     f"skip_margin={stats_skip_margin} "
                     f"skip_position_open={stats_skip_position_open} skip_exposure={stats_skip_exposure} "
-                    f"entry_expired={stats_entry_expired} | "
+                    f"entry_expired={stats_entry_expired} blocked_pending={stats_blocked_pending} | "
                     f"trades={trades_opened} TP={stats_tp} TP_fast={stats_tp_fast} SL={stats_sl} "
                     f"avg_tp_bars={stats_tp_time_sum/max(stats_tp,1):.1f} "
                     f"exit_timeout={stats_exit_timeout} forced_close={stats_forced_close} expired={stats_expired} "
