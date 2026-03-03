@@ -1146,6 +1146,7 @@ class MinerviniClaude:
             stats_max_concurrent = 0
 
             total_profit = 0.0
+            pending_until_bar = -1  # bar until which capital is reserved for a pending LMT order
 
             # Mejora 1: Optimal TP range as % of cash_4_position (currency-independent)
             # Replaces the old absolute USD range that ignored EUR/GBP/JPY differences
@@ -1158,6 +1159,13 @@ class MinerviniClaude:
                     continue
 
                 stats_signals += 1
+
+                # Block signals while a pending LMT order is waiting for fill.
+                # Capital is reserved → cannot enter new trades. This is the real
+                # opportunity cost of unfilled orders (no artificial penalty needed).
+                if i < pending_until_bar:
+                    stats_entry_expired += 1
+                    continue
 
                 # Trading hours filter
                 if use_trading_hours:
@@ -1188,6 +1196,10 @@ class MinerviniClaude:
                     continue
                 limit_price = closes[limit_bar]
                 fill_end = min(limit_bar + entry_timeout_bars, n)
+
+                # Reserve capital: block new signals while this LMT order is pending
+                pending_until_bar = fill_end
+
                 entry_idx = -1
                 for fb in range(limit_bar, fill_end):
                     if sig == 1 and lows[fb] <= limit_price:
@@ -1198,13 +1210,8 @@ class MinerviniClaude:
                         break
                 if entry_idx < 0:
                     # Entry order expired — didn't fill within entryTimeSeconds
+                    # No artificial penalty: opportunity cost is organic (blocked signals above)
                     stats_entry_expired += 1
-                    expired_penalty_factor = getattr(cm, 'EXPIRED_PENALTY_FACTOR', 0.5)
-                    # Estimate round_trip_cost for penalty using limit_price
-                    est_qty = round(cash_4_position / limit_price)
-                    if est_qty > 0:
-                        est_rtc = max(1.0, est_qty * 0.005) * 2
-                        total_profit -= est_rtc * expired_penalty_factor
                     continue
 
                 entry_price = limit_price  # filled at our limit price
@@ -1299,7 +1306,9 @@ class MinerviniClaude:
                     standard_tp_profit = quantity * m_abs
 
                     # Trailing TP (Idea #6): after TP hit, scan forward for excess via trailing stop
-                    TRAILING_TP_ENABLED = getattr(cm, 'TRAILING_TP_ENABLED', True)
+                    # Disabled during calibration (TEST_OFFLINE) — optimize base strategy on
+                    # deterministic TP profit; trailing adds variance that destabilises the objective.
+                    TRAILING_TP_ENABLED = getattr(cm, 'TRAILING_TP_ENABLED', True) and cm.MODE == 'OPERATIONAL'
                     TRAILING_TP_RETRACE = getattr(cm, 'TRAILING_TP_RETRACE', 0.50)
 
                     if TRAILING_TP_ENABLED and (start + tp_first + 1) < min(start + deadline_bar, n):
@@ -1436,6 +1445,11 @@ class MinerviniClaude:
                     f"optimal_tp=[{optimal_tp_min:.1f},{optimal_tp_max:.1f}] "
                     f"profit={total_profit:.2f}"
                 )
+
+            # SL aversion: penalize SL frequency so optimizer prefers fewer, higher-quality entries.
+            # Two strategies with PnL=0 are NOT equal: 2 SL + 2 TP is stable, 20 SL + 20 TP is fragile.
+            SL_PENALTY = getattr(cm, 'CALIBRATION_SL_PENALTY', 10.0)
+            total_profit -= SL_PENALTY * stats_sl
 
             return total_profit
 
