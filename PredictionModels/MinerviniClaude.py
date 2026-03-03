@@ -1323,6 +1323,11 @@ class MinerviniClaude:
                 tp_first = tp_hits[0] if len(tp_hits) > 0 else lookahead + 1
                 sl_first = sl_hits[0] if len(sl_hits) > 0 else lookahead + 1
 
+                # Conservative same-bar conflict resolution: with 1-min OHLC we cannot
+                # know if TP or SL was hit first within a candle. Assume worst case (SL).
+                if tp_first == sl_first and tp_first <= lookahead:
+                    tp_first = lookahead + 1  # suppress TP → SL branch will handle it
+
                 # Calculate forced close bar: first bar where time >= time2close
                 forced_close_bar = lookahead + 1  # default: no forced close
                 if use_trading_hours:
