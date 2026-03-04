@@ -65,6 +65,7 @@ def parse_timestamp(line):
 
 def write_report():
     """Write current analysis to report file."""
+    os.makedirs(os.path.dirname(REPORT_FILE), exist_ok=True)
     with open(REPORT_FILE, 'w') as f:
         f.write(f"=== Dolph Instance 5 Signal Analysis ===\n")
         f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
