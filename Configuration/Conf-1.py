@@ -246,7 +246,7 @@ MODE = 'TEST_OFFLINE' # MODE := 'TEST_ONLINE' | TEST_OFFLINE' | 'TRAIN_OFFLINE' 
 periods = ['1Min'] #periods = ['1Min','30Min']
 numDaysHistCandles = 89
 calibrationPauseSeconds = 3600  # 1 hour
-simulation_net_balance = 29000
+simulation_net_balance = 5000
 _tz = pytz.timezone('America/New_York')
 since = _tz.localize(dt.datetime.now() - dt.timedelta(days=numDaysHistCandles))
 until = _tz.localize(dt.datetime.now())
