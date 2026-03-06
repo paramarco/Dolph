@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import pandas as pd
 import numpy as np
+import collections
 import logging
 import datetime as dt
 import pytz
@@ -30,7 +31,8 @@ class MinerviniClaude:
         'POSITION_COOLDOWN_SECONDS',
         'MAX_CALIBRATION_PASSES', 'MIN_CALIBRATION_IMPROVEMENT',
         'TRAILING_TP_ENABLED',
-        'MIN_CONFIDENCE'
+        'MIN_CONFIDENCE',
+        'SIGNAL_STABILITY_REQUIRED'
     })
 
     def __init__(self, data, security, dolph):
@@ -63,6 +65,7 @@ class MinerviniClaude:
         self.security_id = security['id']
         self.params = security['params']
         self.dolph = dolph
+        self._signal_history = collections.deque(maxlen=10)
 
         if cm.MODE == 'OPERATIONAL':
             # Skip calibration, use pre-loaded params from DB (loaded by DolphRobot)
@@ -131,6 +134,28 @@ class MinerviniClaude:
             signal = signal_result['signal']
             confidence = signal_result['confidence']
             volume_contexts = signal_result.get('volume_contexts', [])
+
+            # Signal stability: require N consecutive identical signals before acting
+            p = self.params
+            stability_required = int(p.get('SIGNAL_STABILITY_REQUIRED', 3))
+            self._signal_history.append(signal)
+
+            if signal in ('long', 'short') and len(self._signal_history) >= stability_required:
+                recent = list(self._signal_history)[-stability_required:]
+                if not all(s == signal for s in recent):
+                    log.info(
+                        f"{self.seccode} signal={signal} suppressed: stability check failed "
+                        f"(need {stability_required} consecutive, history={recent})"
+                    )
+                    signal = 'no-go'
+                    confidence = 0.0
+            elif signal in ('long', 'short') and len(self._signal_history) < stability_required:
+                log.info(
+                    f"{self.seccode} signal={signal} suppressed: insufficient history "
+                    f"({len(self._signal_history)}/{stability_required})"
+                )
+                signal = 'no-go'
+                confidence = 0.0
 
             if signal not in ['long', 'short', 'no-go']:
                 log.error(f"{self.seccode}: invalid signal {signal}, forcing no-go")

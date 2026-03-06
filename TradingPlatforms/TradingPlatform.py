@@ -766,6 +766,20 @@ class TradingPlatform(ABC):
                 reason = (f'open {seconds_open/60:.0f}min > {exit_timeout/60:.0f}min, '
                     f'prediction={pred_signal} != position={mp.takePosition}')
 
+            # Condition 4: Signal reversed — close position immediately
+            # Only triggers when prediction is the OPPOSITE direction (not no-go)
+            if not should_close and pred_signal is not None:
+                is_opposite = (
+                    (mp.takePosition == 'long' and pred_signal == 'short') or
+                    (mp.takePosition == 'short' and pred_signal == 'long')
+                )
+                if is_opposite:
+                    should_close = True
+                    reason = (
+                        f'SIGNAL REVERSED: position={mp.takePosition}, '
+                        f'current prediction={pred_signal} — closing immediately'
+                    )
+
             if should_close:
                 meo = next((o for o in self.monitoredExitOrders if o.id == mp.exit_tp_id), None)
                 if meo is not None:
@@ -1677,6 +1691,7 @@ class IB_OrderStatusTask:
 
         self._running = True
         self.tp = tp
+        self._last_orphan_market_check = 0  # epoch timestamp
         log.info('OrderStatusTask Thread initialized...')
 
 
@@ -1719,9 +1734,103 @@ class IB_OrderStatusTask:
             self.tp.cancelTimedoutEntries()
             self.tp.cancelTimedoutExits()
             self.tp.reconcileOrphanedPositions()
+            self._check_positions_with_closed_markets()
 
             # Sleep for 5 seconds before the next poll
             time.sleep(5)
+
+    def _check_positions_with_closed_markets(self):
+        """Check hourly if any IB position has its market closed. If so, switch to TEST_ONLINE."""
+        now = time.time()
+        if now - self._last_orphan_market_check < 3600:
+            return
+        self._last_orphan_market_check = now
+
+        try:
+            ib_positions = self.tp.ib.positions()
+            if not ib_positions:
+                return
+
+            default_tz = 'America/New_York'
+            default_trading_times = getattr(cm, 'tradingTimes', (datetime.time(9, 30), datetime.time(16, 0)))
+
+            alerts = []
+            for pos in ib_positions:
+                if pos.position == 0:
+                    continue
+                seccode = pos.contract.symbol
+                sec = next((s for s in self.tp.securities if s['seccode'] == seccode), None)
+                if sec is None:
+                    continue
+
+                sec_tz = pytz.timezone(sec.get('timezone', default_tz))
+                trading_times = sec.get('tradingTimes', default_trading_times)
+                now_in_sec_tz = datetime.datetime.now(datetime.timezone.utc).astimezone(sec_tz)
+                current_time = now_in_sec_tz.time()
+
+                is_weekend = now_in_sec_tz.weekday() in (calendar.SATURDAY, calendar.SUNDAY)
+                sec_time2close = sec.get('time2close', trading_times[1])
+                close_dt = datetime.datetime.combine(now_in_sec_tz.date(), sec_time2close) + datetime.timedelta(minutes=3)
+                market_end = close_dt.time()
+                is_outside_hours = not (trading_times[0] <= current_time <= market_end)
+
+                if is_weekend or is_outside_hours:
+                    direction = "LONG" if pos.position > 0 else "SHORT"
+                    alerts.append(
+                        f"{seccode}: {direction} {abs(pos.position)} shares, "
+                        f"market closed ({current_time} in {sec.get('timezone', default_tz)})"
+                    )
+
+            if alerts:
+                cm.MODE = 'TEST_ONLINE'
+                alert_msg = (
+                    "\n" + "=" * 80 + "\n"
+                    "CRITICAL: POSITIONS WITH CLOSED MARKETS DETECTED!\n"
+                    "MODE changed to TEST_ONLINE — NO NEW TRADES WILL BE SENT\n"
+                    "Manual intervention required to normalize.\n"
+                    + "=" * 80 + "\n"
+                    + "\n".join(alerts) + "\n"
+                    + "=" * 80
+                )
+                log.error(alert_msg)
+                self._send_orphan_alert_email(alerts)
+
+        except Exception as e:
+            log.error(f"Failed to check positions with closed markets: {e}")
+
+    def _send_orphan_alert_email(self, alerts):
+        """Send email alert when positions with closed markets are detected."""
+        try:
+            import smtplib
+            from email.mime.text import MIMEText
+            from email.mime.multipart import MIMEMultipart
+
+            from_email = cm.platform['secrets']['from_email']
+            from_password = cm.platform['secrets']['from_password']
+            to_emails = cm.platform['secrets']['to_emails']
+
+            subject = "DOLPH ALERT: Positions with closed markets detected"
+            body = (
+                "CRITICAL: Dolph detected open positions in IB with their markets closed.\n"
+                "MODE has been changed to TEST_ONLINE — no new trades will be sent.\n\n"
+                "Affected positions:\n" + "\n".join(f"  - {a}" for a in alerts) +
+                "\n\nManual intervention required to normalize the situation."
+            )
+
+            msg = MIMEMultipart()
+            msg['From'] = from_email
+            msg['To'] = ", ".join(to_emails)
+            msg['Subject'] = subject
+            msg.attach(MIMEText(body, 'plain'))
+
+            server = smtplib.SMTP('instaltic-com.correoseguro.dinaserver.com', 587)
+            server.starttls()
+            server.login(from_email, from_password)
+            server.send_message(msg)
+            server.quit()
+            log.info("Orphan position alert email sent successfully")
+        except Exception as e:
+            log.error(f"Failed to send orphan alert email: {e}")
 
 # Handling Interactive Brokers (IB) Statuses
 #

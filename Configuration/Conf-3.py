@@ -85,6 +85,8 @@ _BASE_PARAMS = {
     'MOMENTUM_LOOKBACK': 5,
     'COUNTER_TREND_THRESHOLD': 0.003,
     'COUNTER_TREND_FACTOR': 10.0,
+    # Signal Stability
+    'SIGNAL_STABILITY_REQUIRED': 3,
 }
 
 def _sec(code, decimals=2, timezone='America/New_York', currency='USD',
