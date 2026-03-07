@@ -1157,6 +1157,7 @@ class MinerviniClaude:
             fx_rates = getattr(cm, 'FX_RATES_FROM_USD', {'USD': 1.0})
             fx_rate = fx_rates.get(sec_currency, 1.0)
             cash_4_position *= fx_rate
+            exposure_limit = net_balance * fx_rate  # exposure limit in local currency
 
             closes  = df['close'].values
             highs   = df['high'].values
@@ -1346,12 +1347,12 @@ class MinerviniClaude:
                         stats_skip_position_open += 1
                         continue
 
-                    # Check exposure limits before opening
+                    # Check exposure limits before opening (in local currency)
                     new_exposure = quantity * entry_price
-                    if sig == 1 and (long_exposure + new_exposure) > net_balance:
+                    if sig == 1 and (long_exposure + new_exposure) > exposure_limit:
                         stats_skip_exposure += 1
                         continue
-                    if sig == -1 and (short_exposure + new_exposure) > net_balance:
+                    if sig == -1 and (short_exposure + new_exposure) > exposure_limit:
                         stats_skip_exposure += 1
                         continue
 
