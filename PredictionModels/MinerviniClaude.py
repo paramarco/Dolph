@@ -1124,6 +1124,18 @@ class MinerviniClaude:
             # Step 3: Vectorized signal scoring
             signals = self._generate_signals_vectorized(df, params, expansion_mask, trend_mask, bullish, bearish)
 
+            # Step 3b: Signal stability filter — require N consecutive identical
+            # signals before acting (mirrors real-time _signal_history check)
+            stability_required = int(params.get('SIGNAL_STABILITY_REQUIRED', 3))
+            if stability_required > 1:
+                filtered = np.zeros_like(signals)
+                for i in range(stability_required - 1, len(signals)):
+                    if signals[i] != 0:
+                        window = signals[i - stability_required + 1:i + 1]
+                        if np.all(window == signals[i]):
+                            filtered[i] = signals[i]
+                signals = filtered
+
             # Step 4: Vectorized adaptive margin
             margin_factor = self._compute_margin_vectorized(df, params, expansion_mask, trend_mask)
 
@@ -1140,6 +1152,11 @@ class MinerviniClaude:
                 except Exception:
                     net_balance = 20000.0
             cash_4_position = net_balance * cm.factorPosition_Balance
+            # Convert cash from USD to security's native currency for position sizing
+            sec_currency = self.security.get('currency', 'USD')
+            fx_rates = getattr(cm, 'FX_RATES_FROM_USD', {'USD': 1.0})
+            fx_rate = fx_rates.get(sec_currency, 1.0)
+            cash_4_position *= fx_rate
 
             closes  = df['close'].values
             highs   = df['high'].values

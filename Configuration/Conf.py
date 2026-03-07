@@ -323,3 +323,12 @@ CALIBRATION_MAX_VOLUME_PARTICIPATION = 0.10
 # Walk-forward: train on first 67%, validate on last 33% (prevents overfitting)
 CALIBRATION_TRAIN_RATIO = 0.67
 CALIBRATION_TEST_WEIGHT = 0.40
+
+# Approximate USD exchange rates for calibration simulation position sizing
+FX_RATES_FROM_USD = {
+    'USD': 1.0,
+    'EUR': 0.92,
+    'GBP': 0.79,
+    'JPY': 149.0,
+    'HKD': 7.81,
+}
