@@ -14,14 +14,14 @@ _BASE_PARAMS = {
     'entryTimeSeconds': 360,
     'minNumPastSamples': 51,
     'positionMargin': 0.003,
-    'stopLossCoefficient': 8,
+    'stopLossCoefficient': 3,
     'period': '1Min',
     # ===== Phase Detection Parameters =====
     # Expansion:  (ATR_slope > threshold AND Bollinger width percentile high)
     # Trend: ( ADX above threshold, strong directional movement) and (EMA alignment either bullish or bearish)
-    'VCP_ATR_SLOPE_EXPANSION': 0.1620308857142857,
+    'VCP_ATR_SLOPE_EXPANSION': 0.03,
     'VCP_BB_WIDTH_PERCENTILE_EXPANSION': 0.24499999999999997,
-    'VCP_ADX_TREND_THRESHOLD': 13,
+    'VCP_ADX_TREND_THRESHOLD': 18,
     # Indicator Periods
     'EMA_FAST': 14,
     'EMA_MID': 16,
@@ -31,7 +31,7 @@ _BASE_PARAMS = {
     'ATR_SLOPE_WINDOW': 5,  # ATR SLOPE. Measures volatility expansion / contraction speed
     'ADX_PERIOD': 13,       # ADX + DI (Trend Strength). to confirm directional strength, to filter ranging markets
     'BB_WINDOW': 10,        # BOLLINGER BAND WIDTH. Measures compression vs expansion of volatility
-    'BB_STD': 1,
+    'BB_STD': 2,
     'BB_PERCENTILE_WINDOW': 49,
     'FVP_WINDOW': 47,       # FAIR VALUE PRICE (FVP). Rolling mean of close. Used for mean-reversion during expansion
     # Expansion Phase Thresholds
@@ -74,8 +74,8 @@ _BASE_PARAMS = {
     'BUYING_CLIMAX_EXTENSION': 0.005481285714285714,
     'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
     # Final Decision Scoring
-    'MIN_TOTAL_SCORE': 0.735,
-    'MIN_CONFIDENCE': 0.8,
+    'MIN_TOTAL_SCORE': 0.25,
+    'MIN_CONFIDENCE': 0.7,
     # Volume Confirmation Gate (Idea #3)
     'MIN_RELATIVE_VOLUME': 0.8,
     # Position Management
@@ -86,7 +86,7 @@ _BASE_PARAMS = {
     'COUNTER_TREND_THRESHOLD': 0.003,
     'COUNTER_TREND_FACTOR': 10.0,
     # Signal Stability
-    'SIGNAL_STABILITY_REQUIRED': 3,
+    'SIGNAL_STABILITY_REQUIRED': 2,
 }
 
 def _sec(code, decimals=2, timezone='America/New_York', currency='USD',
@@ -329,6 +329,7 @@ FX_RATES_FROM_USD = {
     'USD': 1.0,
     'EUR': 0.92,
     'GBP': 0.79,
+    'GBX': 79.0,   # GBP pence: LSE stocks priced in pence (0.79 * 100)
     'JPY': 149.0,
     'HKD': 7.81,
 }

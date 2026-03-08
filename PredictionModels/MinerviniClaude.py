@@ -733,6 +733,18 @@ class MinerviniClaude:
             (rel_body > params['EXTREME_BODY_ATR_THRESHOLD']) &
             is_breakout & trend_up & is_overext
         )
+        # Buying climax cooldown (mirrors real-time _volume_context cooldown)
+        if buying_climax.any():
+            cooldown_secs = int(params.get('BUYING_CLIMAX_COOLDOWN_SECONDS', 900))
+            bc_indices = np.where(buying_climax.values)[0]
+            bc_times = df.index[bc_indices]
+            cooldown_td = pd.Timedelta(seconds=cooldown_secs)
+            last_climax_time = None
+            for idx, t in zip(bc_indices, bc_times):
+                if last_climax_time is not None and (t - last_climax_time) < cooldown_td:
+                    buying_climax.iloc[idx] = False
+                else:
+                    last_climax_time = t
         short_score[buying_climax] += 1.0
 
         # -- Final signal decision --
@@ -1192,6 +1204,9 @@ class MinerviniClaude:
             cash_4_position = net_balance * cm.factorPosition_Balance
             # Convert cash from USD to security's native currency for position sizing
             sec_currency = self.security.get('currency', 'USD')
+            # LSE stocks are priced in pence (GBX), not pounds (GBP)
+            if sec_currency == 'GBP' and self.security.get('market') == 'LSE':
+                sec_currency = 'GBX'
             fx_rates = getattr(cm, 'FX_RATES_FROM_USD', {'USD': 1.0})
             fx_rate = fx_rates.get(sec_currency, 1.0)
             cash_4_position *= fx_rate
