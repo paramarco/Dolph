@@ -991,6 +991,21 @@ class MinerviniClaude:
             self.params = self.security['params']
 
             final = self._simulate_profit(hist, best_params)
+
+            # Anti-degeneration: reset to _BASE_PARAMS when calibration yields
+            # score=0, so the next cycle starts from sane values instead of
+            # continuing to shrink towards zero.
+            if final <= 0.0:
+                base_params = getattr(cm, '_BASE_PARAMS', None)
+                if base_params:
+                    for k, v in base_params.items():
+                        self.security['params'][k] = v
+                    self.params = self.security['params']
+                    log.warning(
+                        f"seccode={self.seccode} score=0, reset params to "
+                        f"_BASE_PARAMS to prevent degeneration"
+                    )
+
             log.info(
                 f"seccode={self.seccode} calibration complete. "
                 f"profit score: {baseline:.6f} -> {final:.6f}"
@@ -1030,6 +1045,8 @@ class MinerviniClaude:
 
         For int params: rounds to int, deduplicates, enforces minimum of 1.
         For float params: returns `steps` linearly spaced candidates.
+        base_value is always the first candidate so ties preserve the current
+        value instead of drifting toward -30% each cycle.
         """
         candidates = [base_value * (1 + f) for f in np.linspace(-0.3, 0.3, steps)]
         if isinstance(base_value, int):
@@ -1042,6 +1059,8 @@ class MinerviniClaude:
                     seen.add(c)
                     unique.append(c)
             candidates = unique
+        # Anchor: base_value first prevents degeneration when all candidates tie
+        candidates = [base_value] + [c for c in candidates if c != base_value]
         return candidates
 
 
