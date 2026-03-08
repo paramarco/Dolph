@@ -1748,6 +1748,7 @@ class IB_OrderStatusTask:
 
         try:
             ib_positions = self.tp.ib.positions()
+            ib_positions = [p for p in ib_positions if p.account == self.tp.account_number]
             if not ib_positions:
                 return
 
@@ -2625,7 +2626,7 @@ class IBTradingPlatform(TradingPlatform):
         try:
             ib_portfolio_seccodes = {
                 p.contract.symbol for p in self.ib.positions()
-                if p.position != 0
+                if p.position != 0 and p.account == self.account_number
             }
         except Exception:
             ib_portfolio_seccodes = set()
