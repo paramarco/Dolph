@@ -17,7 +17,7 @@ class MinerviniClaude:
     _INDICATOR_PARAMS = frozenset({
         'EMA_FAST', 'EMA_MID', 'EMA_SLOW', 'RSI_PERIOD',
         'ATR_PERIOD', 'ATR_SLOPE_WINDOW', 'ADX_PERIOD',
-        'BB_WINDOW', 'BB_STD', 'BB_PERCENTILE_WINDOW', 'FVP_WINDOW'
+        'BB_WINDOW', 'BB_PERCENTILE_WINDOW', 'FVP_WINDOW'
     })
 
     # Params excluded from optimization (non-numeric or meta-calibration)
@@ -32,7 +32,26 @@ class MinerviniClaude:
         'MAX_CALIBRATION_PASSES', 'MIN_CALIBRATION_IMPROVEMENT',
         'TRAILING_TP_ENABLED',
         'MIN_CONFIDENCE',
-        'SIGNAL_STABILITY_REQUIRED'
+        'SIGNAL_STABILITY_REQUIRED',
+        # Structurally inert: BB_STD=1 → only candidate is [1] (int round)
+        'BB_STD',
+        # stopLossCoefficient base=8, but sim clamps to [1.5,3.0] → all candidates map to 3.0
+        'stopLossCoefficient',
+        # positionMargin not used in simulation (_compute_margin_vectorized uses
+        # phase-specific params); in OPERATIONAL _adapt_margin() overwrites it
+        'positionMargin',
+        # Contraction phase = no-go (line 772: ~contraction_mask), so margin
+        # during contraction never applies to any trade
+        'MARGIN_CONTRACTION_FIXED',
+        # Buying climax sub-params degenerate to minimum without score impact
+        'BUYING_CLIMAX_EXTENSION',
+        'BUYING_CLIMAX_LOOKBACK',
+        'BUYING_CLIMAX_TREND_LOOKBACK',
+        # RSI min/max filters degenerate to 1 (no filter) without recovery
+        'EXPANSION_RSI_SHORT_MIN',
+        'EXPANSION_RSI_LONG_MAX',
+        'TREND_RSI_LONG_MIN',
+        'TREND_RSI_SHORT_MIN',
     })
 
     def __init__(self, data, security, dolph):
