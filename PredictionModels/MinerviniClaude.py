@@ -54,6 +54,37 @@ class MinerviniClaude:
         'TREND_RSI_SHORT_MIN',
     })
 
+    # Minimum allowed values for parameters prone to degeneration.
+    # Prevents coordinate descent from shrinking margins, thresholds and
+    # scoring gates below operationally meaningful levels.
+    _PARAM_FLOORS = {
+        # Margin params — floor = transaction cost floor (~0.03% round-trip)
+        'MARGIN_EXPANSION_MULTIPLIER': 0.5,
+        'MARGIN_EXPANSION_MIN': 0.002,
+        'MARGIN_EXPANSION_MAX': 0.005,
+        'MARGIN_TREND_ATR_MULTIPLIER': 0.5,
+        'MARGIN_TREND_MIN': 0.002,
+        'MARGIN_TREND_MAX': 0.005,
+        # Scoring gates — below these the filter is effectively disabled
+        'MIN_TOTAL_SCORE': 0.1,
+        'MIN_RELATIVE_VOLUME': 0.2,
+        # Volume analysis — below these every bar qualifies
+        'BIG_VOLUME_THRESHOLD': 0.5,
+        'EXTREME_VOLUME_THRESHOLD': 1.0,
+        'BIG_BODY_ATR_THRESHOLD': 0.1,
+        'EXTREME_BODY_ATR_THRESHOLD': 0.5,
+        # Entry time — at least 1 minute
+        'entryTimeSeconds': 60,
+        # Counter-trend — must remain meaningful
+        'COUNTER_TREND_THRESHOLD': 0.001,
+        'COUNTER_TREND_FACTOR': 1.0,
+        # Confidence penalty
+        'NO_VOLUME_CONFIDENCE_PENALTY': 0.05,
+        # Divergence / momentum lookback
+        'DIVERGENCE_LOOKBACK': 3,
+        'MOMENTUM_LOOKBACK': 2,
+    }
+
     def __init__(self, data, security, dolph):
         """Initialize the prediction model for a single security.
 
@@ -963,7 +994,7 @@ class MinerviniClaude:
 
             # ---- Phase 1: Indicator params (each step recomputes indicators) ----
             for param_name, base_value in indicator_group:
-                candidates = self._make_candidates(base_value, 8)
+                candidates = self._make_candidates(base_value, 8, param_name)
                 best_score = -np.inf
                 best_value = base_value
                 for c in candidates:
@@ -986,7 +1017,7 @@ class MinerviniClaude:
             for pass_num in range(MAX_CALIBRATION_PASSES):
                 for param_name, _ in other_group:
                     base_value = best_params[param_name]
-                    candidates = self._make_candidates(base_value, 8)
+                    candidates = self._make_candidates(base_value, 8, param_name)
                     best_score = -np.inf
                     best_value = base_value
                     for c in candidates:
@@ -1071,15 +1102,23 @@ class MinerviniClaude:
         # peak=2.2 + floor=0.3 → 2.5 at center, decays smoothly outside
         return 0.3 + 2.2 * np.exp(-0.5 * z * z)
 
-    def _make_candidates(self, base_value, steps=8):
+    def _make_candidates(self, base_value, steps=8, param_name=None):
         """Generate candidate values in [-30%, +30%] of base for coordinate descent.
 
         For int params: rounds to int, deduplicates, enforces minimum of 1.
         For float params: returns `steps` linearly spaced candidates.
         base_value is always the first candidate so ties preserve the current
         value instead of drifting toward -30% each cycle.
+        If param_name is in _PARAM_FLOORS, candidates below the floor are clamped.
         """
         candidates = [base_value * (1 + f) for f in np.linspace(-0.3, 0.3, steps)]
+        # Apply floor if defined for this parameter
+        floor = self._PARAM_FLOORS.get(param_name) if param_name else None
+        if floor is not None:
+            if isinstance(base_value, int):
+                candidates = [max(int(floor), c) for c in candidates]
+            else:
+                candidates = [max(floor, c) for c in candidates]
         if isinstance(base_value, int):
             candidates = [max(1, int(round(c))) for c in candidates]
             # Deduplicate preserving order
