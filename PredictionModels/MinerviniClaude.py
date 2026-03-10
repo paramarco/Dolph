@@ -192,27 +192,31 @@ class MinerviniClaude:
             confidence = signal_result['confidence']
             volume_contexts = signal_result.get('volume_contexts', [])
 
-            # Signal stability: require N consecutive identical signals before acting
+            # Signal stability: require N consecutive identical signals before acting.
+            # Liquidity (SMC) signals are exempt from this filter.
             p = self.params
             stability_required = int(p.get('SIGNAL_STABILITY_REQUIRED', 3))
             self._signal_history.append(signal)
+            has_liquidity = ('liquidity_long' in volume_contexts
+                            or 'liquidity_short' in volume_contexts)
 
-            if signal in ('long', 'short') and len(self._signal_history) >= stability_required:
-                recent = list(self._signal_history)[-stability_required:]
-                if not all(s == signal for s in recent):
+            if signal in ('long', 'short') and not has_liquidity:
+                if len(self._signal_history) >= stability_required:
+                    recent = list(self._signal_history)[-stability_required:]
+                    if not all(s == signal for s in recent):
+                        log.info(
+                            f"{self.seccode} signal={signal} suppressed: stability check failed "
+                            f"(need {stability_required} consecutive, history={recent})"
+                        )
+                        signal = 'no-go'
+                        confidence = 0.0
+                elif len(self._signal_history) < stability_required:
                     log.info(
-                        f"{self.seccode} signal={signal} suppressed: stability check failed "
-                        f"(need {stability_required} consecutive, history={recent})"
+                        f"{self.seccode} signal={signal} suppressed: insufficient history "
+                        f"({len(self._signal_history)}/{stability_required})"
                     )
                     signal = 'no-go'
                     confidence = 0.0
-            elif signal in ('long', 'short') and len(self._signal_history) < stability_required:
-                log.info(
-                    f"{self.seccode} signal={signal} suppressed: insufficient history "
-                    f"({len(self._signal_history)}/{stability_required})"
-                )
-                signal = 'no-go'
-                confidence = 0.0
 
             if signal not in ['long', 'short', 'no-go']:
                 log.error(f"{self.seccode}: invalid signal {signal}, forcing no-go")
@@ -811,6 +815,9 @@ class MinerviniClaude:
             'close': 'last', 'volume': 'sum'
         }).dropna()
 
+        liq_long  = pd.Series(False, index=df.index)
+        liq_short = pd.Series(False, index=df.index)
+
         if len(df5) > bos_lb:
             recent_high_5m = df5['high'].rolling(bos_lb).max().shift(1)
             recent_low_5m  = df5['low'].rolling(bos_lb).min().shift(1)
@@ -908,7 +915,12 @@ class MinerviniClaude:
         MIN_REL_VOL = params.get('MIN_RELATIVE_VOLUME', getattr(cm, 'MIN_RELATIVE_VOLUME', 0.8))
         signals[relative_volume.values < MIN_REL_VOL] = 0
 
-        return signals
+        # Build liquidity exemption mask for stability filter
+        liq_exempt = np.zeros(len(df), dtype=bool)
+        if len(df5) > bos_lb:
+            liq_exempt = (liq_long | liq_short).values
+
+        return signals, liq_exempt
 
     # =====================================================
     # MARGIN ADAPTATION
@@ -1286,18 +1298,22 @@ class MinerviniClaude:
             expansion_mask, trend_mask, bullish, bearish = self._detect_phase_vectorized(df, params)
 
             # Step 3: Vectorized signal scoring
-            signals = self._generate_signals_vectorized(df, params, expansion_mask, trend_mask, bullish, bearish)
+            signals, liq_exempt = self._generate_signals_vectorized(df, params, expansion_mask, trend_mask, bullish, bearish)
 
             # Step 3b: Signal stability filter — require N consecutive identical
-            # signals before acting (mirrors real-time _signal_history check)
+            # signals before acting (mirrors real-time _signal_history check).
+            # Liquidity (SMC) signals are exempt from this filter.
             stability_required = int(params.get('SIGNAL_STABILITY_REQUIRED', 3))
             if stability_required > 1:
                 filtered = np.zeros_like(signals)
                 for i in range(stability_required - 1, len(signals)):
                     if signals[i] != 0:
-                        window = signals[i - stability_required + 1:i + 1]
-                        if np.all(window == signals[i]):
+                        if liq_exempt[i]:
                             filtered[i] = signals[i]
+                        else:
+                            window = signals[i - stability_required + 1:i + 1]
+                            if np.all(window == signals[i]):
+                                filtered[i] = signals[i]
                 signals = filtered
 
             # Step 4: Vectorized adaptive margin
