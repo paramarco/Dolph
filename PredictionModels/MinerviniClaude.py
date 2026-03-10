@@ -54,6 +54,8 @@ class MinerviniClaude:
         'TREND_RSI_SHORT_MIN',
         # Metadata — not a trading parameter
         'calibration_score',
+        # Liquidity / SMC — structural lookbacks, not optimizable
+        'LIQ_BOS_LOOKBACK', 'LIQ_SWEEP_LOOKBACK', 'LIQ_ADX_MIN',
     })
 
     # Minimum allowed values for parameters prone to degeneration.
@@ -85,6 +87,9 @@ class MinerviniClaude:
         # Divergence / momentum lookback
         'DIVERGENCE_LOOKBACK': 3,
         'MOMENTUM_LOOKBACK': 2,
+        # Liquidity / SMC
+        'LIQ_SCORE_BONUS': 0.3,
+        'LIQ_ZONE_TOLERANCE': 0.0005,
     }
 
     def __init__(self, data, security, dolph):
@@ -584,6 +589,15 @@ class MinerviniClaude:
                 short_score += 0.3
 
         # =============================
+        # LIQUIDITY / SMC SCORE
+        # =============================
+        liq = self._detect_liquidity_pattern(df)
+        if liq['liquidity_long']:
+            long_score += p.get('LIQ_SCORE_BONUS', 1.2)
+        if liq['liquidity_short']:
+            short_score += p.get('LIQ_SCORE_BONUS', 1.2)
+
+        # =============================
         # FINAL DECISION
         # =============================
         score_diff = long_score - short_score
@@ -591,6 +605,10 @@ class MinerviniClaude:
 
         # Active volume contexts (only those that are True)
         active_contexts = [k for k, v in context.items() if v]
+        if liq['liquidity_long']:
+            active_contexts.append('liquidity_long')
+        if liq['liquidity_short']:
+            active_contexts.append('liquidity_short')
 
         if total_score == 0:
             return {'signal': 'no-go', 'confidence': 0.0, 'volume_contexts': active_contexts}
@@ -779,6 +797,53 @@ class MinerviniClaude:
                 else:
                     last_climax_time = t
         short_score[buying_climax] += 1.0
+
+        # -- Liquidity / SMC pattern --
+        liq_adx_min = params.get('LIQ_ADX_MIN', 15)
+        bos_lb   = int(params.get('LIQ_BOS_LOOKBACK', 20))
+        sweep_lb = int(params.get('LIQ_SWEEP_LOOKBACK', 10))
+        tol_liq  = params.get('LIQ_ZONE_TOLERANCE', 0.0015)
+        bonus    = params.get('LIQ_SCORE_BONUS', 1.2)
+        adx_ok   = df['ADX'] > liq_adx_min
+
+        df5 = df.resample('5min').agg({
+            'open': 'first', 'high': 'max', 'low': 'min',
+            'close': 'last', 'volume': 'sum'
+        }).dropna()
+
+        if len(df5) > bos_lb:
+            recent_high_5m = df5['high'].rolling(bos_lb).max().shift(1)
+            recent_low_5m  = df5['low'].rolling(bos_lb).min().shift(1)
+            bos_up_5m   = df5['close'] > recent_high_5m
+            bos_down_5m = df5['close'] < recent_low_5m
+
+            # Map 5-min BOS → 1-min via forward-fill
+            bos_up_1m   = bos_up_5m.reindex(df.index, method='ffill').fillna(False)
+            bos_down_1m = bos_down_5m.reindex(df.index, method='ffill').fillna(False)
+
+            # Zone from 5-min impulse candle body
+            zone_body_low  = df5[['open','close']].min(axis=1)
+            zone_body_high = df5[['open','close']].max(axis=1)
+            z_range = zone_body_high - zone_body_low
+            zone_lo = (zone_body_low  - z_range * tol_liq).reindex(df.index, method='ffill')
+            zone_hi = (zone_body_high + z_range * tol_liq).reindex(df.index, method='ffill')
+
+            # Sweep on 1-min
+            prev_low_1m  = df['low'].rolling(sweep_lb).min().shift(1)
+            prev_high_1m = df['high'].rolling(sweep_lb).max().shift(1)
+            sweep_long_v  = (df['low'] < prev_low_1m) & (df['close'] > prev_low_1m)
+            sweep_short_v = (df['high'] > prev_high_1m) & (df['close'] < prev_high_1m)
+
+            # Zone + bounce
+            in_zone_v = (df['close'] >= zone_lo) & (df['close'] <= zone_hi)
+            bull_candle = df['close'] > df['open']
+            bear_candle = df['close'] < df['open']
+
+            liq_long  = adx_ok & bos_up_1m & sweep_long_v & in_zone_v & bull_candle
+            liq_short = adx_ok & bos_down_1m & sweep_short_v & in_zone_v & bear_candle
+
+            long_score[liq_long]   += bonus
+            short_score[liq_short] += bonus
 
         # -- Final signal decision --
         score_diff  = long_score - short_score
@@ -1781,3 +1846,62 @@ class MinerviniClaude:
         )
 
         return context
+
+    def _detect_liquidity_pattern(self, df):
+        """Detect SMC liquidity pattern on latest bar.
+        BOS on 5-min resampled data, sweep + zone entry on 1-min.
+        Requires ADX > LIQ_ADX_MIN.
+        Returns dict with 'liquidity_long' and 'liquidity_short' bools.
+        """
+        p = self.params
+        result = {'liquidity_long': False, 'liquidity_short': False}
+
+        # Gate: only in trending conditions
+        if df.iloc[-1]['ADX'] < p.get('LIQ_ADX_MIN', 15):
+            return result
+
+        bos_lb   = int(p.get('LIQ_BOS_LOOKBACK', 20))
+        sweep_lb = int(p.get('LIQ_SWEEP_LOOKBACK', 10))
+        tol      = p.get('LIQ_ZONE_TOLERANCE', 0.0015)
+
+        # Resample to 5-min for BOS
+        df5 = df.resample('5min').agg({
+            'open': 'first', 'high': 'max', 'low': 'min',
+            'close': 'last', 'volume': 'sum'
+        }).dropna()
+        if len(df5) < bos_lb + 1:
+            return result
+
+        latest   = df.iloc[-1]
+        latest5  = df5.iloc[-1]
+
+        # BOS on 5-min
+        recent_high_5m = df5['high'].iloc[-(bos_lb+1):-1].max()
+        recent_low_5m  = df5['low'].iloc[-(bos_lb+1):-1].min()
+        bos_up   = latest5['close'] > recent_high_5m
+        bos_down = latest5['close'] < recent_low_5m
+        if not bos_up and not bos_down:
+            return result
+
+        # Demand/Supply zone = body of the 5-min impulse candle
+        zone_low  = min(latest5['open'], latest5['close'])
+        zone_high = max(latest5['open'], latest5['close'])
+        zone_range = zone_high - zone_low
+        zone_low  -= zone_range * tol
+        zone_high += zone_range * tol
+
+        # Liquidity sweep on 1-min
+        prev_low_1m  = df['low'].iloc[-(sweep_lb+1):-1].min()
+        prev_high_1m = df['high'].iloc[-(sweep_lb+1):-1].max()
+        sweep_long  = (latest['low'] < prev_low_1m) and (latest['close'] > prev_low_1m)
+        sweep_short = (latest['high'] > prev_high_1m) and (latest['close'] < prev_high_1m)
+
+        # Entry: price in zone + bounce candle
+        in_zone = zone_low <= latest['close'] <= zone_high
+
+        if bos_up and sweep_long and in_zone and latest['close'] > latest['open']:
+            result['liquidity_long'] = True
+        if bos_down and sweep_short and in_zone and latest['close'] < latest['open']:
+            result['liquidity_short'] = True
+
+        return result

@@ -87,6 +87,12 @@ _BASE_PARAMS = {
     'COUNTER_TREND_FACTOR': 10.0,
     # Signal Stability
     'SIGNAL_STABILITY_REQUIRED': 2,
+    # Liquidity / Smart Money Concepts
+    'LIQ_BOS_LOOKBACK': 20,          # Barras 5-min para detectar BOS
+    'LIQ_SWEEP_LOOKBACK': 10,        # Barras 1-min para detectar sweep
+    'LIQ_ZONE_TOLERANCE': 0.0015,    # Tolerancia para "dentro de zona" (0.15%)
+    'LIQ_SCORE_BONUS': 1.2,          # Score añadido al detectar patrón
+    'LIQ_ADX_MIN': 15,               # ADX mínimo para activar módulo
 }
 
 def _sec(code, decimals=2, timezone='America/New_York', currency='USD',
