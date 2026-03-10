@@ -998,6 +998,11 @@ class MinerviniClaude:
                 best_score = -np.inf
                 best_value = base_value
                 for c in candidates:
+                    # Enforce EMA ordering: FAST < MID < SLOW (min gap of 2)
+                    test_params = dict(best_params, **{param_name: c})
+                    if (int(test_params['EMA_FAST']) + 2 > int(test_params['EMA_MID']) or
+                            int(test_params['EMA_MID']) + 2 > int(test_params['EMA_SLOW'])):
+                        continue
                     best_params[param_name] = c
                     score = _blended_score(best_params)
                     if score > best_score:
@@ -1661,8 +1666,11 @@ class MinerviniClaude:
             total_profit -= DD_AVERSION_BETA * max_drawdown
 
             # Min activity: prevent ultra-selective strategies (2 trades in 90 days = luck, not edge).
-            # Scales score linearly when below threshold so optimizer can't game it with 0 trades.
+            # Zero trades returns -inf so "do nothing" is NEVER preferred over "trade and lose".
+            # This prevents the optimizer from killing all signals (e.g. EMA_FAST=EMA_MID).
             MIN_TRADES_PER_DAY = getattr(cm, 'CALIBRATION_MIN_TRADES_PER_DAY', 0.5)
+            if trades_opened == 0:
+                return -np.inf
             if num_trading_days > 0 and trades_per_day < MIN_TRADES_PER_DAY:
                 total_profit *= trades_per_day / MIN_TRADES_PER_DAY
 
