@@ -29,7 +29,7 @@ class Dolph:
         if self.MODE in ('OPERATIONAL', 'TEST_OFFLINE'):
             self.ds.loadSecurityParamsFromDB(self.securities)
             self.logger.info(f"{self.MODE} mode: loaded calibrated params from DB")
-        self._init_securities() 
+        self._init_securities()
         self.tv = tv.TrendViewer( self.evaluatePosition )
         self.data = {}
         self._init_signaling()
@@ -51,8 +51,21 @@ class Dolph:
 
 
     def _init_securities(self):
-        
-        for sec in self.securities: 
+        # In OPERATIONAL mode, exclude securities with low calibration score
+        if self.MODE == 'OPERATIONAL':
+            MIN_CALIBRATION_SCORE = getattr(cm, 'MIN_CALIBRATION_SCORE', 100.0)
+            before = len(self.securities)
+            excluded = [s['seccode'] for s in self.securities
+                        if s['params'].get('calibration_score', 0) < MIN_CALIBRATION_SCORE]
+            self.securities = [s for s in self.securities
+                               if s['params'].get('calibration_score', 0) >= MIN_CALIBRATION_SCORE]
+            if excluded:
+                self.logger.warning(
+                    f"OPERATIONAL filter: excluded {len(excluded)}/{before} securities "
+                    f"with calibration_score < {MIN_CALIBRATION_SCORE}: {excluded}"
+                )
+
+        for sec in self.securities:
             sec['models'] = {}
             sec['predictions'] = {}
             seccode = sec['seccode']

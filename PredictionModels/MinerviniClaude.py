@@ -52,6 +52,8 @@ class MinerviniClaude:
         'EXPANSION_RSI_LONG_MAX',
         'TREND_RSI_LONG_MIN',
         'TREND_RSI_SHORT_MIN',
+        # Metadata — not a trading parameter
+        'calibration_score',
     })
 
     # Minimum allowed values for parameters prone to degeneration.
@@ -1058,6 +1060,9 @@ class MinerviniClaude:
             self.params = self.security['params']
 
             final = self._simulate_profit(hist, best_params)
+
+            # Persist calibration score so OPERATIONAL can filter low-score securities
+            self.security['params']['calibration_score'] = round(float(final), 2)
 
             # Anti-degeneration: reset to _BASE_PARAMS when calibration yields
             # score=0, so the next cycle starts from sane values instead of

@@ -294,6 +294,7 @@ FREQ_SIGNAL_CONVERSION = 0.04
 # Idea #2: Multi-pass coordinate descent
 MAX_CALIBRATION_PASSES = 2
 MIN_CALIBRATION_IMPROVEMENT = 0.01
+MIN_CALIBRATION_SCORE = 100.0
 # Idea #3: Volume confirmation gate (module-level fallback)
 MIN_RELATIVE_VOLUME = 0.8
 # Idea #4: Margin dynamic cost floor
