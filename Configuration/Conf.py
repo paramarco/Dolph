@@ -202,7 +202,6 @@ securities = [
     _sec('SHOP', primary_exchange='NYSE'),  # Shopify        - e-commerce platform, beta ~2.0, range 2-4%
     # ==================== EUROPE (12 securities) ====================
     # Germany - XETRA
-    # _sec_eu('RHM'),             # Rheinmetall    - defense, high beta ~1.5, range 2-3%
     _sec_eu('SBX'),               # Stabilus       - industrial, moderate volatility, range 1.5-2.5%
     _sec_eu('IFX'),               # Infineon       - semiconductor, beta 1.83, range 2-3%
     _sec_eu('DBK'),               # Deutsche Bank  - banking, beta 1.46, range 1.5-2.5%
@@ -217,10 +216,10 @@ securities = [
     _sec_eu('UCG', market='BVME', timezone='Europe/Rome', primary_exchange='BVME'),    # UniCredit      - banking, beta 1.28, range 2-3%
     # _sec_eu('STLAM', market='BVME', timezone='Europe/Rome', primary_exchange='BVME'),# Stellantis     - automotive, beta 1.56 (FIXME: IB contract not found)
     # UK - London Stock Exchange
-    # _sec_eu('BARC', market='LSE', timezone='Europe/London', currency='GBP',
-    #         primary_exchange='LSE',
-    #         trading_times=(dt.time(9, 46), dt.time(14, 40)),
-    #         time2close=dt.time(14, 45)),  # Barclays       - banking, beta 1.98, range 2-3%
+    _sec_eu('BARC', market='LSE', timezone='Europe/London', currency='GBP',
+            primary_exchange='LSE',
+            trading_times=(dt.time(9, 46), dt.time(14, 40)),
+            time2close=dt.time(14, 45)),  # Barclays       - banking, beta 1.98, range 2-3%
     # Netherlands - Euronext Amsterdam
     _sec_eu('ASML', market='AEB', timezone='Europe/Amsterdam', primary_exchange='AEB'),  # ASML Holding   - semiconductor equip, beta ~1.3, range 2-3%
     # France - Euronext Paris (new)
@@ -309,6 +308,11 @@ FREQ_SIGNAL_CONVERSION = 0.04
 # Idea #2: Multi-pass coordinate descent
 MAX_CALIBRATION_PASSES = 2
 MIN_CALIBRATION_IMPROVEMENT = 0.01
+# Multi-resolution coordinate descent step sizes (coarse → fine)
+CALIBRATION_STEP_SIZES = [0.30, 0.15, 0.08]
+# Stochastic perturbation to escape local optima
+CALIBRATION_PERTURB_RANGE = 0.15    # Random ±15% perturbation amplitude
+CALIBRATION_MAX_PERTURBS = 3        # Max failed perturbation attempts before giving up
 MIN_CALIBRATION_SCORE = 100.0
 # Idea #3: Volume confirmation gate (module-level fallback)
 MIN_RELATIVE_VOLUME = 0.8

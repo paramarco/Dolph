@@ -198,7 +198,6 @@ securities = [
     # _sec('MSFT'),               # Microsoft      - tech megacap, liquid, range 1-2%
     # ==================== EUROPE (12 securities) ====================
     # # Germany - XETRA
-    # _sec_eu('RHM'),             # Rheinmetall    - defense, high beta ~1.5, range 2-3%
     # _sec_eu('SBX'),             # Stabilus       - industrial, moderate volatility, range 1.5-2.5%
     # _sec_eu('IFX'),             # Infineon       - semiconductor, beta 1.83, range 2-3%
     # _sec_eu('DBK'),             # Deutsche Bank  - banking, beta 1.46, range 1.5-2.5%
@@ -294,6 +293,11 @@ FREQ_SIGNAL_CONVERSION = 0.04
 # Idea #2: Multi-pass coordinate descent
 MAX_CALIBRATION_PASSES = 2
 MIN_CALIBRATION_IMPROVEMENT = 0.01
+# Multi-resolution coordinate descent step sizes (coarse → fine)
+CALIBRATION_STEP_SIZES = [0.30, 0.15, 0.08]
+# Stochastic perturbation to escape local optima
+CALIBRATION_PERTURB_RANGE = 0.15    # Random ±15% perturbation amplitude
+CALIBRATION_MAX_PERTURBS = 3        # Max failed perturbation attempts before giving up
 MIN_CALIBRATION_SCORE = 100.0
 # Idea #3: Volume confirmation gate (module-level fallback)
 MIN_RELATIVE_VOLUME = 0.8

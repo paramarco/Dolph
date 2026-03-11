@@ -56,6 +56,8 @@ class MinerviniClaude:
         'calibration_score',
         # Liquidity / SMC — structural lookbacks, not optimizable
         'LIQ_BOS_LOOKBACK', 'LIQ_SWEEP_LOOKBACK', 'LIQ_ADX_MIN',
+        # Convergence detection metadata — not trading parameters
+        '_calibration_converged', '_calibration_fingerprint', '_calibration_perturb_count',
     })
 
     # Minimum allowed values for parameters prone to degeneration.
@@ -1038,6 +1040,16 @@ class MinerviniClaude:
                 )
                 return
 
+            # ---- Data fingerprint for convergence detection ----
+            data_fingerprint = f"{len(hist)}:{hist.index[-1].isoformat()}"
+            if (p.get('_calibration_converged', False)
+                    and p.get('_calibration_fingerprint', '') == data_fingerprint
+                    and p.get('_calibration_perturb_count', 0) >= getattr(cm, 'CALIBRATION_MAX_PERTURBS', 3)):
+                log.info(f"{self.seccode}: calibration SKIPPED (converged, data unchanged, "
+                         f"perturbs exhausted={p.get('_calibration_perturb_count', 0)})")
+                MinerviniClaude._calibration_cache[self.seccode] = dict(p)
+                return
+
             # ---- Walk-forward split: train on first portion, validate on unseen data ----
             # Score = weighted blend of train + test. Test weight forces optimizer to
             # choose params that generalize, not just memorize the train period.
@@ -1071,60 +1083,132 @@ class MinerviniClaude:
             baseline = _blended_score(best_params)
             log.info(f"{self.seccode}: calibration baseline score={baseline:.6f} (blended)")
 
-            # ---- Phase 1: Indicator params (each step recomputes indicators) ----
-            for param_name, base_value in indicator_group:
-                candidates = self._make_candidates(base_value, 8, param_name)
-                best_score = -np.inf
-                best_value = base_value
-                for c in candidates:
-                    # Enforce EMA ordering: FAST < MID < SLOW (min gap of 2)
-                    test_params = dict(best_params, **{param_name: c})
-                    if (int(test_params['EMA_FAST']) + 2 > int(test_params['EMA_MID']) or
-                            int(test_params['EMA_MID']) + 2 > int(test_params['EMA_SLOW'])):
-                        continue
-                    best_params[param_name] = c
-                    score = _blended_score(best_params)
-                    if score > best_score:
-                        best_score = score
-                        best_value = c
-                best_params[param_name] = best_value
-                if best_value != base_value:
-                    log.info(f"{self.seccode}: {param_name}: {base_value} -> {best_value} (score={best_score:.6f})")
-
-            # ---- Phase 2: Iterative refinement of non-indicator params ----
-            cached_train_df = self._compute_indicators_for_calibration(train_df.copy(), best_params)
-            cached_test_df  = self._compute_indicators_for_calibration(test_df.copy(), best_params)
+            # ---- Multi-resolution coordinate descent ----
+            STEP_SIZES = getattr(cm, 'CALIBRATION_STEP_SIZES', [0.30, 0.15, 0.08])
             MAX_CALIBRATION_PASSES = getattr(cm, 'MAX_CALIBRATION_PASSES', 2)
             MIN_CALIBRATION_IMPROVEMENT = getattr(cm, 'MIN_CALIBRATION_IMPROVEMENT', 0.01)
-            prev_score = _blended_score(best_params, cached_train_df, cached_test_df)
 
-            for pass_num in range(MAX_CALIBRATION_PASSES):
-                for param_name, _ in other_group:
-                    base_value = best_params[param_name]
-                    candidates = self._make_candidates(base_value, 8, param_name)
-                    best_score = -np.inf
-                    best_value = base_value
-                    for c in candidates:
-                        best_params[param_name] = c
-                        score = _blended_score(best_params, cached_train_df, cached_test_df)
-                        if score > best_score:
-                            best_score = score
-                            best_value = c
-                    best_params[param_name] = best_value
-                    if best_value != base_value:
-                        log.info(f"{self.seccode}: pass {pass_num+1} {param_name}: {base_value} -> {best_value} (score={best_score:.6f})")
+            def _run_multi_resolution(bp, ind_group, oth_group):
+                """Run full multi-resolution coordinate descent on bp (mutated in place).
+                Returns (any_improved, cached_train_df, cached_test_df)."""
+                any_improved = False
+                c_train_df = None
+                c_test_df = None
 
-                current_score = _blended_score(best_params, cached_train_df, cached_test_df)
-                improvement = (current_score - prev_score) / max(abs(prev_score), 1.0)
-                log.info(f"{self.seccode}: calibration pass {pass_num+1} complete, score={current_score:.2f}, improvement={improvement:.2%} (blended)")
-                if improvement < MIN_CALIBRATION_IMPROVEMENT:
-                    break
-                prev_score = current_score
+                for step_size in STEP_SIZES:
+                    indicator_improved = False
+
+                    # Phase 1: indicator params at this resolution
+                    for param_name, _ in ind_group:
+                        base_value = bp[param_name]
+                        candidates = self._make_candidates(base_value, 8, param_name, step_size)
+                        best_score = -np.inf
+                        best_value = base_value
+                        for c in candidates:
+                            test_params = dict(bp, **{param_name: c})
+                            if (int(test_params['EMA_FAST']) + 2 > int(test_params['EMA_MID']) or
+                                    int(test_params['EMA_MID']) + 2 > int(test_params['EMA_SLOW'])):
+                                continue
+                            bp[param_name] = c
+                            score = _blended_score(bp)
+                            if score > best_score:
+                                best_score = score
+                                best_value = c
+                        bp[param_name] = best_value
+                        if best_value != base_value:
+                            indicator_improved = True
+                            any_improved = True
+                            log.info(f"{self.seccode}: step={step_size} {param_name}: {base_value} -> {best_value} (score={best_score:.6f})")
+
+                    # Recompute cached indicators if changed or first resolution
+                    if indicator_improved or c_train_df is None:
+                        c_train_df = self._compute_indicators_for_calibration(train_df.copy(), bp)
+                        c_test_df  = self._compute_indicators_for_calibration(test_df.copy(), bp)
+
+                    # Phase 2: non-indicator params at this resolution
+                    prev_score = _blended_score(bp, c_train_df, c_test_df)
+                    for pass_num in range(MAX_CALIBRATION_PASSES):
+                        for param_name, _ in oth_group:
+                            base_value = bp[param_name]
+                            candidates = self._make_candidates(base_value, 8, param_name, step_size)
+                            best_score = -np.inf
+                            best_value = base_value
+                            for c in candidates:
+                                bp[param_name] = c
+                                score = _blended_score(bp, c_train_df, c_test_df)
+                                if score > best_score:
+                                    best_score = score
+                                    best_value = c
+                            bp[param_name] = best_value
+                            if best_value != base_value:
+                                any_improved = True
+                                log.info(f"{self.seccode}: step={step_size} pass {pass_num+1} {param_name}: {base_value} -> {best_value} (score={best_score:.6f})")
+
+                        current_score = _blended_score(bp, c_train_df, c_test_df)
+                        improvement = (current_score - prev_score) / max(abs(prev_score), 1.0)
+                        log.info(f"{self.seccode}: step={step_size} pass {pass_num+1} score={current_score:.2f}, improvement={improvement:.2%}")
+                        if improvement < MIN_CALIBRATION_IMPROVEMENT:
+                            break
+                        prev_score = current_score
+
+                return any_improved, c_train_df, c_test_df
+
+            any_improved_overall, cached_train_df, cached_test_df = _run_multi_resolution(
+                best_params, indicator_group, other_group)
+
+            # ---- Stochastic perturbation if no improvement ----
+            # Reset perturb_count when data changes (new fingerprint)
+            if p.get('_calibration_fingerprint', '') != data_fingerprint:
+                perturb_count = 0
+            else:
+                perturb_count = p.get('_calibration_perturb_count', 0)
+
+            if not any_improved_overall:
+                import random
+                max_perturbs = getattr(cm, 'CALIBRATION_MAX_PERTURBS', 3)
+
+                if perturb_count < max_perturbs:
+                    perturb_range = getattr(cm, 'CALIBRATION_PERTURB_RANGE', 0.15)
+                    saved_params = dict(best_params)
+                    saved_score = _blended_score(best_params, cached_train_df, cached_test_df)
+
+                    # Perturb all optimizable params randomly
+                    for k, _ in optimizable:
+                        v = best_params[k]
+                        factor = 1.0 + random.uniform(-perturb_range, perturb_range)
+                        new_val = v * factor
+                        if isinstance(v, int):
+                            new_val = max(1, int(round(new_val)))
+                        floor = self._PARAM_FLOORS.get(k)
+                        if floor is not None:
+                            new_val = max(floor, new_val) if not isinstance(v, int) else max(int(floor), new_val)
+                        best_params[k] = new_val
+
+                    # Re-optimize from perturbed state
+                    _, cached_train_df, cached_test_df = _run_multi_resolution(
+                        best_params, indicator_group, other_group)
+
+                    perturbed_score = _blended_score(best_params, cached_train_df, cached_test_df)
+                    if perturbed_score > saved_score:
+                        log.info(f"{self.seccode}: perturbation {perturb_count+1} improved: "
+                                 f"{saved_score:.2f} -> {perturbed_score:.2f}")
+                        perturb_count = 0
+                        any_improved_overall = True
+                    else:
+                        log.info(f"{self.seccode}: perturbation {perturb_count+1} failed: "
+                                 f"{perturbed_score:.2f} <= {saved_score:.2f}, reverting")
+                        best_params = saved_params
+                        perturb_count += 1
 
             # ---- Final diagnostic: train vs test breakdown ----
             train_score = self._simulate_profit(train_df, best_params)
             test_score  = self._simulate_profit(test_df, best_params)
             log.info(f"{self.seccode}: walk-forward result: train={train_score:.2f}, test={test_score:.2f}, ratio={test_score/max(abs(train_score),1.0):.2f}")
+
+            # ---- Store convergence metadata ----
+            self.security['params']['_calibration_converged'] = not any_improved_overall
+            self.security['params']['_calibration_fingerprint'] = data_fingerprint
+            self.security['params']['_calibration_perturb_count'] = perturb_count if not any_improved_overall else 0
 
             # ---- Save optimized params ----
             # Note: stopLossCoefficient is NOT clamped here — stored value (e.g. 8) is used
@@ -1149,6 +1233,9 @@ class MinerviniClaude:
                 if base_params:
                     for k, v in base_params.items():
                         self.security['params'][k] = v
+                    # Reset convergence flags so next cycle re-calibrates from base
+                    self.security['params']['_calibration_converged'] = False
+                    self.security['params']['_calibration_perturb_count'] = 0
                     self.params = self.security['params']
                     log.warning(
                         f"seccode={self.seccode} score=0, reset params to "
@@ -1189,8 +1276,8 @@ class MinerviniClaude:
         # peak=2.2 + floor=0.3 → 2.5 at center, decays smoothly outside
         return 0.3 + 2.2 * np.exp(-0.5 * z * z)
 
-    def _make_candidates(self, base_value, steps=8, param_name=None):
-        """Generate candidate values in [-30%, +30%] of base for coordinate descent.
+    def _make_candidates(self, base_value, steps=8, param_name=None, step_size=0.30):
+        """Generate candidate values in [-step_size, +step_size] of base for coordinate descent.
 
         For int params: rounds to int, deduplicates, enforces minimum of 1.
         For float params: returns `steps` linearly spaced candidates.
@@ -1198,7 +1285,7 @@ class MinerviniClaude:
         value instead of drifting toward -30% each cycle.
         If param_name is in _PARAM_FLOORS, candidates below the floor are clamped.
         """
-        candidates = [base_value * (1 + f) for f in np.linspace(-0.3, 0.3, steps)]
+        candidates = [base_value * (1 + f) for f in np.linspace(-step_size, step_size, steps)]
         # Apply floor if defined for this parameter
         floor = self._PARAM_FLOORS.get(param_name) if param_name else None
         if floor is not None:
