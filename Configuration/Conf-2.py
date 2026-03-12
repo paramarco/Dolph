@@ -211,6 +211,16 @@ securities = [
     # _sec('ALB', primary_exchange='NYSE'),   # Albemarle      - lithium/chemicals, beta ~1.5, range 2-4%
     # _sec('DASH'),               # DoorDash       - delivery platform, beta ~1.3, range 2-3%
     # ==================== EUROPE  ====================
+    _sec_eu('AIR', market='SBF', timezone='Europe/Paris', primary_exchange='SBF'),      # Airbus         - aerospace/defense, beta ~1.3, range 1.5-2.5%
+    _sec_eu('ADS'),               # Adidas         - sportswear, beta ~1.3, range 2-3%
+    _sec_eu('RNO', market='SBF', timezone='Europe/Paris', primary_exchange='SBF'),      # Renault        - automotive, beta ~1.5, range 2-3%
+    _sec_eu('TKA'),               # ThyssenKrupp   - industrial/steel, beta ~1.6, range 2-4%
+    _sec_eu('VOW3'),              # Volkswagen Pref- automotive, beta ~1.3, range 2-3%
+    _sec_eu('SAP'),               # SAP SE         - enterprise software, beta ~1.1, range 1.5-2.5%
+    _sec_eu('BAS'),               # BASF           - chemicals, beta ~1.2, range 1.5-2.5%
+    _sec_eu('BMW'),               # BMW            - automotive, beta ~1.3, range 1.5-2.5%
+    _sec_eu('TTE', market='SBF', timezone='Europe/Paris', primary_exchange='SBF'),      # TotalEnergies  - energy, beta ~1.2, range 1.5-2.5%
+    _sec_eu('DHL'),               # DHL Group      - logistics, beta ~1.2, range 1.5-2.5%    
     _sec_eu('ASML', market='AEB', timezone='Europe/Amsterdam', primary_exchange='AEB'),  # ASML Holding   - semiconductor equip, beta ~1.3, range 2-3%
     _sec_eu('BNP', market='SBF', timezone='Europe/Paris', primary_exchange='SBF'),       # BNP Paribas    - banking, beta ~1.3, range 1.5-2.5%
     _sec_eu('CBK'), # Commerzbank    - banking, beta ~1.4, range 2-3%
@@ -223,25 +233,14 @@ securities = [
     _sec_eu('IFX'),               # Infineon       - semiconductor, beta 1.83, range 2-3%
     _sec_eu('DBK'),               # Deutsche Bank  - banking, beta 1.46, range 1.5-2.5%
     _sec_eu('ENR'),               # Siemens Energy - energy, beta 1.60-1.81, range 2-3%
-    _sec_eu('FLTR', market='LSE', timezone='Europe/London', currency='GBP',
-            primary_exchange='LSE',
-            trading_times=(dt.time(9, 46), dt.time(14, 40)),
-            time2close=dt.time(14, 45)),  # Flutter Entert. - sports betting, beta ~1.3, range 2-3%
-    _sec_eu('BARC', market='LSE', timezone='Europe/London', currency='GBP',
-             primary_exchange='LSE',
-             trading_times=(dt.time(9, 46), dt.time(14, 40)),
-             time2close=dt.time(14, 45)),  # Barclays       - banking, beta 1.98, range 2-3%
-    _sec_eu('AIR', market='SBF', timezone='Europe/Paris', primary_exchange='SBF'),      # Airbus         - aerospace/defense, beta ~1.3, range 1.5-2.5%
-    _sec_eu('ADS'),               # Adidas         - sportswear, beta ~1.3, range 2-3%
-    _sec_eu('RNO', market='SBF', timezone='Europe/Paris', primary_exchange='SBF'),      # Renault        - automotive, beta ~1.5, range 2-3%
-    _sec_eu('TKA'),               # ThyssenKrupp   - industrial/steel, beta ~1.6, range 2-4%
-    _sec_eu('VOW3'),              # Volkswagen Pref- automotive, beta ~1.3, range 2-3%
-    _sec_eu('SAP'),               # SAP SE         - enterprise software, beta ~1.1, range 1.5-2.5%
-    _sec_eu('BAS'),               # BASF           - chemicals, beta ~1.2, range 1.5-2.5%
-    _sec_eu('BMW'),               # BMW            - automotive, beta ~1.3, range 1.5-2.5%
-    _sec_eu('TTE', market='SBF', timezone='Europe/Paris', primary_exchange='SBF'),      # TotalEnergies  - energy, beta ~1.2, range 1.5-2.5%
-    _sec_eu('DHL'),               # DHL Group      - logistics, beta ~1.2, range 1.5-2.5%
-
+    # _sec_eu('FLTR', market='LSE', timezone='Europe/London', currency='GBP',
+    #         primary_exchange='LSE',
+    #         trading_times=(dt.time(9, 46), dt.time(14, 40)),
+    #         time2close=dt.time(14, 45)),  # Flutter Entert. - sports betting, beta ~1.3, range 2-3%
+    # _sec_eu('BARC', market='LSE', timezone='Europe/London', currency='GBP',
+    #          primary_exchange='LSE',
+    #          trading_times=(dt.time(9, 46), dt.time(14, 40)),
+    #          time2close=dt.time(14, 45)),  # Barclays       - banking, beta 1.98, range 2-3%
     # ==================== JAPAN - TSE (6 securities) ====================
     # _sec_jp('9984'),             # SoftBank Group  - tech/investment, beta ~1.5, range 2-3%
     # _sec_jp('8035'),             # Tokyo Electron  - semiconductor equip, very volatile, range 2-4%
