@@ -1595,7 +1595,8 @@ class MinerviniClaude:
                     continue
 
                 # Realistic IB transaction cost: max($1.00, qty × $0.005) per side
-                round_trip_cost = max(1.0, quantity * 0.005) * 2
+                # Convert from USD to local currency so it matches profit units
+                round_trip_cost = max(1.0, quantity * 0.005) * 2 * fx_rate
 
                 # Expire resolved positions and update exposure
                 if track_constraints:
@@ -1846,6 +1847,12 @@ class MinerviniClaude:
                 return -np.inf
             if num_trading_days > 0 and trades_per_day < MIN_TRADES_PER_DAY:
                 total_profit *= trades_per_day / MIN_TRADES_PER_DAY
+
+            # Normalize profit to USD for cross-security comparability.
+            # Without this, GBX stocks (fx_rate=79) appear ~79× more profitable
+            # than equivalent USD positions, inflating calibration_score.
+            if fx_rate > 0 and fx_rate != 1.0:
+                total_profit /= fx_rate
 
             return total_profit
 
