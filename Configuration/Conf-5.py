@@ -224,14 +224,14 @@ securities = [
     _sec_eu('IFX'),               # Infineon       - semiconductor, beta 1.83, range 2-3%
     _sec_eu('DBK'),               # Deutsche Bank  - banking, beta 1.46, range 1.5-2.5%
     _sec_eu('ENR'),               # Siemens Energy - energy, beta 1.60-1.81, range 2-3%
-    _sec_eu('FLTR', market='LSE', timezone='Europe/London', currency='GBP',
-            primary_exchange='LSE',
-            trading_times=(dt.time(9, 46), dt.time(14, 40)),
-            time2close=dt.time(14, 45)),  # Flutter Entert. - sports betting, beta ~1.3, range 2-3%
-    _sec_eu('BARC', market='LSE', timezone='Europe/London', currency='GBP',
-            primary_exchange='LSE',
-            trading_times=(dt.time(9, 46), dt.time(14, 40)),
-            time2close=dt.time(14, 45)),  # Barclays       - banking, beta 1.98, range 2-3%
+    # _sec_eu('FLTR', market='LSE', timezone='Europe/London', currency='GBP',
+    #         primary_exchange='LSE',
+    #         trading_times=(dt.time(9, 46), dt.time(14, 40)),
+    #         time2close=dt.time(14, 45)),  # Flutter Entert. - sports betting, beta ~1.3, range 2-3%
+    # _sec_eu('BARC', market='LSE', timezone='Europe/London', currency='GBP',
+    #         primary_exchange='LSE',
+    #         trading_times=(dt.time(9, 46), dt.time(14, 40)),
+    #         time2close=dt.time(14, 45)),  # Barclays       - banking, beta 1.98, range 2-3%
     _sec_eu('AIR', market='SBF', timezone='Europe/Paris', primary_exchange='SBF'),      # Airbus         - aerospace/defense, beta ~1.3, range 1.5-2.5%
     _sec_eu('ADS'),               # Adidas         - sportswear, beta ~1.3, range 2-3%
     _sec_eu('RNO', market='SBF', timezone='Europe/Paris', primary_exchange='SBF'),      # Renault        - automotive, beta ~1.5, range 2-3%
@@ -243,30 +243,30 @@ securities = [
     _sec_eu('TTE', market='SBF', timezone='Europe/Paris', primary_exchange='SBF'),      # TotalEnergies  - energy, beta ~1.2, range 1.5-2.5%
     _sec_eu('DHL'),               # DHL Group      - logistics, beta ~1.2, range 1.5-2.5%
 
-    # ==================== JAPAN - TSE (6 securities) ====================
-    # _sec_jp('9984'),             # SoftBank Group  - tech/investment, beta ~1.5, range 2-3%
-    # _sec_jp('8035'),             # Tokyo Electron  - semiconductor equip, very volatile, range 2-4%
-    # _sec_jp('6857'),             # Advantest       - semiconductor test, high volatility, range 2-4%
-    # _sec_jp('6920'),             # Lasertec        - semiconductor inspect, extreme volatility, range 3-5%
-    # _sec_jp('9983'),             # Fast Retailing  - Uniqlo, heavy Nikkei weight, range 1.5-3%
-    # _sec_jp('6758'),             # Sony Group      - tech/entertainment, liquid, range 1.5-2.5%
-    # _sec_jp('7974'),             # Nintendo       - gaming/entertainment, liquid, range 2-3%
+    # ==================== JAPAN - TSE  ====================
+    _sec_jp('9984'),             # SoftBank Group  - tech/investment, beta ~1.5, range 2-3%
+    _sec_jp('8035'),             # Tokyo Electron  - semiconductor equip, very volatile, range 2-4%
+    _sec_jp('6857'),             # Advantest       - semiconductor test, high volatility, range 2-4%
+    _sec_jp('6920'),             # Lasertec        - semiconductor inspect, extreme volatility, range 3-5%
+    _sec_jp('9983'),             # Fast Retailing  - Uniqlo, heavy Nikkei weight, range 1.5-3%
+    _sec_jp('6758'),             # Sony Group      - tech/entertainment, liquid, range 1.5-2.5%
+    _sec_jp('7974'),             # Nintendo       - gaming/entertainment, liquid, range 2-3%
     # _sec_jp('6861'),             # Keyence        - sensors/automation, beta ~1.3, range 1.5-2.5%
     # _sec_jp('7267'),             # Honda Motor    - automotive, liquid, range 1.5-2.5%
     # _sec_jp('7203'),             # Toyota Motor   - automotive, very liquid, range 1.5-2.5%
     # _sec_jp('4568'),             # Daiichi Sankyo - pharma, volatile, range 2-4%
-    # ==================== HONG KONG - HKEX (6 securities) ====================
-    # _sec_hk('9988'),             # Alibaba Group   - e-commerce/cloud, very volatile, range 2-4%
-    # _sec_hk('700'),              # Tencent         - tech/gaming, most liquid HKEX, range 1.5-3%
-    # _sec_hk('3690'),             # Meituan         - delivery/tech, volatile, range 2-4%
-    # _sec_hk('9618'),             # JD.com          - e-commerce, volatile, range 2-4%
-    # _sec_hk('1810'),             # Xiaomi          - electronics/EV, high retail volume, range 2-3%
-    # _sec_hk('1211'),             # BYD             - EV/batteries, volatile, range 2-3%
-    # _sec_hk('9888'),             # Baidu          - AI/search, volatile, range 2-4%
-    # _sec_hk('9999'),             # NetEase        - gaming/entertainment, range 2-3%
-    # _sec_hk('9626'),             # Bilibili       - video/gaming platform, beta ~1.5, range 3-5%
-    # _sec_hk('175'),              # Geely Auto     - automotive, volatile, range 2-4%
-    # _sec_hk('2269'),             # WuXi Biologics - biotech/CDMO, volatile, range 3-5%
+    # ==================== HONG KONG - HKEX  ====================
+    _sec_hk('9988'),             # Alibaba Group   - e-commerce/cloud, very volatile, range 2-4%
+    _sec_hk('700'),              # Tencent         - tech/gaming, most liquid HKEX, range 1.5-3%
+    _sec_hk('3690'),             # Meituan         - delivery/tech, volatile, range 2-4%
+    _sec_hk('9618'),             # JD.com          - e-commerce, volatile, range 2-4%
+    _sec_hk('1810'),             # Xiaomi          - electronics/EV, high retail volume, range 2-3%
+    _sec_hk('1211'),             # BYD             - EV/batteries, volatile, range 2-3%
+    _sec_hk('9888'),             # Baidu          - AI/search, volatile, range 2-4%
+    _sec_hk('9999'),             # NetEase        - gaming/entertainment, range 2-3%
+    _sec_hk('9626'),             # Bilibili       - video/gaming platform, beta ~1.5, range 3-5%
+    _sec_hk('175'),              # Geely Auto     - automotive, volatile, range 2-4%
+    _sec_hk('2269'),             # WuXi Biologics - biotech/CDMO, volatile, range 3-5%
 ]
 
 #logLevel = logging.DEBUG
