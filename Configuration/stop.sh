@@ -30,7 +30,7 @@ if [ -z "$1" ]; then
       fi
     fi
   done
- echo "now killing the hard way with (pgrep "python" | xargs kill -9)... "
+ echo "now killing the hard way with (pgrep python | xargs kill -9)... "
  sleep 6
  pgrep "python" | xargs kill -9
  echo "$(date)"
@@ -43,9 +43,16 @@ else
   if [ -z "$pid" ]; then
     echo "No running process of DolphRobot.py found for instance $1."
   else
-    echo "Killing the process with PID: $pid"
+    echo "Sending SIGINT to PID: $pid"
     kill -2 "$pid"
-    echo "Process killed successfully for instance $1."
+    sleep 5
+    # Fallback: force kill if still alive
+    if kill -0 "$pid" 2>/dev/null; then
+      echo "Process still alive after SIGINT, sending SIGKILL..."
+      kill -9 "$pid"
+      echo "Process force-killed for instance $1."
+    else
+      echo "Process stopped gracefully for instance $1."
+    fi
   fi
 fi
-

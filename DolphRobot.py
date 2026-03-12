@@ -97,14 +97,17 @@ class Dolph:
 
 
     def _init_signaling(self):
-        
+
         def signalHandler( signum, frame):
-            self.tp.disconnect()
-            time.sleep(2.5) 
+            try:
+                self.tp.disconnect()
+            except Exception:
+                pass
             logging.info('hasta la vista!')
-            sys.exit()
-        
-        signal.signal(signal.SIGINT, signalHandler)     
+            os._exit(0)  # Force exit — sys.exit() can be swallowed during heavy computation
+
+        signal.signal(signal.SIGINT, signalHandler)
+        signal.signal(signal.SIGTERM, signalHandler)
         
 
     # return next((s for s in self.securities if s['seccode'] == seccode), None)
