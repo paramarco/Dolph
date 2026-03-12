@@ -568,7 +568,7 @@ class Dolph:
 
         self.logger.info(f" Step 3/3: Take Position")
 
-        # Phase 1: Evaluate all securities and collect (position, confidence) pairs
+        # Phase 1: Evaluate all securities and collect (position, confidence, cal_score)
         candidates = []
         for sec in self.securities:
 
@@ -579,22 +579,35 @@ class Dolph:
             if action not in ['long','short','close','close-counterPosition']:
                 self.logger.info(f"seccode:{position.seccode} action={action}, nothing to do ...")
                 continue
-            candidates.append((position, confidence))
+            cal_score = sec['params'].get('calibration_score', 0)
+            candidates.append((position, confidence, cal_score))
 
-        # Phase 2: Sort by confidence descending (highest confidence first)
-        candidates.sort(key=lambda x: x[1], reverse=True)
+        # Phase 2: Rank by composite of confidence × calibration quality.
+        # Normalise cal_score across current candidates so the bonus ranges
+        # from 1.0 (worst) to 2.0 (best).  This means cal_score can boost
+        # a candidate's rank by up to 2×, but a zero-confidence candidate
+        # stays at zero regardless of cal_score.
+        if candidates:
+            max_cal = max(c[2] for c in candidates) or 1.0
+            candidates.sort(
+                key=lambda x: x[1] * (1.0 + x[2] / max_cal),
+                reverse=True,
+            )
 
-        # Phase 3: Execute positions in confidence order, re-checking balance
-        for position, confidence in candidates:
+        # Phase 3: Execute positions in ranked order, re-checking balance
+        for position, confidence, cal_score in candidates:
+            rank = confidence * (1.0 + cal_score / max_cal) if candidates else 0
             if position.takePosition in ['long', 'short']:
                 if self.positionExceedsBalance(position):
                     self.logger.info(
-                        f'seccode:{position.seccode} confidence={confidence:.4f} '
+                        f'seccode:{position.seccode} rank={rank:.4f} '
+                        f'confidence={confidence:.4f} cal_score={cal_score:.1f} '
                         f'SKIPPED: {position.takePosition} side would exceed net_balance'
                     )
                     continue
             self.logger.info(
-                f'seccode:{position.seccode} confidence={confidence:.4f} '
+                f'seccode:{position.seccode} rank={rank:.4f} '
+                f'confidence={confidence:.4f} cal_score={cal_score:.1f} '
                 f'sending a {position} to the Trading platform ...'
             )
             self.tp.processPosition(position)
