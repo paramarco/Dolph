@@ -1420,13 +1420,11 @@ class MinerviniClaude:
                     net_balance = 20000.0
             cash_4_position = net_balance * cm.factorPosition_Balance
             # Convert cash from USD to security's native currency for position sizing
-            sec_currency = self.security.get('currency', 'USD')
-            # LSE stocks are priced in pence (GBX), not pounds (GBP)
-            if sec_currency == 'GBP' and self.security.get('market') == 'LSE':
-                sec_currency = 'GBX'
+            sec_currency = self.security.get('fx_currency', self.security.get('currency', 'USD'))
             fx_rates = getattr(cm, 'FX_RATES_FROM_USD', {'USD': 1.0})
             fx_rate = fx_rates.get(sec_currency, 1.0)
             cash_4_position *= fx_rate
+            board_lot = self.security.get('board_lot', 1)
             exposure_limit = net_balance * fx_rate  # exposure limit in local currency
 
             closes  = df['close'].values
@@ -1548,7 +1546,8 @@ class MinerviniClaude:
                 # MAX_PARTICIPATION=0.10 means order cannot exceed 10% of candle volume.
                 # Deterministic (no randomness) so optimizer produces stable scores.
                 MAX_PARTICIPATION = getattr(cm, 'CALIBRATION_MAX_VOLUME_PARTICIPATION', 0.10)
-                est_quantity = round(cash_4_position / limit_price) if limit_price > 0 else 0
+                est_quantity = int(cash_4_position / limit_price) if limit_price > 0 else 0
+                est_quantity = (est_quantity // board_lot) * board_lot
 
                 entry_idx = -1
                 for fb in range(limit_bar, fill_end):
@@ -1582,7 +1581,8 @@ class MinerviniClaude:
                 else:
                     entry_price = limit_price * (1.0 - FILL_SLIPPAGE)   # sell slightly lower
                 m_abs       = entry_price * margin_factor[i]
-                quantity    = round(cash_4_position / entry_price)
+                quantity    = int(cash_4_position / entry_price)
+                quantity    = (quantity // board_lot) * board_lot
                 if quantity <= 0:
                     continue
 

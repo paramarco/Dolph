@@ -111,6 +111,7 @@ def _sec(code, decimals=2, timezone='America/New_York', currency='USD',
         'primaryExchange': primary_exchange,
         'tradingTimes': trading_times,
         'time2close': time2close,
+        'board_lot': 1,
         'params': dict(_BASE_PARAMS),
     }
 
@@ -118,8 +119,8 @@ def _sec(code, decimals=2, timezone='America/New_York', currency='USD',
 def _sec_eu(code, decimals=2, market='XETRA', timezone='Europe/Berlin',
             currency='EUR', exchange='SMART', primary_exchange='IBIS',
             trading_times=(dt.time(9, 16), dt.time(15, 30)),
-            time2close=dt.time(15, 38)):
-    return {
+            time2close=dt.time(15, 38), **extra):
+    d = {
         'seccode': code,
         'board': 'EQTY',
         'market': market,
@@ -131,8 +132,11 @@ def _sec_eu(code, decimals=2, market='XETRA', timezone='Europe/Berlin',
         'primaryExchange': primary_exchange,
         'tradingTimes': trading_times,
         'time2close': time2close,
+        'board_lot': 1,
         'params': dict(_BASE_PARAMS),
     }
+    d.update(extra)
+    return d
 
 # ---------------------------------------------------------------------------
 # Japan (TSE) helper
@@ -154,6 +158,7 @@ def _sec_jp(code, decimals=0,
         'primaryExchange': 'TSEJ',
         'tradingTimes': trading_times,
         'time2close': time2close,
+        'board_lot': 100,
         'params': dict(_BASE_PARAMS),
     }
 
@@ -162,7 +167,7 @@ def _sec_jp(code, decimals=0,
 # Trading hours: 9:30-12:00 (morning) + 13:00-16:00 (afternoon), lunch break
 # IB: exchange SMART, primaryExchange SEHK, currency HKD
 # ---------------------------------------------------------------------------
-def _sec_hk(code, decimals=2,
+def _sec_hk(code, decimals=2, board_lot=100,
             trading_times=(dt.time(9, 35), dt.time(15, 55)),
             time2close=dt.time(15, 58)):
     return {
@@ -177,6 +182,7 @@ def _sec_hk(code, decimals=2,
         'primaryExchange': 'SEHK',
         'tradingTimes': trading_times,
         'time2close': time2close,
+        'board_lot': board_lot,
         'params': dict(_BASE_PARAMS),
     }
 
@@ -258,13 +264,13 @@ securities = [
     # _sec_hk('700'),              # Tencent         - tech/gaming, most liquid HKEX, range 1.5-3%
     # _sec_hk('3690'),             # Meituan         - delivery/tech, volatile, range 2-4%
     # _sec_hk('9618'),             # JD.com          - e-commerce, volatile, range 2-4%
-    # _sec_hk('1810'),             # Xiaomi          - electronics/EV, high retail volume, range 2-3%
-    # _sec_hk('1211'),             # BYD             - EV/batteries, volatile, range 2-3%
+    # _sec_hk('1810', board_lot=200),             # Xiaomi          - electronics/EV, high retail volume, range 2-3%
+    # _sec_hk('1211', board_lot=500),             # BYD             - EV/batteries, volatile, range 2-3%
     # _sec_hk('9888'),             # Baidu          - AI/search, volatile, range 2-4%
     # _sec_hk('9999'),             # NetEase        - gaming/entertainment, range 2-3%
     # _sec_hk('9626'),             # Bilibili       - video/gaming platform, beta ~1.5, range 3-5%
-    # _sec_hk('175'),              # Geely Auto     - automotive, volatile, range 2-4%
-    # _sec_hk('2269'),             # WuXi Biologics - biotech/CDMO, volatile, range 3-5%
+    # _sec_hk('175', board_lot=1000),              # Geely Auto     - automotive, volatile, range 2-4%
+    # _sec_hk('2269', board_lot=500),             # WuXi Biologics - biotech/CDMO, volatile, range 3-5%
 ]
 
 logLevel = logging.DEBUG

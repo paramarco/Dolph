@@ -449,8 +449,14 @@ class Dolph:
         net_balance = self.tp.get_net_balance()
         factorMargin_Position = params['positionMargin']        
         
-        cash_4_position = net_balance * cm.factorPosition_Balance        
-        quantity = round(cash_4_position / priceClose)
+        cash_4_position = net_balance * cm.factorPosition_Balance
+        sec_currency = security.get('fx_currency', security.get('currency', 'USD'))
+        fx_rates = getattr(cm, 'FX_RATES_FROM_USD', {'USD': 1.0})
+        fx_rate = fx_rates.get(sec_currency, 1.0)
+        cash_4_position *= fx_rate
+        board_lot = security.get('board_lot', 1)
+        quantity = int(cash_4_position / priceClose)
+        quantity = (quantity // board_lot) * board_lot
         margin = priceClose * factorMargin_Position
 
         printMargin = "{0:0.{prec}f}".format(factorMargin_Position, prec=5)

@@ -14,6 +14,7 @@ class OrderIB:
         self.side = 'buy' if trade.order.action.lower() == 'buy' else 'sell'
         self._raw = trade  # Keep the original Trade object for any advanced usage
         self.order = trade.order
+        self.account = trade.order.account    # cuenta IB que posee esta orden
         # Store the creation time as UTC timestamp
         self.time = datetime.now(timezone.utc)
 

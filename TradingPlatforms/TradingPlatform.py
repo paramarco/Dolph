@@ -1714,6 +1714,9 @@ class IB_OrderStatusTask:
                 trades = self.tp.ib.trades()
                 for trade in trades:
                     order = OrderIB(trade)
+                    # Ignorar órdenes de otras cuentas
+                    if order.account and self.tp.account_number and order.account != self.tp.account_number:
+                        continue
                     if self.tp.isMarketCloseOrder(order):
                         continue
 
@@ -2098,6 +2101,10 @@ class IBTradingPlatform(TradingPlatform):
         if self.isMarketCloseOrder(order):
             return
 
+        # Ignorar órdenes de otras cuentas
+        if order.account and self.account_number and order.account != self.account_number:
+            return
+
         # Process regular or stop orders
         if order.type in ['MKT']:
             self.processEntryOrderStatus(order)
@@ -2248,6 +2255,10 @@ class IBTradingPlatform(TradingPlatform):
     def new_order(self, board, seccode, client, union, buysell, expdate, quantity, price, bymarket, usecredit):
         """Interactive Brokers"""
 
+        if not self._check_ib_ready():
+            log.error(f"IB not ready, cannot place order for {seccode}")
+            return None
+
         try:
             # Create IB contract for the stock
             contract = self._make_stock_contract(seccode)
@@ -2302,6 +2313,9 @@ class IBTradingPlatform(TradingPlatform):
 
     async def _newExitOrder_async(self, seccode, exit_action, quantity, trigger_price_sl, trigger_price_tp):
         """Place bracket exit orders on IB event loop thread."""
+        if not self.ib.isConnected():
+            log.error(f"IB not connected, cannot place exit order for {seccode}")
+            return None
         contract = self._make_stock_contract(seccode)
         utcInteger = int(datetime.datetime.now(timezone.utc).timestamp())
         oca_group = f"OCA_{seccode}_{utcInteger}"
@@ -2377,6 +2391,9 @@ class IBTradingPlatform(TradingPlatform):
         Called via _run_ib() from closeExit() to avoid 'no current event loop' errors
         when invoked from the IB_OrderStatusTask thread.
         """
+        if not self.ib.isConnected():
+            log.error(f"IB not connected, cannot close exit for {mp.seccode}")
+            return None
         # Cancel the TP exit order
         if meo_order is not None:
             self.ib.cancelOrder(meo_order, '')
