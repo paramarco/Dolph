@@ -14,85 +14,83 @@ _BASE_PARAMS = {
     'entryTimeSeconds': 360,
     'minNumPastSamples': 51,
     'positionMargin': 0.003,
-    'stopLossCoefficient': 3,
     'period': '1Min',
-    # ===== Phase Detection Parameters =====
-    # Expansion:  (ATR_slope > threshold AND Bollinger width percentile high)
-    # Trend: ( ADX above threshold, strong directional movement) and (EMA alignment either bullish or bearish)
+    # ===== 5 META PARAMS (optimizable, derive old indicator/margin/SL params) =====
+    'EMA_BASE': 14,         # derives EMA_FAST, EMA_MID, EMA_SLOW
+    'VOL_WINDOW': 20,       # derives ATR_PERIOD, BB_WINDOW, BB_PERCENTILE_WINDOW, ATR_SLOPE_WINDOW, FVP_WINDOW
+    'TREND_WINDOW': 14,     # derives ADX_PERIOD
+    'TP_MULT': 1.5,         # derives MARGIN_EXPANSION_MULTIPLIER, MARGIN_TREND_ATR_MULTIPLIER
+    'SL_RR': 2.0,           # derives stopLossCoefficient
+    # ===== 7 DIRECTLY OPTIMIZABLE PARAMS =====
     'VCP_ATR_SLOPE_EXPANSION': 0.03,
-    'VCP_BB_WIDTH_PERCENTILE_EXPANSION': 0.24499999999999997,
+    'VCP_BB_WIDTH_PERCENTILE_EXPANSION': 0.245,
     'VCP_ADX_TREND_THRESHOLD': 18,
-    # Indicator Periods
-    'EMA_FAST': 14,
-    'EMA_MID': 16,
-    'EMA_SLOW': 24,
-    'RSI_PERIOD': 23,       # RSI (Momentum Filter). to Confirm directional entries, Filter false breakouts
-    'ATR_PERIOD': 19,       # ATR CALCULATION. to measure volatility level
-    'ATR_SLOPE_WINDOW': 5,  # ATR SLOPE. Measures volatility expansion / contraction speed
-    'ADX_PERIOD': 13,       # ADX + DI (Trend Strength). to confirm directional strength, to filter ranging markets
-    'BB_WINDOW': 10,        # BOLLINGER BAND WIDTH. Measures compression vs expansion of volatility
-    'BB_STD': 2,
-    'BB_PERCENTILE_WINDOW': 49,
-    'FVP_WINDOW': 47,       # FAIR VALUE PRICE (FVP). Rolling mean of close. Used for mean-reversion during expansion
-    # Expansion Phase Thresholds
     'EXPANSION_DEVIATION_THRESHOLD': 0.000245,
-    'EXPANSION_RSI_SHORT_MIN': 20,
-    'EXPANSION_RSI_LONG_MAX': 50,
-    # Trend Phase Thresholds
-    'TREND_RSI_LONG_MIN': 20,
-    'TREND_RSI_LONG_MAX': 95,
-    'TREND_RSI_SHORT_MIN': 15,
-    'TREND_RSI_SHORT_MAX': 60,
-    # Margin Adaptation Parameters
+    'MIN_RELATIVE_VOLUME': 0.8,
+    'MIN_TOTAL_SCORE': 0.25,
+    'MIN_CONFIDENCE': 0.7,
+    # ===== DERIVED PARAMS (set by _derive_params(), do not optimize) =====
+    'EMA_FAST': 14,         # = EMA_BASE
+    'EMA_MID': 21,          # = round(1.5 * EMA_BASE)
+    'EMA_SLOW': 35,         # = round(2.5 * EMA_BASE)
+    'ATR_PERIOD': 20,       # = VOL_WINDOW
+    'BB_WINDOW': 20,        # = VOL_WINDOW
+    'BB_STD': 2,
+    'BB_PERCENTILE_WINDOW': 60,  # = 3 * VOL_WINDOW
+    'ATR_SLOPE_WINDOW': 6,  # = max(3, VOL_WINDOW // 3)
+    'FVP_WINDOW': 40,       # = 2 * VOL_WINDOW
+    'ADX_PERIOD': 14,       # = TREND_WINDOW
+    'stopLossCoefficient': 2.0,          # = SL_RR
+    'MARGIN_EXPANSION_MULTIPLIER': 1.5,  # = TP_MULT
+    'MARGIN_TREND_ATR_MULTIPLIER': 1.5,  # = TP_MULT
+    # ===== FROZEN RSI (valores restrictivos) =====
+    'RSI_PERIOD': 14,
+    'EXPANSION_RSI_SHORT_MIN': 45,
+    'EXPANSION_RSI_LONG_MAX': 60,
+    'TREND_RSI_LONG_MIN': 35,
+    'TREND_RSI_LONG_MAX': 70,
+    'TREND_RSI_SHORT_MIN': 30,
+    'TREND_RSI_SHORT_MAX': 65,
+    # ===== FROZEN MARGIN CLAMPS =====
     'MARGIN_CONTRACTION_FIXED': 0.0015,
-    'MARGIN_EXPANSION_MULTIPLIER': 1.5,
     'MARGIN_EXPANSION_MIN': 0.004,
     'MARGIN_EXPANSION_MAX': 0.015,
-    'MARGIN_TREND_ATR_MULTIPLIER': 2.0,
     'MARGIN_TREND_MIN': 0.003,
     'MARGIN_TREND_MAX': 0.010,
-    # Calibration Parameters (3 months lookback for mode = TEST_OFFLINE)
+    # ===== FROZEN CALIBRATION PARAMS =====
     'CALIBRATION_LOOKBACK_DAYS': 90,
     'CALIBRATION_LIMIT_RESULTS': 40000,
     'CALIBRATION_MIN_ROWS': 1000,
     'CALIBRATION_MARGIN_MIN': 0.001,
     'CALIBRATION_MARGIN_MAX': 0.015,
     'CALIBRATION_MARGIN_STEPS': 10,
-    # Calibration Simulation Parameters
     'CALIBRATION_LOOKAHEAD_BARS': 60,
-    # Volume Analysis Parameters
+    # ===== FROZEN VOLUME ANALYSIS =====
     'VOLUME_AVG_WINDOW': 13,
     'VOLUME_SLOPE_WINDOW': 4,
-    'BIG_VOLUME_THRESHOLD': 1.638,
-    'EXTREME_VOLUME_THRESHOLD': 2.7001,
-    'BIG_BODY_ATR_THRESHOLD': 0.588,
-    'EXTREME_BODY_ATR_THRESHOLD': 3.157142857142857,
+    'BIG_VOLUME_THRESHOLD': 1.5,
+    'EXTREME_VOLUME_THRESHOLD': 2.5,
+    'BIG_BODY_ATR_THRESHOLD': 0.8,
+    'EXTREME_BODY_ATR_THRESHOLD': 3.157,
     'DIVERGENCE_LOOKBACK': 10,
-    # Buying Climax
+    # ===== FROZEN BUYING CLIMAX (effectively disabled) =====
     'BUYING_CLIMAX_LOOKBACK': 10,
     'BUYING_CLIMAX_TREND_LOOKBACK': 7,
-    'BUYING_CLIMAX_EXTENSION': 0.005481285714285714,
+    'BUYING_CLIMAX_EXTENSION': 1.5,
     'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
-    # Final Decision Scoring
-    'MIN_TOTAL_SCORE': 0.25,
-    'MIN_CONFIDENCE': 0.7,
-    # Volume Confirmation Gate (Idea #3)
-    'MIN_RELATIVE_VOLUME': 0.8,
-    # Position Management
+    # ===== FROZEN POSITION / CONFIDENCE / MOMENTUM =====
     'POSITION_COOLDOWN_SECONDS': 300,
-    # Confidence Penalties
     'NO_VOLUME_CONFIDENCE_PENALTY': 0.40,
     'MOMENTUM_LOOKBACK': 5,
     'COUNTER_TREND_THRESHOLD': 0.003,
     'COUNTER_TREND_FACTOR': 10.0,
-    # Signal Stability
     'SIGNAL_STABILITY_REQUIRED': 2,
-    # Liquidity / Smart Money Concepts
-    'LIQ_BOS_LOOKBACK': 20,          # Barras 5-min para detectar BOS
-    'LIQ_SWEEP_LOOKBACK': 10,        # Barras 1-min para detectar sweep
-    'LIQ_ZONE_TOLERANCE': 0.0015,    # Tolerancia para "dentro de zona" (0.15%)
-    'LIQ_SCORE_BONUS': 1.2,          # Score añadido al detectar patrón
-    'LIQ_ADX_MIN': 15,               # ADX mínimo para activar módulo
+    # ===== FROZEN LIQUIDITY / SMC =====
+    'LIQ_BOS_LOOKBACK': 20,
+    'LIQ_SWEEP_LOOKBACK': 5,
+    'LIQ_ZONE_TOLERANCE': 0.005,
+    'LIQ_SCORE_BONUS': 2,
+    'LIQ_ADX_MIN': 15,
 }
 
 def _sec(code, decimals=2, timezone='America/New_York', currency='USD',

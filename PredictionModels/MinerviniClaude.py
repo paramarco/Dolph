@@ -13,86 +13,63 @@ class MinerviniClaude:
 
     _calibration_cache = {}
 
-    # Params requiring full indicator recomputation when changed
-    _INDICATOR_PARAMS = frozenset({
-        'EMA_FAST', 'EMA_MID', 'EMA_SLOW', 'RSI_PERIOD',
-        'ATR_PERIOD', 'ATR_SLOPE_WINDOW', 'ADX_PERIOD',
-        'BB_WINDOW', 'BB_PERCENTILE_WINDOW', 'FVP_WINDOW'
+    # Meta params whose change triggers full indicator recomputation
+    # (via _derive_params -> EMA_FAST/MID/SLOW, ATR_PERIOD, BB_WINDOW, etc.)
+    _INDICATOR_PARAMS = frozenset({'EMA_BASE', 'VOL_WINDOW', 'TREND_WINDOW'})
+
+    # The 12 params the optimizer is allowed to touch (whitelist)
+    _OPTIMIZABLE_PARAMS = frozenset({
+        'EMA_BASE', 'VOL_WINDOW', 'TREND_WINDOW',
+        'VCP_ATR_SLOPE_EXPANSION', 'VCP_BB_WIDTH_PERCENTILE_EXPANSION',
+        'VCP_ADX_TREND_THRESHOLD', 'EXPANSION_DEVIATION_THRESHOLD',
+        'MIN_RELATIVE_VOLUME', 'MIN_TOTAL_SCORE', 'MIN_CONFIDENCE',
+        'TP_MULT', 'SL_RR',
     })
 
-    # Params excluded from optimization (non-numeric or meta-calibration)
-    _EXCLUDE_PARAMS = frozenset({
-        'algorithm', 'entryByMarket', 'period',
-        'exitTimeSeconds', 'minNumPastSamples',
-        'CALIBRATION_LOOKBACK_DAYS', 'CALIBRATION_LIMIT_RESULTS',
-        'CALIBRATION_MIN_ROWS', 'CALIBRATION_MARGIN_MIN',
-        'CALIBRATION_MARGIN_MAX', 'CALIBRATION_MARGIN_STEPS',
-        'CALIBRATION_LOOKAHEAD_BARS', 'BUYING_CLIMAX_COOLDOWN_SECONDS',
-        'POSITION_COOLDOWN_SECONDS',
-        'MAX_CALIBRATION_PASSES', 'MIN_CALIBRATION_IMPROVEMENT',
-        'TRAILING_TP_ENABLED',
-        'MIN_CONFIDENCE',
-        'SIGNAL_STABILITY_REQUIRED',
-        # Structurally inert: BB_STD=1 → only candidate is [1] (int round)
-        'BB_STD',
-        # stopLossCoefficient base=8, but sim clamps to [1.5,3.0] → all candidates map to 3.0
-        'stopLossCoefficient',
-        # positionMargin not used in simulation (_compute_margin_vectorized uses
-        # phase-specific params); in OPERATIONAL _adapt_margin() overwrites it
-        'positionMargin',
-        # Contraction phase = no-go (line 772: ~contraction_mask), so margin
-        # during contraction never applies to any trade
-        'MARGIN_CONTRACTION_FIXED',
-        # Buying climax sub-params degenerate to minimum without score impact
-        'BUYING_CLIMAX_EXTENSION',
-        'BUYING_CLIMAX_LOOKBACK',
-        'BUYING_CLIMAX_TREND_LOOKBACK',
-        # RSI min/max filters degenerate to 1 (no filter) without recovery
-        'EXPANSION_RSI_SHORT_MIN',
-        'EXPANSION_RSI_LONG_MAX',
-        'TREND_RSI_LONG_MIN',
-        'TREND_RSI_SHORT_MIN',
-        # Metadata — not a trading parameter
-        'calibration_score',
-        # Liquidity / SMC — structural lookbacks, not optimizable
-        'LIQ_BOS_LOOKBACK', 'LIQ_SWEEP_LOOKBACK', 'LIQ_ADX_MIN',
-        # Convergence detection metadata — not trading parameters
-        '_calibration_converged', '_calibration_fingerprint', '_calibration_perturb_count',
-    })
-
-    # Minimum allowed values for parameters prone to degeneration.
-    # Prevents coordinate descent from shrinking margins, thresholds and
-    # scoring gates below operationally meaningful levels.
+    # Minimum allowed values for the 12 optimizable params.
     _PARAM_FLOORS = {
-        # Margin params — floor = transaction cost floor (~0.03% round-trip)
-        'MARGIN_EXPANSION_MULTIPLIER': 0.5,
-        'MARGIN_EXPANSION_MIN': 0.002,
-        'MARGIN_EXPANSION_MAX': 0.005,
-        'MARGIN_TREND_ATR_MULTIPLIER': 0.5,
-        'MARGIN_TREND_MIN': 0.002,
-        'MARGIN_TREND_MAX': 0.005,
-        # Scoring gates — below these the filter is effectively disabled
+        'EMA_BASE': 5,
+        'VOL_WINDOW': 5,
+        'TREND_WINDOW': 5,
+        'VCP_ATR_SLOPE_EXPANSION': 0.005,
+        'VCP_BB_WIDTH_PERCENTILE_EXPANSION': 0.05,
+        'VCP_ADX_TREND_THRESHOLD': 8,
+        'EXPANSION_DEVIATION_THRESHOLD': 0.00005,
         'MIN_TOTAL_SCORE': 0.1,
+        'MIN_CONFIDENCE': 0.1,
         'MIN_RELATIVE_VOLUME': 0.2,
-        # Volume analysis — below these every bar qualifies
-        'BIG_VOLUME_THRESHOLD': 0.5,
-        'EXTREME_VOLUME_THRESHOLD': 1.0,
-        'BIG_BODY_ATR_THRESHOLD': 0.1,
-        'EXTREME_BODY_ATR_THRESHOLD': 0.5,
-        # Entry time — at least 1 minute
-        'entryTimeSeconds': 60,
-        # Counter-trend — must remain meaningful
-        'COUNTER_TREND_THRESHOLD': 0.001,
-        'COUNTER_TREND_FACTOR': 1.0,
-        # Confidence penalty
-        'NO_VOLUME_CONFIDENCE_PENALTY': 0.05,
-        # Divergence / momentum lookback
-        'DIVERGENCE_LOOKBACK': 3,
-        'MOMENTUM_LOOKBACK': 2,
-        # Liquidity / SMC
-        'LIQ_SCORE_BONUS': 0.3,
-        'LIQ_ZONE_TOLERANCE': 0.0005,
+        'TP_MULT': 0.5,
+        'SL_RR': 1.0,
     }
+
+    @staticmethod
+    def _derive_params(params):
+        """Derive dependent params from the 5 meta-params.
+
+        Must be called whenever EMA_BASE, VOL_WINDOW, TREND_WINDOW, TP_MULT,
+        or SL_RR change. Downstream code reads the derived keys unchanged.
+        """
+        if 'EMA_BASE' not in params:
+            return params  # legacy params without meta-keys
+        ema_base = int(params['EMA_BASE'])
+        params['EMA_FAST'] = ema_base
+        params['EMA_MID']  = round(1.5 * ema_base)
+        params['EMA_SLOW'] = round(2.5 * ema_base)
+
+        vol_win = int(params['VOL_WINDOW'])
+        params['ATR_PERIOD']           = vol_win
+        params['BB_WINDOW']            = vol_win
+        params['BB_PERCENTILE_WINDOW'] = 3 * vol_win
+        params['ATR_SLOPE_WINDOW']     = max(3, vol_win // 3)
+        params['FVP_WINDOW']           = 2 * vol_win
+
+        params['ADX_PERIOD'] = int(params['TREND_WINDOW'])
+
+        params['MARGIN_EXPANSION_MULTIPLIER'] = params['TP_MULT']
+        params['MARGIN_TREND_ATR_MULTIPLIER'] = params['TP_MULT']
+
+        params['stopLossCoefficient'] = params['SL_RR']
+        return params
 
     def __init__(self, data, security, dolph):
         """Initialize the prediction model for a single security.
@@ -125,6 +102,9 @@ class MinerviniClaude:
         self.params = security['params']
         self.dolph = dolph
         self._signal_history = collections.deque(maxlen=10)
+
+        # Ensure derived params are consistent with meta params
+        MinerviniClaude._derive_params(self.params)
 
         if cm.MODE == 'OPERATIONAL':
             # Skip calibration, use pre-loaded params from DB (loaded by DolphRobot)
@@ -627,7 +607,7 @@ class MinerviniClaude:
         confidence *= quality_factor
 
         # ---- Low energy filter with dynamic phase threshold (Idea #5) ----
-        base_min_score = max(p['MIN_TOTAL_SCORE'], 0.50)
+        base_min_score = p['MIN_TOTAL_SCORE']
         EXPANSION_SCORE_MULT = getattr(cm, 'EXPANSION_SCORE_MULT', 1.2)
         TREND_SCORE_MULT = getattr(cm, 'TREND_SCORE_MULT', 0.9)
 
@@ -669,7 +649,7 @@ class MinerviniClaude:
         # ---- Conflict filter ----  cm.MIN_CONFIDENCE = 0.6
         # Minimum conviction filter. Avoid trades when there is internal conflict.
         # Floor minimum prevents calibration from over-relaxing this threshold.
-        min_conf = max(p['MIN_CONFIDENCE'], 0.80)
+        min_conf = p['MIN_CONFIDENCE']
         if confidence < min_conf:
             return {'signal': 'no-go', 'confidence': 0.0, 'volume_contexts': active_contexts}
 
@@ -894,10 +874,10 @@ class MinerviniClaude:
 
         # Contraction phase = no-go (wait for breakout)
         contraction_mask = ~expansion_mask & ~trend_mask
-        min_conf  = max(params['MIN_CONFIDENCE'], 0.80)
+        min_conf  = params['MIN_CONFIDENCE']
 
         # Dynamic signal threshold by phase (Idea #5)
-        base_min_score = max(params['MIN_TOTAL_SCORE'], 0.50)
+        base_min_score = params['MIN_TOTAL_SCORE']
         EXPANSION_SCORE_MULT = getattr(cm, 'EXPANSION_SCORE_MULT', 1.2)
         TREND_SCORE_MULT = getattr(cm, 'TREND_SCORE_MULT', 0.9)
 
@@ -1069,11 +1049,12 @@ class MinerviniClaude:
             # Working copy of params to optimize
             best_params = dict(p)
 
-            # Collect optimizable params (numeric, non-zero, non-excluded)
+            # Collect optimizable params (whitelist of 12 core params)
+            MinerviniClaude._derive_params(best_params)
             optimizable = [
                 (k, v) for k, v in best_params.items()
-                if k not in self._EXCLUDE_PARAMS
-                and isinstance(v, (int, float)) and v != 0
+                if k in self._OPTIMIZABLE_PARAMS
+                and isinstance(v, (int, float))
             ]
 
             indicator_group = [(k, v) for k, v in optimizable if k in self._INDICATOR_PARAMS]
@@ -1098,23 +1079,21 @@ class MinerviniClaude:
                 for step_size in STEP_SIZES:
                     indicator_improved = False
 
-                    # Phase 1: indicator params at this resolution
+                    # Phase 1: indicator meta-params at this resolution
                     for param_name, _ in ind_group:
                         base_value = bp[param_name]
                         candidates = self._make_candidates(base_value, 8, param_name, step_size)
                         best_score = -np.inf
                         best_value = base_value
                         for c in candidates:
-                            test_params = dict(bp, **{param_name: c})
-                            if (int(test_params['EMA_FAST']) + 2 > int(test_params['EMA_MID']) or
-                                    int(test_params['EMA_MID']) + 2 > int(test_params['EMA_SLOW'])):
-                                continue
                             bp[param_name] = c
+                            MinerviniClaude._derive_params(bp)
                             score = _blended_score(bp)
                             if score > best_score:
                                 best_score = score
                                 best_value = c
                         bp[param_name] = best_value
+                        MinerviniClaude._derive_params(bp)
                         if best_value != base_value:
                             indicator_improved = True
                             any_improved = True
@@ -1135,11 +1114,13 @@ class MinerviniClaude:
                             best_value = base_value
                             for c in candidates:
                                 bp[param_name] = c
+                                MinerviniClaude._derive_params(bp)
                                 score = _blended_score(bp, c_train_df, c_test_df)
                                 if score > best_score:
                                     best_score = score
                                     best_value = c
                             bp[param_name] = best_value
+                            MinerviniClaude._derive_params(bp)
                             if best_value != base_value:
                                 any_improved = True
                                 log.info(f"{self.seccode}: step={step_size} pass {pass_num+1} {param_name}: {base_value} -> {best_value} (score={best_score:.6f})")
@@ -1184,6 +1165,9 @@ class MinerviniClaude:
                             new_val = max(floor, new_val) if not isinstance(v, int) else max(int(floor), new_val)
                         best_params[k] = new_val
 
+                    # Propagate meta -> derived after perturbation
+                    MinerviniClaude._derive_params(best_params)
+
                     # Re-optimize from perturbed state
                     _, cached_train_df, cached_test_df = _run_multi_resolution(
                         best_params, indicator_group, other_group)
@@ -1214,6 +1198,8 @@ class MinerviniClaude:
             # Note: stopLossCoefficient is NOT clamped here — stored value (e.g. 8) is used
             # by OPERATIONAL as-is. The [1.5, 3.0] clamp only applies inside _simulate_profit()
             # during calibration to enforce realistic RR ratios for parameter search.
+            # Ensure derived params are consistent before saving
+            MinerviniClaude._derive_params(best_params)
             MinerviniClaude._calibration_cache[self.seccode] = dict(best_params)
 
             for k, v in best_params.items():
@@ -1233,6 +1219,7 @@ class MinerviniClaude:
                 if base_params:
                     for k, v in base_params.items():
                         self.security['params'][k] = v
+                    MinerviniClaude._derive_params(self.security['params'])
                     # Reset convergence flags so next cycle re-calibrates from base
                     self.security['params']['_calibration_converged'] = False
                     self.security['params']['_calibration_perturb_count'] = 0
@@ -1434,8 +1421,8 @@ class MinerviniClaude:
             # Clamp SL coefficient to [1.5, 3.0] during calibration for realistic RR ratios.
             # With coef=5 → RR=1:5 → need >83% win rate (unstable intraday).
             # With coef=3 → RR=1:3 → need >75%. With coef=1.5 → RR=1:1.5 → need >60%.
-            _MIN_SL_COEFF = getattr(cm, 'MIN_STOP_LOSS_COEFFICIENT', 1.5)
-            _MAX_SL_COEFF = getattr(cm, 'MAX_STOP_LOSS_COEFFICIENT', 3.0)
+            _MIN_SL_COEFF = getattr(cm, 'MIN_STOP_LOSS_COEFFICIENT', 1.0)
+            _MAX_SL_COEFF = getattr(cm, 'MAX_STOP_LOSS_COEFFICIENT', 4.0)
             sl_coeff  = max(_MIN_SL_COEFF, min(_MAX_SL_COEFF, params['stopLossCoefficient']))
             lookahead = int(params['CALIBRATION_LOOKAHEAD_BARS'])
             n = len(df)
