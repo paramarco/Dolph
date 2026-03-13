@@ -19,7 +19,7 @@ _BASE_PARAMS = {
     'EMA_BASE': 14,         # derives EMA_FAST, EMA_MID, EMA_SLOW
     'VOL_WINDOW': 20,       # derives ATR_PERIOD, BB_WINDOW, BB_PERCENTILE_WINDOW, ATR_SLOPE_WINDOW, FVP_WINDOW
     'TREND_WINDOW': 14,     # derives ADX_PERIOD
-    'TP_MULT': 1.5,         # derives MARGIN_EXPANSION_MULTIPLIER, MARGIN_TREND_ATR_MULTIPLIER
+    'TP_MULT': 1.5,         # margin = TP_MULT * max(ATR/close, BB_width)
     'SL_RR': 2.0,           # derives stopLossCoefficient
     # ===== 7 DIRECTLY OPTIMIZABLE PARAMS =====
     'VCP_ATR_SLOPE_EXPANSION': 0.03,
@@ -41,8 +41,6 @@ _BASE_PARAMS = {
     'FVP_WINDOW': 40,       # = 2 * VOL_WINDOW
     'ADX_PERIOD': 14,       # = TREND_WINDOW
     'stopLossCoefficient': 2.0,          # = SL_RR
-    'MARGIN_EXPANSION_MULTIPLIER': 1.5,  # = TP_MULT
-    'MARGIN_TREND_ATR_MULTIPLIER': 1.5,  # = TP_MULT
     # ===== FROZEN RSI (valores restrictivos) =====
     'RSI_PERIOD': 14,
     'EXPANSION_RSI_SHORT_MIN': 45,
@@ -51,12 +49,7 @@ _BASE_PARAMS = {
     'TREND_RSI_LONG_MAX': 70,
     'TREND_RSI_SHORT_MIN': 30,
     'TREND_RSI_SHORT_MAX': 65,
-    # ===== FROZEN MARGIN CLAMPS =====
-    'MARGIN_CONTRACTION_FIXED': 0.0015,
-    'MARGIN_EXPANSION_MIN': 0.004,
-    'MARGIN_EXPANSION_MAX': 0.015,
-    'MARGIN_TREND_MIN': 0.003,
-    'MARGIN_TREND_MAX': 0.010,
+    # (margin clamps removed — unified formula: TP_MULT * max(ATR/close, BB_width))
     # ===== FROZEN CALIBRATION PARAMS =====
     'CALIBRATION_LOOKBACK_DAYS': 90,
     'CALIBRATION_LIMIT_RESULTS': 40000,

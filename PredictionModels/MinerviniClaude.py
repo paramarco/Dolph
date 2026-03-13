@@ -65,9 +65,6 @@ class MinerviniClaude:
 
         params['ADX_PERIOD'] = int(params['TREND_WINDOW'])
 
-        params['MARGIN_EXPANSION_MULTIPLIER'] = params['TP_MULT']
-        params['MARGIN_TREND_ATR_MULTIPLIER'] = params['TP_MULT']
-
         params['stopLossCoefficient'] = params['SL_RR']
         return params
 
@@ -909,76 +906,39 @@ class MinerviniClaude:
     # =====================================================
 
     def _adapt_margin(self, sec, phase, df):
-        """Adapt positionMargin based on the current VCP phase (real-time prediction).
+        """Unified margin: TP_MULT * max(ATR/close, BB_width).
 
-        Contraction: fixed tight margin (low volatility).
-        Expansion: BB_width proportional (breakout amplitude).
-        Trend: ATR-normalized (sustained directional volatility).
-        Writes the computed margin into sec['params']['positionMargin'].
+        No phase dependency — naturally adapts to volatility regime.
+        During contraction both ATR and BB_width are small → small margin.
+        During expansion/trend the dominant measure grows → larger margin.
         """
         p = self.params
-        latest = df.iloc[-1]        # Get latest indicator values
-        close = latest['close']     # Current price (used to normalize ATR)
+        latest = df.iloc[-1]
+        close = latest['close']
+        atr_norm = latest['ATR'] / close if close > 0 else 0
+        bb_w = latest['BB_width'] if not np.isnan(latest['BB_width']) else 0
+        m = p['TP_MULT'] * max(atr_norm, bb_w)
 
-        # Contraction Phase. Very tight margin because volatility is low
-        if phase == 'contraction':
-            m = p['MARGIN_CONTRACTION_FIXED']               # cm.MARGIN_CONTRACTION_FIXED = 0.0015
-
-        # Expansion Phase. Reflects volatility breakout amplitude
-        elif phase == 'expansion':
-           # cm.MARGIN_EXPANSION_MULTIPLIER = 1.5
-            raw_margin = latest['BB_width'] * p['MARGIN_EXPANSION_MULTIPLIER']
-            # Clamp margin inside configured bounds
-            m = min(
-                max(raw_margin, p['MARGIN_EXPANSION_MIN']),
-                p['MARGIN_EXPANSION_MAX']
-            )
-
-        # Trend Phase. Reflects sustained directional volatility. Margin proportional to ATR normalized
-        elif phase == 'trend':
-            # cm.MARGIN_TREND_ATR_MULTIPLIER = 2.0
-            raw_margin = (
-                p['MARGIN_TREND_ATR_MULTIPLIER'] *
-                latest['ATR'] / close
-            )
-            # Clamp margin inside configured bounds
-            m = min(
-                max(raw_margin, p['MARGIN_TREND_MIN']),
-                p['MARGIN_TREND_MAX']
-            )
-
-        # Fallback (safety)
-        else:
-            m = p['MARGIN_CONTRACTION_FIXED']           # cm.MARGIN_CONTRACTION_FIXED = 0.0015
-
-        # Dynamic cost floor (Idea #4): ensure margin covers transaction costs
+        # Dynamic cost floor: ensure margin covers transaction costs
         _margin_mult = getattr(cm, 'MIN_ABS_MARGIN_MULTIPLIER', 1.5)
         cost_floor = _margin_mult * max(0.02, close * 0.0001) / close
         m = max(m, cost_floor)
 
-        # Apply computed margin to security parameters
         sec['params']['positionMargin'] = float(m)
 
-    def _compute_margin_vectorized(self, df, params, expansion_mask, trend_mask):
-        """Vectorized margin computation for all bars (calibration version).
+    def _compute_margin_vectorized(self, df, params):
+        """Vectorized unified margin for calibration.
 
-        Same logic as _adapt_margin but applied to the full DataFrame at once.
+        Same formula as _adapt_margin: TP_MULT * max(ATR/close, BB_width).
         Returns numpy array of margin factors (one per bar).
         """
-        margin_factor = np.full(len(df), params['MARGIN_CONTRACTION_FIXED'])
-
-        exp_raw     = (df['BB_width'] * params['MARGIN_EXPANSION_MULTIPLIER']).values
-        exp_clamped = np.clip(exp_raw, params['MARGIN_EXPANSION_MIN'], params['MARGIN_EXPANSION_MAX'])
-        exp_idx     = expansion_mask.values
-        margin_factor[exp_idx] = exp_clamped[exp_idx]
-
-        trend_raw     = (params['MARGIN_TREND_ATR_MULTIPLIER'] * df['ATR'] / df['close'].replace(0, np.nan)).values
-        trend_clamped = np.clip(trend_raw, params['MARGIN_TREND_MIN'], params['MARGIN_TREND_MAX'])
-        trend_idx     = trend_mask.values
-        margin_factor[trend_idx] = trend_clamped[trend_idx]
-
-        # Dynamic cost floor: ensure margin covers transaction costs (Idea #4)
         closes = df['close'].values
+        atr_norm = np.nan_to_num(
+            (df['ATR'] / df['close'].replace(0, np.nan)).values, nan=0.0)
+        bb_w = np.nan_to_num(df['BB_width'].values, nan=0.0)
+        margin_factor = params['TP_MULT'] * np.maximum(atr_norm, bb_w)
+
+        # Dynamic cost floor: ensure margin covers transaction costs
         _margin_mult = getattr(cm, 'MIN_ABS_MARGIN_MULTIPLIER', 1.5)
         cost_floor = _margin_mult * np.maximum(0.02, closes * 0.0001) / closes
         margin_factor = np.maximum(margin_factor, cost_floor)
@@ -1391,7 +1351,7 @@ class MinerviniClaude:
                 signals = filtered
 
             # Step 4: Vectorized adaptive margin
-            margin_factor = self._compute_margin_vectorized(df, params, expansion_mask, trend_mask)
+            margin_factor = self._compute_margin_vectorized(df, params)
 
             # Step 5: Trade simulation
             # Compute position size: quantity = (net_balance * factorPosition_Balance) / entry_price
