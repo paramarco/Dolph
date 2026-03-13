@@ -21,14 +21,12 @@ _BASE_PARAMS = {
     'TREND_WINDOW': 14,     # derives ADX_PERIOD
     'TP_MULT': 1.5,         # margin = TP_MULT * max(ATR/close, BB_width)
     'SL_RR': 2.0,           # derives stopLossCoefficient
-    # ===== 7 DIRECTLY OPTIMIZABLE PARAMS =====
+    # ===== 5 DIRECTLY OPTIMIZABLE PARAMS =====
     'VCP_ATR_SLOPE_EXPANSION': 0.03,
     'VCP_BB_WIDTH_PERCENTILE_EXPANSION': 0.245,
     'VCP_ADX_TREND_THRESHOLD': 18,
     'EXPANSION_DEVIATION_THRESHOLD': 0.000245,
     'MIN_RELATIVE_VOLUME': 0.8,
-    'MIN_TOTAL_SCORE': 0.25,
-    'MIN_CONFIDENCE': 0.7,
     # ===== DERIVED PARAMS (set by _derive_params(), do not optimize) =====
     'EMA_FAST': 14,         # = EMA_BASE
     'EMA_MID': 21,          # = round(1.5 * EMA_BASE)
@@ -73,7 +71,7 @@ _BASE_PARAMS = {
     'BUYING_CLIMAX_COOLDOWN_SECONDS': 900,
     # ===== FROZEN POSITION / CONFIDENCE / MOMENTUM =====
     'POSITION_COOLDOWN_SECONDS': 300,
-    'NO_VOLUME_CONFIDENCE_PENALTY': 0.40,
+    # (NO_VOLUME_CONFIDENCE_PENALTY removed — absorbed by mandatory/optional architecture)
     'MOMENTUM_LOOKBACK': 5,
     'COUNTER_TREND_THRESHOLD': 0.003,
     'COUNTER_TREND_FACTOR': 10.0,
@@ -330,9 +328,7 @@ MIN_CALIBRATION_SCORE = 100.0
 MIN_RELATIVE_VOLUME = 0.8
 # Idea #4: Margin dynamic cost floor
 MIN_ABS_MARGIN_MULTIPLIER = 1.5
-# Idea #5: Dynamic signal threshold by phase
-EXPANSION_SCORE_MULT = 1.2
-TREND_SCORE_MULT = 0.9
+# (EXPANSION_SCORE_MULT, TREND_SCORE_MULT removed — mandatory/optional replaces score thresholds)
 # Idea #6: Trailing TP in simulation
 TRAILING_TP_ENABLED = True
 TRAILING_TP_RETRACE = 0.50

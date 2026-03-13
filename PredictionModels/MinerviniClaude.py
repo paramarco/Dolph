@@ -17,16 +17,16 @@ class MinerviniClaude:
     # (via _derive_params -> EMA_FAST/MID/SLOW, ATR_PERIOD, BB_WINDOW, etc.)
     _INDICATOR_PARAMS = frozenset({'EMA_BASE', 'VOL_WINDOW', 'TREND_WINDOW'})
 
-    # The 12 params the optimizer is allowed to touch (whitelist)
+    # The 10 params the optimizer is allowed to touch (whitelist)
     _OPTIMIZABLE_PARAMS = frozenset({
         'EMA_BASE', 'VOL_WINDOW', 'TREND_WINDOW',
         'VCP_ATR_SLOPE_EXPANSION', 'VCP_BB_WIDTH_PERCENTILE_EXPANSION',
         'VCP_ADX_TREND_THRESHOLD', 'EXPANSION_DEVIATION_THRESHOLD',
-        'MIN_RELATIVE_VOLUME', 'MIN_TOTAL_SCORE', 'MIN_CONFIDENCE',
+        'MIN_RELATIVE_VOLUME',
         'TP_MULT', 'SL_RR',
     })
 
-    # Minimum allowed values for the 12 optimizable params.
+    # Minimum allowed values for the 10 optimizable params.
     _PARAM_FLOORS = {
         'EMA_BASE': 5,
         'VOL_WINDOW': 5,
@@ -35,8 +35,6 @@ class MinerviniClaude:
         'VCP_BB_WIDTH_PERCENTILE_EXPANSION': 0.05,
         'VCP_ADX_TREND_THRESHOLD': 8,
         'EXPANSION_DEVIATION_THRESHOLD': 0.00005,
-        'MIN_TOTAL_SCORE': 0.1,
-        'MIN_CONFIDENCE': 0.1,
         'MIN_RELATIVE_VOLUME': 0.2,
         'TP_MULT': 0.5,
         'SL_RR': 1.0,
@@ -448,264 +446,175 @@ class MinerviniClaude:
     # =====================================================
 
     def _generate_signal(self, df, phase):
-        """Generate a single trading signal for the latest bar (real-time prediction).
+        """Generate a trading signal using mandatory/optional architecture.
 
-        Scores long and short independently using phase-specific rules and volume
-        context. Returns dict with 'signal' (long/short/no-go), 'confidence'
-        (0-1 directional conviction), and 'volume_contexts' (active patterns).
+        Mandatory conditions determine direction (expansion deviation or trend EMA).
+        Optional confirmations (ADX, RSI, volume, liquidity) validate the signal.
+        Entry requires: all mandatory + >= 1 optional confirmation.
         """
         p = self.params
-        long_score = 0.0
-        short_score = 0.0
-        latest = df.iloc[-1]        # Get latest indicator values
+        latest = df.iloc[-1]
         bullish = latest['EMA_FAST'] > latest['EMA_MID'] > latest['EMA_SLOW']
         bearish = latest['EMA_FAST'] < latest['EMA_MID'] < latest['EMA_SLOW']
 
-        # ---------------------------------------------------------
-        # CONTRACTION PHASE: low-volatility compression, wait for breakout
-        # ---------------------------------------------------------
+        # Gate 1: contraction → no-go
         if phase == 'contraction':
             return {'signal': 'no-go', 'confidence': 0.0, 'volume_contexts': []}
 
-        # Volume confirmation gate
+        # Gate 2: minimum volume
         volume_avg = df['volume'].rolling(p.get('VOLUME_AVG_WINDOW', 4)).mean().iloc[-1]
         relative_volume = latest['volume'] / volume_avg if volume_avg > 0 else 0
-        MIN_REL_VOL = p.get('MIN_RELATIVE_VOLUME', getattr(cm, 'MIN_RELATIVE_VOLUME', 0.8))
-        if relative_volume < MIN_REL_VOL:
+        if relative_volume < p.get('MIN_RELATIVE_VOLUME', 0.8):
             return {'signal': 'no-go', 'confidence': 0.0, 'volume_contexts': []}
 
-        # ---------------------------------------------------------
-        # EXPANSION PHASE
-        #   Mean-reversion relative to Fair Value Price (FVP)
-        #   Entry when price deviates significantly from center
-        # ---------------------------------------------------------
+        # === MANDATORY CONDITIONS (determine direction) ===
+        long_mandatory = False
+        short_mandatory = False
+
         if phase == 'expansion':
-            # Relative deviation from statistical center
             deviation = (latest['close'] - latest['FVP']) / latest['FVP']
-            # Short signal:  Price above fair value AND RSI not weak
-            if (
-                deviation > p['EXPANSION_DEVIATION_THRESHOLD'] and      # cm.EXPANSION_DEVIATION_THRESHOLD = 0.0005
-                latest['RSI'] > p['EXPANSION_RSI_SHORT_MIN']            # cm.EXPANSION_RSI_SHORT_MIN = 40
-            ):
-                short_score += 1.0
-            # Long signal: Price below fair value AND RSI not overheated
-            if (
-                deviation < -p['EXPANSION_DEVIATION_THRESHOLD'] and     # cm.EXPANSION_DEVIATION_THRESHOLD = 0.0005
-                latest['RSI'] < p['EXPANSION_RSI_LONG_MAX']             # cm.EXPANSION_RSI_LONG_MAX = 60
-            ):
-                long_score += 1.0
-
-        # ---------------------------------------------------------
-        # TREND PHASE Trend-following continuation entries
-        #   Requires EMA alignment + DI confirmation + RSI filter
-        # ---------------------------------------------------------
-        if phase == 'trend':
-            # Base score: confirmed trend phase (ADX + EMA alignment) deserves
-            # a baseline contribution so that trend structure + this base
-            # can reach MIN_TOTAL_SCORE even when RSI is outside the window.
+            if (deviation > p['EXPANSION_DEVIATION_THRESHOLD']
+                    and latest['RSI'] > p['EXPANSION_RSI_SHORT_MIN']):
+                short_mandatory = True
+            if (deviation < -p['EXPANSION_DEVIATION_THRESHOLD']
+                    and latest['RSI'] < p['EXPANSION_RSI_LONG_MAX']):
+                long_mandatory = True
+        elif phase == 'trend':
             if bullish:
-                long_score += 0.5
+                long_mandatory = True
             elif bearish:
-                short_score += 0.5
+                short_mandatory = True
 
-            # Bullish Trend Continuation (RSI-confirmed bonus)
-            #   cm.TREND_RSI_LONG_MIN = 40
-            #   cm.TREND_RSI_LONG_MAX = 70
-            if (
-                bullish and latest['+DI'] > latest['-DI']
-                and p['TREND_RSI_LONG_MIN'] < latest['RSI'] < p['TREND_RSI_LONG_MAX']
-            ):
-                long_score += 1.5
+        if not long_mandatory and not short_mandatory:
+            return {'signal': 'no-go', 'confidence': 0.0, 'volume_contexts': []}
 
-            # Bearish Trend Continuation (RSI-confirmed bonus)
-            #   cm.TREND_RSI_SHORT_MIN = 30
-            #   cm.TREND_RSI_SHORT_MAX = 60
-            if (
-                bearish and latest['-DI'] > latest['+DI']
-                and p['TREND_RSI_SHORT_MIN'] < latest['RSI'] < p['TREND_RSI_SHORT_MAX']
-            ):
-                short_score += 1.5
+        # === OPTIONAL CONFIRMATIONS (direction-specific, need >= 1) ===
+        long_opt = 0
+        short_opt = 0
 
-        # =============================
-        # TREND STRUCTURE SCORE
-        # =============================
+        # Opt 1: ADX direction
         if latest['ADX'] > p['VCP_ADX_TREND_THRESHOLD']:
             if latest['+DI'] > latest['-DI']:
-                long_score += 0.5
+                long_opt += 1
             else:
-                short_score += 0.5
+                short_opt += 1
 
-        # =============================
-        # VOLUME SCORE
-        # =============================
+        # Opt 2: Trend RSI (trend phase only)
+        if phase == 'trend':
+            if (bullish and latest['+DI'] > latest['-DI']
+                    and p['TREND_RSI_LONG_MIN'] < latest['RSI'] < p['TREND_RSI_LONG_MAX']):
+                long_opt += 1
+            if (bearish and latest['-DI'] > latest['+DI']
+                    and p['TREND_RSI_SHORT_MIN'] < latest['RSI'] < p['TREND_RSI_SHORT_MAX']):
+                short_opt += 1
+
+        # Opt 3: Volume support (any supportive context for the direction)
         context = self._volume_context(df)
+        active_contexts = [k for k, v in context.items() if v]
 
-        if context['buying_climax']:
-            short_score += 1.0
+        if ((context['no_supply'] and bullish) or context['stopping_volume']
+                or (context['trust'] and latest['close'] > latest['open'])
+                or (context['healthy'] and latest['close'] > latest['open'])):
+            long_opt += 1
+        if (context['buying_climax'] or context['divergence']
+                or (context['absorption'] and latest['close'] < latest['open'])
+                or (context['trust'] and latest['close'] <= latest['open'])
+                or (context['healthy'] and latest['close'] <= latest['open'])):
+            short_opt += 1
 
-        if context['no_supply'] and bullish :
-            long_score += 0.8
-
-        if context['divergence']:
-            short_score += 0.7
-            long_score -= 0.3  # penalize long: price-volume divergence warns against buying
-            long_score = max(0.0, long_score)
-
-        if context['absorption']:
-            if latest['close'] < latest['open']:  # bearish candle = distribution
-                short_score += 0.6
-            # bullish candle absorption = ambiguous (possible accumulation), no score
-
-        if context['trust']:
-            if latest['close'] > latest['open']:
-                long_score += 0.5
-            else:
-                short_score += 0.5
-
-        if context['stopping_volume']:
-            long_score += 0.6
-
-        if context['healthy']:
-            if latest['close'] > latest['open']:   # bullish confirmed by volume
-                long_score += 0.3
-            else:                                    # bearish confirmed by volume
-                short_score += 0.3
-
-        # =============================
-        # LIQUIDITY / SMC SCORE
-        # =============================
+        # Opt 4: Liquidity / SMC
         liq = self._detect_liquidity_pattern(df)
         if liq['liquidity_long']:
-            long_score += p.get('LIQ_SCORE_BONUS', 1.2)
-        if liq['liquidity_short']:
-            short_score += p.get('LIQ_SCORE_BONUS', 1.2)
-
-        # =============================
-        # FINAL DECISION
-        # =============================
-        score_diff = long_score - short_score
-        total_score = long_score + short_score
-
-        # Active volume contexts (only those that are True)
-        active_contexts = [k for k, v in context.items() if v]
-        if liq['liquidity_long']:
+            long_opt += 1
             active_contexts.append('liquidity_long')
         if liq['liquidity_short']:
+            short_opt += 1
             active_contexts.append('liquidity_short')
 
-        if total_score == 0:
-            return {'signal': 'no-go', 'confidence': 0.0, 'volume_contexts': active_contexts}
-
-        confidence = abs(score_diff) / total_score
-
-        # Scale confidence by signal strength - prevent conf=1.0 on minimal evidence
-        MIN_QUALITY_SCORE = 1.5
-        quality_factor = min(1.0, total_score / MIN_QUALITY_SCORE)
-        confidence *= quality_factor
-
-        # ---- Low energy filter with dynamic phase threshold (Idea #5) ----
-        base_min_score = p['MIN_TOTAL_SCORE']
-        EXPANSION_SCORE_MULT = getattr(cm, 'EXPANSION_SCORE_MULT', 1.2)
-        TREND_SCORE_MULT = getattr(cm, 'TREND_SCORE_MULT', 0.9)
-
-        if phase == 'expansion':
-            min_score = base_min_score * EXPANSION_SCORE_MULT
-        elif phase == 'trend':
-            min_score = base_min_score * TREND_SCORE_MULT
+        # === SIGNAL DECISION ===
+        if long_mandatory and short_mandatory:
+            signal_dir = 'long' if long_opt >= short_opt else 'short'
+            n_opt = long_opt if signal_dir == 'long' else short_opt
+        elif long_mandatory:
+            signal_dir = 'long'
+            n_opt = long_opt
         else:
-            min_score = base_min_score
-        if total_score < min_score:
+            signal_dir = 'short'
+            n_opt = short_opt
+
+        if n_opt < 1:
             return {'signal': 'no-go', 'confidence': 0.0, 'volume_contexts': active_contexts}
 
-        # ---- Volume support penalty ----
-        if score_diff > 0:  # long signal
-            has_vol_support = (context.get('no_supply') or context.get('stopping_volume')
-                               or (context.get('trust') and latest['close'] > latest['open']))
-        else:  # short signal
-            has_vol_support = (context.get('absorption') or context.get('divergence')
-                               or context.get('buying_climax')
-                               or (context.get('trust') and latest['close'] <= latest['open']))
+        # === CONFIDENCE ===
+        confidence = min(1.0, 0.5 + 0.15 * n_opt)
 
-        if not has_vol_support:
-            NO_VOL_PENALTY = p.get('NO_VOLUME_CONFIDENCE_PENALTY', 0.40)
-            confidence *= (1.0 - NO_VOL_PENALTY)
-
-        # ---- Counter-trend price momentum penalty ----
+        # Counter-trend price momentum penalty (safety)
         MOMENTUM_LOOKBACK = int(p.get('MOMENTUM_LOOKBACK', 5))
         COUNTER_TREND_THRESHOLD = p.get('COUNTER_TREND_THRESHOLD', 0.003)
         COUNTER_TREND_FACTOR = p.get('COUNTER_TREND_FACTOR', 10.0)
 
         if len(df) > MOMENTUM_LOOKBACK + 1:
             price_change = latest['close'] / df['close'].iloc[-(MOMENTUM_LOOKBACK + 1)] - 1.0
-            is_counter = ((score_diff > 0 and price_change < -COUNTER_TREND_THRESHOLD)
-                       or (score_diff < 0 and price_change > COUNTER_TREND_THRESHOLD))
+            is_counter = ((signal_dir == 'long' and price_change < -COUNTER_TREND_THRESHOLD)
+                       or (signal_dir == 'short' and price_change > COUNTER_TREND_THRESHOLD))
             if is_counter:
                 penalty = min(0.7, abs(price_change) * COUNTER_TREND_FACTOR)
                 confidence *= (1.0 - penalty)
 
-        # ---- Conflict filter ----  cm.MIN_CONFIDENCE = 0.6
-        # Minimum conviction filter. Avoid trades when there is internal conflict.
-        # Floor minimum prevents calibration from over-relaxing this threshold.
-        min_conf = p['MIN_CONFIDENCE']
-        if confidence < min_conf:
-            return {'signal': 'no-go', 'confidence': 0.0, 'volume_contexts': active_contexts}
-
-        # ---- Direction ----
-        if score_diff > 0:
-            return {'signal': 'long', 'confidence': confidence, 'volume_contexts': active_contexts}
-        else:
-            return {'signal': 'short', 'confidence': confidence, 'volume_contexts': active_contexts}
+        return {'signal': signal_dir, 'confidence': confidence, 'volume_contexts': active_contexts}
 
     def _generate_signals_vectorized(self, df, params, expansion_mask, trend_mask, bullish, bearish):
-        """Vectorized signal generation for all bars (calibration version).
+        """Vectorized signal generation using mandatory/optional architecture.
 
-        Same scoring logic as _generate_signal but applied to the full DataFrame
-        at once for performance. Returns int8 numpy array: 0=no-go, 1=long, -1=short.
+        Same logic as _generate_signal but applied to the full DataFrame at once.
+        Mandatory conditions determine direction; optional confirmations validate.
+        Returns int8 numpy array: 0=no-go, 1=long, -1=short.
         """
-        long_score  = pd.Series(0.0, index=df.index)
-        short_score = pd.Series(0.0, index=df.index)
+        n = len(df)
 
-        # -- Expansion signals --
+        # === MANDATORY CONDITIONS ===
         deviation = (df['close'] - df['FVP']) / df['FVP'].replace(0, np.nan)
-        exp_short = (
-            expansion_mask &
-            (deviation > params['EXPANSION_DEVIATION_THRESHOLD']) &
-            (df['RSI'] > params['EXPANSION_RSI_SHORT_MIN'])
-        )
-        exp_long = (
-            expansion_mask &
-            (deviation < -params['EXPANSION_DEVIATION_THRESHOLD']) &
-            (df['RSI'] < params['EXPANSION_RSI_LONG_MAX'])
-        )
-        short_score[exp_short] += 1.0
-        long_score[exp_long]   += 1.0
 
-        # -- Trend phase base score (EMA alignment confirmation) --
-        long_score[trend_mask & bullish]   += 0.5
-        short_score[trend_mask & bearish]  += 0.5
-
-        # -- Trend signals (RSI-confirmed bonus) --
-        trend_long = (
-            trend_mask & bullish &
-            (df['+DI'] > df['-DI']) &
-            (df['RSI'] > params['TREND_RSI_LONG_MIN']) &
-            (df['RSI'] < params['TREND_RSI_LONG_MAX'])
+        exp_long_mandatory = (
+            expansion_mask
+            & (deviation < -params['EXPANSION_DEVIATION_THRESHOLD'])
+            & (df['RSI'] < params['EXPANSION_RSI_LONG_MAX'])
         )
-        trend_short = (
-            trend_mask & bearish &
-            (df['-DI'] > df['+DI']) &
-            (df['RSI'] > params['TREND_RSI_SHORT_MIN']) &
-            (df['RSI'] < params['TREND_RSI_SHORT_MAX'])
+        exp_short_mandatory = (
+            expansion_mask
+            & (deviation > params['EXPANSION_DEVIATION_THRESHOLD'])
+            & (df['RSI'] > params['EXPANSION_RSI_SHORT_MIN'])
         )
-        long_score[trend_long]   += 1.5
-        short_score[trend_short] += 1.5
 
-        # -- ADX trend structure --
+        long_mandatory = exp_long_mandatory | (trend_mask & bullish)
+        short_mandatory = exp_short_mandatory | (trend_mask & bearish)
+
+        # === OPTIONAL CONFIRMATIONS ===
+        long_opt = pd.Series(0, index=df.index, dtype=int)
+        short_opt = pd.Series(0, index=df.index, dtype=int)
+
+        # Opt 1: ADX direction
         adx_high = df['ADX'] > params['VCP_ADX_TREND_THRESHOLD']
-        long_score[adx_high & (df['+DI'] > df['-DI'])]  += 0.5
-        short_score[adx_high & (df['-DI'] > df['+DI'])] += 0.5
+        long_opt[adx_high & (df['+DI'] > df['-DI'])] += 1
+        short_opt[adx_high & (df['-DI'] > df['+DI'])] += 1
 
-        # -- Volume context (vectorized, no cooldown) --
+        # Opt 2: Trend RSI (trend phase only)
+        trend_rsi_long = (
+            trend_mask & bullish
+            & (df['+DI'] > df['-DI'])
+            & (df['RSI'] > params['TREND_RSI_LONG_MIN'])
+            & (df['RSI'] < params['TREND_RSI_LONG_MAX'])
+        )
+        trend_rsi_short = (
+            trend_mask & bearish
+            & (df['-DI'] > df['+DI'])
+            & (df['RSI'] > params['TREND_RSI_SHORT_MIN'])
+            & (df['RSI'] < params['TREND_RSI_SHORT_MAX'])
+        )
+        long_opt[trend_rsi_long] += 1
+        short_opt[trend_rsi_short] += 1
+
+        # Opt 3: Volume support (vectorized computation)
         vol_avg_win   = int(params['VOLUME_AVG_WINDOW'])
         vol_slope_win = int(params['VOLUME_SLOPE_WINDOW'])
         vol_avg     = df['volume'].rolling(vol_avg_win).mean()
@@ -713,45 +622,31 @@ class MinerviniClaude:
         candle_body = abs(df['close'] - df['open'])
         rel_body    = candle_body / df['ATR'].replace(0, np.nan)
         price_slope = df['close'].diff(vol_slope_win)
+        bullish_candle = df['close'] > df['open']
+        bearish_candle = df['close'] < df['open']
+        candle_range = df['high'] - df['low']
 
+        no_supply = (price_slope < 0) & (rel_volume < 0.7)
+        stopping_vol = (
+            (rel_volume > params['EXTREME_VOLUME_THRESHOLD'])
+            & bearish_candle
+            & (df['close'] > df['low'] + candle_range * 0.3)
+        )
+        trust = (
+            (rel_body > params['BIG_BODY_ATR_THRESHOLD'])
+            & (rel_volume > params['BIG_VOLUME_THRESHOLD'])
+        )
+        healthy = (
+            ((price_slope > 0) & (df['volume'].diff(vol_slope_win) > 0))
+            | ((price_slope < 0) & (df['volume'].diff(vol_slope_win) < 0))
+        )
         absorption = (rel_volume > params['BIG_VOLUME_THRESHOLD']) & (rel_body < 0.5)
-        bearish_candle_vol = df['close'] < df['open']
-        short_score[absorption & bearish_candle_vol] += 0.6
-        # bullish absorption = ambiguous, no score contribution
 
         div_lb = int(params['DIVERGENCE_LOOKBACK'])
         divergence = (
-            (df['close'] > df['close'].shift(div_lb)) &
-            (df['volume'] < df['volume'].shift(div_lb))
+            (df['close'] > df['close'].shift(div_lb))
+            & (df['volume'] < df['volume'].shift(div_lb))
         )
-        short_score[divergence] += 0.7
-        long_score[divergence] -= 0.3
-        long_score = long_score.clip(lower=0.0)
-
-        no_supply = (price_slope < 0) & (rel_volume < 0.7)
-        long_score[no_supply & bullish] += 0.8
-
-        # -- Trust: high volume + big body = convicted move, reinforce direction --
-        trust = (rel_body > params['BIG_BODY_ATR_THRESHOLD']) & (rel_volume > params['BIG_VOLUME_THRESHOLD'])
-        bullish_candle = df['close'] > df['open']
-        long_score[trust & bullish_candle]   += 0.5
-        short_score[trust & ~bullish_candle] += 0.5
-
-        # -- Stopping volume: extreme volume + bearish candle closing near high = exhaustion --
-        candle_range = df['high'] - df['low']
-        stopping_vol = (
-            (rel_volume > params['EXTREME_VOLUME_THRESHOLD']) &
-            (df['close'] < df['open']) &
-            (df['close'] > df['low'] + candle_range * 0.3)
-        )
-        long_score[stopping_vol] += 0.6
-
-        healthy = (
-            ((price_slope > 0) & (df['volume'].diff(vol_slope_win) > 0)) |
-            ((price_slope < 0) & (df['volume'].diff(vol_slope_win) < 0))
-        )
-        long_score[healthy & bullish_candle] += 0.3
-        short_score[healthy & ~bullish_candle] += 0.3
 
         bc_lb       = int(params['BUYING_CLIMAX_LOOKBACK'])
         bc_trend_lb = int(params['BUYING_CLIMAX_TREND_LOOKBACK'])
@@ -763,11 +658,10 @@ class MinerviniClaude:
         ext         = (df['close'] - df['FVP']) / df['FVP'].replace(0, np.nan)
         is_overext  = ext > params['BUYING_CLIMAX_EXTENSION']
         buying_climax = (
-            (rel_volume > params['EXTREME_VOLUME_THRESHOLD']) &
-            (rel_body > params['EXTREME_BODY_ATR_THRESHOLD']) &
-            is_breakout & trend_up & is_overext
+            (rel_volume > params['EXTREME_VOLUME_THRESHOLD'])
+            & (rel_body > params['EXTREME_BODY_ATR_THRESHOLD'])
+            & is_breakout & trend_up & is_overext
         )
-        # Buying climax cooldown (mirrors real-time _volume_context cooldown)
         if buying_climax.any():
             cooldown_secs = int(params.get('BUYING_CLIMAX_COOLDOWN_SECONDS', 900))
             bc_indices = np.where(buying_climax.values)[0]
@@ -779,14 +673,25 @@ class MinerviniClaude:
                     buying_climax.iloc[idx] = False
                 else:
                     last_climax_time = t
-        short_score[buying_climax] += 1.0
 
-        # -- Liquidity / SMC pattern --
+        # Aggregate volume support per direction (any supportive context = +1)
+        long_vol_support = (
+            (no_supply & bullish) | stopping_vol
+            | (trust & bullish_candle) | (healthy & bullish_candle)
+        )
+        short_vol_support = (
+            buying_climax | divergence
+            | (absorption & bearish_candle)
+            | (trust & ~bullish_candle) | (healthy & ~bullish_candle)
+        )
+        long_opt[long_vol_support] += 1
+        short_opt[short_vol_support] += 1
+
+        # Opt 4: Liquidity / SMC pattern
         liq_adx_min = params.get('LIQ_ADX_MIN', 15)
         bos_lb   = int(params.get('LIQ_BOS_LOOKBACK', 20))
         sweep_lb = int(params.get('LIQ_SWEEP_LOOKBACK', 10))
         tol_liq  = params.get('LIQ_ZONE_TOLERANCE', 0.0015)
-        bonus    = params.get('LIQ_SCORE_BONUS', 1.2)
         adx_ok   = df['ADX'] > liq_adx_min
 
         df5 = df.resample('5min').agg({
@@ -803,24 +708,20 @@ class MinerviniClaude:
             bos_up_5m   = df5['close'] > recent_high_5m
             bos_down_5m = df5['close'] < recent_low_5m
 
-            # Map 5-min BOS → 1-min via forward-fill
             bos_up_1m   = bos_up_5m.reindex(df.index, method='ffill').fillna(False)
             bos_down_1m = bos_down_5m.reindex(df.index, method='ffill').fillna(False)
 
-            # Zone from 5-min impulse candle body
             zone_body_low  = df5[['open','close']].min(axis=1)
             zone_body_high = df5[['open','close']].max(axis=1)
             z_range = zone_body_high - zone_body_low
             zone_lo = (zone_body_low  - z_range * tol_liq).reindex(df.index, method='ffill')
             zone_hi = (zone_body_high + z_range * tol_liq).reindex(df.index, method='ffill')
 
-            # Sweep on 1-min
             prev_low_1m  = df['low'].rolling(sweep_lb).min().shift(1)
             prev_high_1m = df['high'].rolling(sweep_lb).max().shift(1)
             sweep_long_v  = (df['low'] < prev_low_1m) & (df['close'] > prev_low_1m)
             sweep_short_v = (df['high'] > prev_high_1m) & (df['close'] < prev_high_1m)
 
-            # Zone + bounce
             in_zone_v = (df['close'] >= zone_lo) & (df['close'] <= zone_hi)
             bull_candle = df['close'] > df['open']
             bear_candle = df['close'] < df['open']
@@ -828,74 +729,29 @@ class MinerviniClaude:
             liq_long  = adx_ok & bos_up_1m & sweep_long_v & in_zone_v & bull_candle
             liq_short = adx_ok & bos_down_1m & sweep_short_v & in_zone_v & bear_candle
 
-            long_score[liq_long]   += bonus
-            short_score[liq_short] += bonus
+            long_opt[liq_long] += 1
+            short_opt[liq_short] += 1
 
-        # -- Final signal decision --
-        score_diff  = long_score - short_score
-        total_score = long_score + short_score
-        confidence  = pd.Series(0.0, index=df.index)
-        nonzero     = total_score > 0
-        confidence[nonzero] = abs(score_diff[nonzero]) / total_score[nonzero]
-
-        # Scale by signal strength
-        MIN_QUALITY_SCORE = 1.5
-        quality_factor = (total_score / MIN_QUALITY_SCORE).clip(upper=1.0)
-        confidence *= quality_factor
-
-        # ---- Volume support penalty ----
-        long_vol_support = no_supply | stopping_vol | (trust & bullish_candle)
-        short_vol_support = absorption | divergence | buying_climax | (trust & ~bullish_candle)
-
-        no_vol_support = pd.Series(False, index=df.index)
-        no_vol_support[(score_diff > 0) & ~long_vol_support] = True
-        no_vol_support[(score_diff < 0) & ~short_vol_support] = True
-
-        NO_VOL_PENALTY = params.get('NO_VOLUME_CONFIDENCE_PENALTY', 0.40)
-        confidence[no_vol_support] *= (1.0 - NO_VOL_PENALTY)
-
-        # ---- Counter-trend price momentum penalty ----
-        MOMENTUM_LOOKBACK = int(params.get('MOMENTUM_LOOKBACK', 5))
-        COUNTER_TREND_THRESHOLD = params.get('COUNTER_TREND_THRESHOLD', 0.003)
-        COUNTER_TREND_FACTOR = params.get('COUNTER_TREND_FACTOR', 10.0)
-
-        price_change = df['close'] / df['close'].shift(MOMENTUM_LOOKBACK) - 1.0
-        price_change.iloc[:MOMENTUM_LOOKBACK] = 0  # avoid artifacts
-
-        counter_long = (score_diff > 0) & (price_change < -COUNTER_TREND_THRESHOLD)
-        counter_short = (score_diff < 0) & (price_change > COUNTER_TREND_THRESHOLD)
-        counter_mask = counter_long | counter_short
-
-        penalty = (price_change.abs() * COUNTER_TREND_FACTOR).clip(upper=0.7)
-        confidence[counter_mask] *= (1.0 - penalty[counter_mask])
-
-        # Contraction phase = no-go (wait for breakout)
+        # === SIGNAL DECISION ===
         contraction_mask = ~expansion_mask & ~trend_mask
-        min_conf  = params['MIN_CONFIDENCE']
+        volume_avg_gate = df['volume'].rolling(params.get('VOLUME_AVG_WINDOW', 4)).mean()
+        relative_volume_gate = df['volume'] / volume_avg_gate.replace(0, np.nan)
+        MIN_REL_VOL = params.get('MIN_RELATIVE_VOLUME', 0.8)
+        vol_ok = relative_volume_gate >= MIN_REL_VOL
 
-        # Dynamic signal threshold by phase (Idea #5)
-        base_min_score = params['MIN_TOTAL_SCORE']
-        EXPANSION_SCORE_MULT = getattr(cm, 'EXPANSION_SCORE_MULT', 1.2)
-        TREND_SCORE_MULT = getattr(cm, 'TREND_SCORE_MULT', 0.9)
+        valid_long = long_mandatory & vol_ok & ~contraction_mask & (long_opt >= 1)
+        valid_short = short_mandatory & vol_ok & ~contraction_mask & (short_opt >= 1)
 
-        min_score_arr = np.full(len(df), base_min_score)
-        min_score_arr[expansion_mask.values] = base_min_score * EXPANSION_SCORE_MULT
-        min_score_arr[trend_mask.values] = base_min_score * TREND_SCORE_MULT
+        signals = np.zeros(n, dtype=np.int8)
+        signals[valid_long.values] = 1
+        signals[valid_short.values] = -1
 
-        # 0 = no-go, 1 = long, -1 = short
-        signals = np.zeros(len(df), dtype=np.int8)
-        valid = (~contraction_mask) & (total_score.values >= min_score_arr) & (confidence >= min_conf)
-        signals[(valid & (score_diff > 0)).values]  =  1
-        signals[(valid & (score_diff < 0)).values]  = -1
-
-        # Volume confirmation gate (Idea #3)
-        volume_avg = df['volume'].rolling(params.get('VOLUME_AVG_WINDOW', 4)).mean()
-        relative_volume = df['volume'] / volume_avg.replace(0, np.nan)
-        MIN_REL_VOL = params.get('MIN_RELATIVE_VOLUME', getattr(cm, 'MIN_RELATIVE_VOLUME', 0.8))
-        signals[relative_volume.values < MIN_REL_VOL] = 0
+        # If both valid, take direction with more optionals
+        both = valid_long & valid_short
+        signals[(both & (short_opt > long_opt)).values] = -1
 
         # Build liquidity exemption mask for stability filter
-        liq_exempt = np.zeros(len(df), dtype=bool)
+        liq_exempt = np.zeros(n, dtype=bool)
         if len(df5) > bos_lb:
             liq_exempt = (liq_long | liq_short).values
 
