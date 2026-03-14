@@ -40,6 +40,21 @@ class MinerviniClaude:
         'SL_RR': 1.0,
     }
 
+    # Maximum allowed values — prevents the optimizer from pushing thresholds
+    # so high that no signals fire (zero trades → -inf degeneration).
+    _PARAM_CEILINGS = {
+        'EMA_BASE': 60,
+        'VOL_WINDOW': 60,
+        'TREND_WINDOW': 60,
+        'VCP_ATR_SLOPE_EXPANSION': 0.15,
+        'VCP_BB_WIDTH_PERCENTILE_EXPANSION': 0.80,
+        'VCP_ADX_TREND_THRESHOLD': 40,
+        'EXPANSION_DEVIATION_THRESHOLD': 0.01,
+        'MIN_RELATIVE_VOLUME': 3.0,
+        'TP_MULT': 5.0,
+        'SL_RR': 5.0,
+    }
+
     @staticmethod
     def _derive_params(params):
         """Derive dependent params from the 5 meta-params.
@@ -977,8 +992,11 @@ class MinerviniClaude:
                         if isinstance(v, int):
                             new_val = max(1, int(round(new_val)))
                         floor = self._PARAM_FLOORS.get(k)
+                        ceil = self._PARAM_CEILINGS.get(k)
                         if floor is not None:
                             new_val = max(floor, new_val) if not isinstance(v, int) else max(int(floor), new_val)
+                        if ceil is not None:
+                            new_val = min(ceil, new_val) if not isinstance(v, int) else min(int(ceil), new_val)
                         best_params[k] = new_val
 
                     # Propagate meta -> derived after perturbation
@@ -1086,16 +1104,22 @@ class MinerviniClaude:
         For float params: returns `steps` linearly spaced candidates.
         base_value is always the first candidate so ties preserve the current
         value instead of drifting toward -30% each cycle.
-        If param_name is in _PARAM_FLOORS, candidates below the floor are clamped.
+        If param_name is in _PARAM_FLOORS/_PARAM_CEILINGS, candidates are clamped.
         """
         candidates = [base_value * (1 + f) for f in np.linspace(-step_size, step_size, steps)]
-        # Apply floor if defined for this parameter
+        # Apply floor and ceiling if defined for this parameter
         floor = self._PARAM_FLOORS.get(param_name) if param_name else None
+        ceil = self._PARAM_CEILINGS.get(param_name) if param_name else None
         if floor is not None:
             if isinstance(base_value, int):
                 candidates = [max(int(floor), c) for c in candidates]
             else:
                 candidates = [max(floor, c) for c in candidates]
+        if ceil is not None:
+            if isinstance(base_value, int):
+                candidates = [min(int(ceil), c) for c in candidates]
+            else:
+                candidates = [min(ceil, c) for c in candidates]
         if isinstance(base_value, int):
             candidates = [max(1, int(round(c))) for c in candidates]
             # Deduplicate preserving order
@@ -1221,13 +1245,9 @@ class MinerviniClaude:
                         net_balance = 20000.0
                 except Exception:
                     net_balance = 20000.0
-            cash_4_position = net_balance * cm.factorPosition_Balance
-            # Convert cash from USD to security's native currency for position sizing
-            sec_currency = self.security.get('fx_currency', self.security.get('currency', 'USD'))
-            fx_rates = getattr(cm, 'FX_RATES_FROM_USD', {'USD': 1.0})
-            fx_rate = fx_rates.get(sec_currency, 1.0)
-            cash_4_position *= fx_rate
-            board_lot = self.security.get('board_lot', 1)
+            # Position sizing via shared DolphRobot method (single source of truth)
+            cash_4_position, fx_rate, board_lot, _ = self.dolph.compute_position_size(
+                net_balance, 1.0, self.security)
             exposure_limit = net_balance * fx_rate  # exposure limit in local currency
 
             closes  = df['close'].values
@@ -1349,8 +1369,8 @@ class MinerviniClaude:
                 # MAX_PARTICIPATION=0.10 means order cannot exceed 10% of candle volume.
                 # Deterministic (no randomness) so optimizer produces stable scores.
                 MAX_PARTICIPATION = getattr(cm, 'CALIBRATION_MAX_VOLUME_PARTICIPATION', 0.10)
-                est_quantity = int(cash_4_position / limit_price) if limit_price > 0 else 0
-                est_quantity = (est_quantity // board_lot) * board_lot
+                _, _, _, est_quantity = self.dolph.compute_position_size(
+                    net_balance, limit_price, self.security)
 
                 entry_idx = -1
                 for fb in range(limit_bar, fill_end):
@@ -1384,8 +1404,8 @@ class MinerviniClaude:
                 else:
                     entry_price = limit_price * (1.0 - FILL_SLIPPAGE)   # sell slightly lower
                 m_abs       = entry_price * margin_factor[i]
-                quantity    = int(cash_4_position / entry_price)
-                quantity    = (quantity // board_lot) * board_lot
+                _, _, _, quantity = self.dolph.compute_position_size(
+                    net_balance, entry_price, self.security)
                 if quantity <= 0:
                     continue
 
@@ -1647,6 +1667,14 @@ class MinerviniClaude:
             # This prevents the optimizer from killing all signals (e.g. EMA_FAST=EMA_MID).
             MIN_TRADES_PER_DAY = getattr(cm, 'CALIBRATION_MIN_TRADES_PER_DAY', 0.5)
             if trades_opened == 0:
+                sample_price = closes[len(closes) // 2]
+                _, _, bl, sample_qty = self.dolph.compute_position_size(
+                    net_balance, sample_price, self.security)
+                if bl > 1 and sample_qty == 0:
+                    log.warning(
+                        f"{self.seccode}: 0 trades, board_lot={bl} too large for "
+                        f"net_balance={net_balance} at price={sample_price:.2f} "
+                        f"(need {bl * sample_price / fx_rate:.0f} USD min)")
                 return -np.inf
             if num_trading_days > 0 and trades_per_day < MIN_TRADES_PER_DAY:
                 total_profit *= trades_per_day / MIN_TRADES_PER_DAY

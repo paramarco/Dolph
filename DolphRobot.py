@@ -435,6 +435,25 @@ class Dolph:
         return exceeds
     
     
+    @staticmethod
+    def compute_position_size(net_balance, price, security):
+        """Compute position size for a given price and security.
+
+        Single source of truth for position sizing — used by both
+        positionAssessment() (OPERATIONAL) and MinerviniClaude._simulate_profit() (calibration).
+
+        Returns (cash_4_position, fx_rate, board_lot, quantity).
+        """
+        cash_4_position = net_balance * cm.factorPosition_Balance
+        sec_currency = security.get('fx_currency', security.get('currency', 'USD'))
+        fx_rates = getattr(cm, 'FX_RATES_FROM_USD', {'USD': 1.0})
+        fx_rate = fx_rates.get(sec_currency, 1.0)
+        cash_4_position *= fx_rate
+        board_lot = security.get('board_lot', 1)
+        quantity = int(cash_4_position / price) if price > 0 else 0
+        quantity = (quantity // board_lot) * board_lot
+        return cash_4_position, fx_rate, board_lot, quantity
+
     def positionAssessment (self, security):
 
         seccode = security['seccode']
@@ -447,16 +466,9 @@ class Dolph:
         timeClose, priceClose = result
         cash_balance = self.tp.get_cash_balance()
         net_balance = self.tp.get_net_balance()
-        factorMargin_Position = params['positionMargin']        
-        
-        cash_4_position = net_balance * cm.factorPosition_Balance
-        sec_currency = security.get('fx_currency', security.get('currency', 'USD'))
-        fx_rates = getattr(cm, 'FX_RATES_FROM_USD', {'USD': 1.0})
-        fx_rate = fx_rates.get(sec_currency, 1.0)
-        cash_4_position *= fx_rate
-        board_lot = security.get('board_lot', 1)
-        quantity = int(cash_4_position / priceClose)
-        quantity = (quantity // board_lot) * board_lot
+        factorMargin_Position = params['positionMargin']
+
+        cash_4_position, fx_rate, board_lot, quantity = self.compute_position_size(net_balance, priceClose, security)
         margin = priceClose * factorMargin_Position
 
         printMargin = "{0:0.{prec}f}".format(factorMargin_Position, prec=5)
