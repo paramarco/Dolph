@@ -231,30 +231,42 @@ securities = [
     # _sec_eu('BMW'),             # BMW            - automotive, beta ~1.3, range 1.5-2.5%
     # _sec_eu('TTE', market='SBF', timezone='Europe/Paris', primary_exchange='SBF'),    # TotalEnergies  - energy, beta ~1.2, range 1.5-2.5%
     # _sec_eu('DHL'),             # DHL Group      - logistics, beta ~1.2, range 1.5-2.5%
-    # ==================== JAPAN - TSE (6 securities) ====================
-    _sec_jp('9984'),              # SoftBank Group  - tech/investment, beta ~1.5, range 2-3%
-    _sec_jp('8035'),              # Tokyo Electron  - semiconductor equip, very volatile, range 2-4%
-    _sec_jp('6857'),              # Advantest       - semiconductor test, high volatility, range 2-4%
-    _sec_jp('6920'),              # Lasertec        - semiconductor inspect, extreme volatility, range 3-5%
-    _sec_jp('9983'),              # Fast Retailing  - Uniqlo, heavy Nikkei weight, range 1.5-3%
-    _sec_jp('6758'),              # Sony Group      - tech/entertainment, liquid, range 1.5-2.5%
-    _sec_jp('7974'),              # Nintendo       - gaming/entertainment, liquid, range 2-3%
-    _sec_jp('6861'),              # Keyence        - sensors/automation, beta ~1.3, range 1.5-2.5%
-    _sec_jp('7267'),              # Honda Motor    - automotive, liquid, range 1.5-2.5%
-    _sec_jp('7203'),              # Toyota Motor   - automotive, very liquid, range 1.5-2.5%
-    _sec_jp('4568'),              # Daiichi Sankyo - pharma, volatile, range 2-4%
-    # ==================== HONG KONG - HKEX (6 securities) ====================
-    _sec_hk('9988'),              # Alibaba Group   - e-commerce/cloud, very volatile, range 2-4%
-    _sec_hk('700'),               # Tencent         - tech/gaming, most liquid HKEX, range 1.5-3%
-    _sec_hk('3690'),              # Meituan         - delivery/tech, volatile, range 2-4%
-    _sec_hk('9618'),              # JD.com          - e-commerce, volatile, range 2-4%
-    _sec_hk('1810', board_lot=200),              # Xiaomi          - electronics/EV, high retail volume, range 2-3%
-    _sec_hk('1211', board_lot=500),              # BYD             - EV/batteries, volatile, range 2-3%
-    _sec_hk('9888'),              # Baidu          - AI/search, volatile, range 2-4%
-    _sec_hk('9999'),              # NetEase        - gaming/entertainment, range 2-3%
-    _sec_hk('9626'),              # Bilibili       - video/gaming platform, beta ~1.5, range 3-5%
-    _sec_hk('175', board_lot=1000),               # Geely Auto     - automotive, volatile, range 2-4%
-    _sec_hk('2269', board_lot=500),              # WuXi Biologics - biotech/CDMO, volatile, range 3-5%
+    # ==================== JAPAN - TSE (affordable, lot_cost ≤ $800 USD) ====================
+    _sec_jp('7201'),              # Nissan Motor   - automotive, ¥380, lot=$255, vol 2.5%
+    _sec_jp('3350'),              # Metaplanet     - Bitcoin proxy, ¥373, lot=$250, vol 8.1%
+    _sec_jp('9432'),              # NTT            - telecom, ¥155, lot=$104, vol 2.0%
+    _sec_jp('4755'),              # Rakuten Group  - e-commerce/fintech, ¥800, lot=$537, vol 2.0%
+    _sec_jp('5401'),              # Nippon Steel   - steel, ¥601, lot=$403, vol 2.0%
+    _sec_jp('9434'),              # SoftBank Corp  - telecom, ¥213, lot=$143, vol 1.5%
+    _sec_jp('7261'),              # Mazda Motor    - automotive, ¥1200, lot=$805, vol 3.0%
+    # --- Too expensive for $900/trade (commented) ---
+    # _sec_jp('9984'),             # SoftBank Group  - ¥9000, lot=$6040, TOO EXPENSIVE
+    # _sec_jp('8035'),             # Tokyo Electron  - ¥22000, lot=$14765, TOO EXPENSIVE
+    # _sec_jp('6857'),             # Advantest       - ¥7500, lot=$5034, TOO EXPENSIVE
+    # _sec_jp('6920'),             # Lasertec        - ¥12000, lot=$8054, TOO EXPENSIVE
+    # _sec_jp('9983'),             # Fast Retailing  - ¥50000, lot=$33557, TOO EXPENSIVE
+    # _sec_jp('6758'),             # Sony Group      - ¥3200, lot=$2148, TOO EXPENSIVE
+    # _sec_jp('7974'),             # Nintendo        - ¥10000, lot=$6711, TOO EXPENSIVE
+    # _sec_jp('6861'),             # Keyence         - ¥65000, lot=$43624, TOO EXPENSIVE
+    # _sec_jp('7267'),             # Honda Motor     - ¥1400, lot=$940, TOO EXPENSIVE
+    # _sec_jp('7203'),             # Toyota Motor    - ¥2800, lot=$1879, TOO EXPENSIVE
+    # _sec_jp('4568'),             # Daiichi Sankyo  - ¥2500, lot=$1678, TOO EXPENSIVE
+    # ==================== HONG KONG - HKEX (affordable, lot_cost ≤ $800 USD) ====================
+    _sec_hk('9866'),              # NIO Inc        - EV, HK$30, lot=100, lot_cost=$384, vol 4-5%
+    _sec_hk('1024'),              # Kuaishou       - social/video, HK$45, lot=100, lot_cost=$576, vol 3%
+    _sec_hk('2015'),              # Li Auto        - EV, HK$63, lot=100, lot_cost=$807, vol 3-4%
+    # --- Too expensive for $900/trade (commented) ---
+    # _sec_hk('9988'),             # Alibaba       - HK$125, lot=100, lot_cost=$1601, TOO EXPENSIVE
+    # _sec_hk('700'),              # Tencent        - HK$430, lot=100, lot_cost=$5506, TOO EXPENSIVE
+    # _sec_hk('3690'),             # Meituan        - HK$140, lot=100, lot_cost=$1793, TOO EXPENSIVE
+    # _sec_hk('9618'),             # JD.com         - HK$130, lot=100, lot_cost=$1665, TOO EXPENSIVE
+    # _sec_hk('1810', board_lot=200),  # Xiaomi     - HK$47, lot=200, lot_cost=$1203, TOO EXPENSIVE
+    # _sec_hk('1211', board_lot=500),  # BYD        - HK$350, lot=500, lot_cost=$22407, TOO EXPENSIVE
+    # _sec_hk('9888'),             # Baidu          - HK$80, lot=100, lot_cost=$1024, TOO EXPENSIVE
+    # _sec_hk('9999'),             # NetEase        - HK$150, lot=100, lot_cost=$1921, TOO EXPENSIVE
+    # _sec_hk('9626'),             # Bilibili       - HK$120, lot=100, lot_cost=$1537, TOO EXPENSIVE
+    # _sec_hk('175', board_lot=1000),  # Geely Auto - HK$16, lot=1000, lot_cost=$2049, TOO EXPENSIVE
+    # _sec_hk('2269', board_lot=500),  # WuXi Bio   - HK$15, lot=500, lot_cost=$961, TOO EXPENSIVE
 ]
 
 logLevel = logging.DEBUG
