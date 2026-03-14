@@ -50,19 +50,35 @@ class Dolph:
         self.open_ai_key=cm.openaikey
 
 
+    @staticmethod
+    def _cal_score_usd(security):
+        """Return calibration_score converted to USD."""
+        score = security['params'].get('calibration_score', 0)
+        fx_rates = getattr(cm, 'FX_RATES_FROM_USD', {'USD': 1.0})
+        fx_rate = fx_rates.get(security.get('currency', 'USD'), 1.0)
+        return score / fx_rate if fx_rate > 0 else score
+
     def _init_securities(self):
-        # In OPERATIONAL mode, exclude securities with low calibration score
+        # In OPERATIONAL mode, exclude securities with low calibration score (USD)
         if self.MODE == 'OPERATIONAL':
             MIN_CALIBRATION_SCORE = getattr(cm, 'MIN_CALIBRATION_SCORE', 100.0)
             before = len(self.securities)
-            excluded = [s['seccode'] for s in self.securities
-                        if s['params'].get('calibration_score', 0) < MIN_CALIBRATION_SCORE]
-            self.securities = [s for s in self.securities
-                               if s['params'].get('calibration_score', 0) >= MIN_CALIBRATION_SCORE]
+            kept = []
+            excluded = []
+            for s in self.securities:
+                score_usd = self._cal_score_usd(s)
+                if score_usd >= MIN_CALIBRATION_SCORE:
+                    kept.append(s)
+                else:
+                    score_local = s['params'].get('calibration_score', 0)
+                    ccy = s.get('currency', 'USD')
+                    excluded.append(
+                        f"{s['seccode']}({score_local:.1f}{ccy}=${score_usd:.1f})")
+            self.securities = kept
             if excluded:
                 self.logger.warning(
                     f"OPERATIONAL filter: excluded {len(excluded)}/{before} securities "
-                    f"with calibration_score < {MIN_CALIBRATION_SCORE}: {excluded}"
+                    f"with calibration_score(USD) < {MIN_CALIBRATION_SCORE}: {excluded}"
                 )
 
         for sec in self.securities:
@@ -604,8 +620,7 @@ class Dolph:
             if action not in ['long','short','close','close-counterPosition']:
                 self.logger.info(f"seccode:{position.seccode} action={action}, nothing to do ...")
                 continue
-            cal_score = sec['params'].get('calibration_score', 0)
-            candidates.append((position, confidence, cal_score))
+            candidates.append((position, confidence, self._cal_score_usd(sec)))
 
         # Phase 2: Rank by composite of confidence × calibration quality.
         # Normalise cal_score across current candidates so the bonus ranges
