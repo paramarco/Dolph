@@ -658,8 +658,11 @@ class Dolph:
         self.logger.info(
             f"FALLBACK: fetching {seccode} via yfinance (ticker={ticker_sym})")
         try:
+            import datetime as _dt
             ticker = yf.Ticker(ticker_sym)
-            df = ticker.history(start=since, end=until, interval='1m')
+            # yfinance 1m data limited to ~7 days max
+            yf_start = max(since, until - _dt.timedelta(days=7))
+            df = ticker.history(start=yf_start, end=until, interval='1m')
             if df is None or df.empty:
                 self.logger.warning(
                     f"FALLBACK: yfinance returned no data for {ticker_sym}")
