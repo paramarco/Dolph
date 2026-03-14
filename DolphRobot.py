@@ -639,8 +639,47 @@ class Dolph:
 
         self.logger.info(f" Step 3/3: ✓ COMPLETED")
 
-       
-        
+    def _fetch_candles_fallback(self, security, since, until):
+        """Fallback data fetch via yfinance when IB fails. INIT_DB only."""
+        fallback = security.get('fallback_source')
+        ticker_sym = security.get('fallback_ticker')
+        if not fallback or not ticker_sym:
+            return None
+        if fallback != 'yfinance':
+            self.logger.warning(f"Unknown fallback source: {fallback}")
+            return None
+        try:
+            import yfinance as yf
+        except ImportError:
+            self.logger.error("yfinance not installed. Run: pip install yfinance")
+            return None
+
+        seccode = security['seccode']
+        self.logger.info(
+            f"FALLBACK: fetching {seccode} via yfinance (ticker={ticker_sym})")
+        try:
+            ticker = yf.Ticker(ticker_sym)
+            df = ticker.history(start=since, end=until, interval='1m')
+            if df is None or df.empty:
+                self.logger.warning(
+                    f"FALLBACK: yfinance returned no data for {ticker_sym}")
+                return None
+            # Normalize to IB format expected by store_candles()
+            df = df.rename(columns={
+                'Open': 'open', 'High': 'high', 'Low': 'low',
+                'Close': 'close', 'Volume': 'volume',
+            })
+            df = df[['open', 'high', 'low', 'close', 'volume']].copy()
+            df['date'] = df.index
+            df = df.reset_index(drop=True)
+            self.logger.info(
+                f"FALLBACK: got {len(df)} rows for {seccode} via yfinance "
+                f"(note: yfinance 1m limit ~7 days)")
+            return df
+        except Exception as e:
+            self.logger.error(f"FALLBACK: yfinance failed for {ticker_sym}: {e}")
+            return None
+
     def initDB (self):
 
         self.logger.info('initDB, getting Securities ids...')
@@ -659,6 +698,18 @@ class Dolph:
 
             self.logger.info(f"getting candles for {sec['seccode']} ... ")
             candles = self.tp.get_candles(sec, self.since, self.until, period = '1Min')
+
+            # FALLBACK: if primary platform returned no data, try alternative source
+            if candles is None:
+                self.logger.warning(
+                    f"IB returned no data for {sec['seccode']}, trying fallback...")
+                candles = self._fetch_candles_fallback(sec, self.since, self.until)
+
+            if candles is None:
+                self.logger.error(
+                    f"No data for {sec['seccode']} from any source, skipping")
+                continue
+
             self.logger.info(f"storing candles for {sec['seccode']} ... ")
             self.ds.store_candles(candles,sec)
 

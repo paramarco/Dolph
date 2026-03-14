@@ -101,9 +101,15 @@ def _sec(code, decimals=2, timezone='America/New_York', currency='USD',
         'tradingTimes': trading_times,
         'time2close': time2close,
         'board_lot': 1,
+        'fallback_source': 'yfinance',
+        'fallback_ticker': code,
         'params': dict(_BASE_PARAMS),
     }
 
+_YAHOO_EU_SUFFIX = {
+    'XETRA': '.DE', 'BME': '.MC', 'SBF': '.PA',
+    'BVME': '.MI', 'LSE': '.L', 'AEB': '.AS',
+}
 
 def _sec_eu(code, decimals=2, market='XETRA', timezone='Europe/Berlin',
             currency='EUR', exchange='SMART', primary_exchange='IBIS',
@@ -122,6 +128,8 @@ def _sec_eu(code, decimals=2, market='XETRA', timezone='Europe/Berlin',
         'tradingTimes': trading_times,
         'time2close': time2close,
         'board_lot': 1,
+        'fallback_source': 'yfinance',
+        'fallback_ticker': f"{code}{_YAHOO_EU_SUFFIX.get(market, '.DE')}",
         'params': dict(_BASE_PARAMS),
     }
     d.update(extra)
@@ -148,6 +156,8 @@ def _sec_jp(code, decimals=0,
         'tradingTimes': trading_times,
         'time2close': time2close,
         'board_lot': 100,
+        'fallback_source': 'yfinance',
+        'fallback_ticker': f'{code}.T',
         'params': dict(_BASE_PARAMS),
     }
 
@@ -172,6 +182,8 @@ def _sec_hk(code, decimals=2, board_lot=100,
         'tradingTimes': trading_times,
         'time2close': time2close,
         'board_lot': board_lot,
+        'fallback_source': 'yfinance',
+        'fallback_ticker': f'{int(code):04d}.HK',
         'params': dict(_BASE_PARAMS),
     }
 
