@@ -352,7 +352,8 @@ CALIBRATION_SL_AVERSION = 0.15
 CALIBRATION_DD_AVERSION = 0.10
 CALIBRATION_MIN_TRADES_PER_DAY = 0.5
 # Conservative fill simulation: require directional cross + slippage
-CALIBRATION_FILL_SLIPPAGE = 0.0001
+CALIBRATION_FILL_SLIPPAGE = 0.0001      # LMT pullback fill slippage
+CALIBRATION_BREAKOUT_SLIPPAGE = 0.0005  # Market-like breakout fill slippage (5x LMT)
 CALIBRATION_MAX_VOLUME_PARTICIPATION = 0.10
 # Walk-forward: train on first 67%, validate on last 33% (prevents overfitting)
 CALIBRATION_TRAIN_RATIO = 0.67

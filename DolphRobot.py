@@ -531,17 +531,21 @@ class Dolph:
 
         prediction = copy.deepcopy(security['predictions'][longestPeriod])
 
-        # Extract confidence from latest prediction
+        # Extract confidence and entry_type from latest prediction
         last_pred = prediction[-1] if prediction else None
         if isinstance(last_pred, dict):
             confidence = last_pred.get('confidence', 0.0)
+            entry_type = last_pred.get('entry_type', 'breakout')
         else:
             confidence = 0.0
+            entry_type = 'breakout'
 
         takePosition = self.takeDecision( security, prediction)
         entryPrice = self.getEntryPrice(seccode, takePosition )
         client = self.tp.getClientId()
-        byMarket = False
+        # Breakout → MarketOrder (momentum, fill immediately)
+        # Pullback → LimitOrder (retest, wait for price to retrace)
+        byMarket = (entry_type == 'breakout')
         stoploss = entryPrice
         exitPrice = entryPrice
 

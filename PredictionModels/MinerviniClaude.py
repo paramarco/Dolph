@@ -237,11 +237,12 @@ class MinerviniClaude:
                 f" exitPrice={exitPrice}, UTC-time={utc_now.isoformat()}"
             )
 
-            return {'signal': signal, 'confidence': confidence}
+            entry_type = 'pullback' if has_liquidity else 'breakout'
+            return {'signal': signal, 'confidence': confidence, 'entry_type': entry_type}
 
         except Exception as e:
             log.error(f"{self.seccode}: MinerviniClaude failed: {e}")
-            return {'signal': 'no-go', 'confidence': 0.0}
+            return {'signal': 'no-go', 'confidence': 0.0, 'entry_type': 'breakout'}
 
     # =====================================================
     # DATA PREP
@@ -1351,58 +1352,61 @@ class MinerviniClaude:
                         stats_skip_hours += 1
                         continue
 
-                # Entry fill simulation: LMT order at closes[i+2], search
-                # entry_timeout_bars for the price to cross the limit.
-                # Conservative fill: require price to cross FROM the correct direction
-                # (prev bar close must be on opposite side of limit) to avoid fills
-                # that assume favorable intra-candle order with 1-min OHLC data.
+                # Entry fill depends on signal type:
+                # Type A (breakout): aggressive fill at close[i+2] + slippage (quasi-market)
+                # Type B (liquidity/pullback): conservative LMT fill (price must retrace)
                 limit_bar = i + 2
                 if limit_bar >= n:
                     continue
                 limit_price = closes[limit_bar]
                 fill_end = min(limit_bar + entry_timeout_bars, n)
-
-                # Reserve capital: block new signals while this LMT order is pending
                 pending_until_bar = fill_end
 
-                # Volume participation: order can only fill if candle volume can absorb it.
-                # MAX_PARTICIPATION=0.10 means order cannot exceed 10% of candle volume.
-                # Deterministic (no randomness) so optimizer produces stable scores.
                 MAX_PARTICIPATION = getattr(cm, 'CALIBRATION_MAX_VOLUME_PARTICIPATION', 0.10)
                 _, _, _, est_quantity = self.dolph.compute_position_size(
                     net_balance, limit_price, self.security)
 
-                entry_idx = -1
-                for fb in range(limit_bar, fill_end):
-                    prev_close = closes[fb - 1] if fb > 0 else closes[fb]
-                    if sig == 1 and prev_close > limit_price and lows[fb] <= limit_price:
-                        # BUY LMT: price crossed down to limit — check volume can absorb
-                        bar_vol = volumes[fb]
-                        if bar_vol > 0 and est_quantity > bar_vol * MAX_PARTICIPATION:
-                            continue  # insufficient liquidity, try next bar
-                        entry_idx = fb
-                        break
-                    elif sig == -1 and prev_close < limit_price and highs[fb] >= limit_price:
-                        # SELL LMT: price crossed up to limit — check volume can absorb
-                        bar_vol = volumes[fb]
-                        if bar_vol > 0 and est_quantity > bar_vol * MAX_PARTICIPATION:
-                            continue  # insufficient liquidity, try next bar
-                        entry_idx = fb
-                        break
-                if entry_idx < 0:
-                    # Entry order expired — didn't fill within entryTimeSeconds
-                    # No artificial penalty: opportunity cost is organic (blocked signals above)
-                    stats_entry_expired += 1
-                    continue
-
-                # Apply slippage: fill slightly worse than limit price.
-                # Prevents backtest from assuming perfect fills at exact limit.
-                # Default 0.01% ≈ $0.01 on $100 stock (half spread for liquid names).
-                FILL_SLIPPAGE = getattr(cm, 'CALIBRATION_FILL_SLIPPAGE', 0.0001)
-                if sig == 1:
-                    entry_price = limit_price * (1.0 + FILL_SLIPPAGE)   # buy slightly higher
+                if liq_exempt[i]:
+                    # === TYPE B: Pullback/Retest — conservative LMT fill ===
+                    # Price must retrace to limit from the opposite direction.
+                    entry_idx = -1
+                    for fb in range(limit_bar, fill_end):
+                        prev_close = closes[fb - 1] if fb > 0 else closes[fb]
+                        if sig == 1 and prev_close > limit_price and lows[fb] <= limit_price:
+                            bar_vol = volumes[fb]
+                            if bar_vol > 0 and est_quantity > bar_vol * MAX_PARTICIPATION:
+                                continue
+                            entry_idx = fb
+                            break
+                        elif sig == -1 and prev_close < limit_price and highs[fb] >= limit_price:
+                            bar_vol = volumes[fb]
+                            if bar_vol > 0 and est_quantity > bar_vol * MAX_PARTICIPATION:
+                                continue
+                            entry_idx = fb
+                            break
+                    if entry_idx < 0:
+                        stats_entry_expired += 1
+                        continue
                 else:
-                    entry_price = limit_price * (1.0 - FILL_SLIPPAGE)   # sell slightly lower
+                    # === TYPE A: Breakout — aggressive fill at limit_bar ===
+                    # Momentum signal: fill immediately at close[i+2].
+                    # Mirrors OPERATIONAL quasi-market (close + 0.1%).
+                    bar_vol = volumes[limit_bar]
+                    if bar_vol > 0 and est_quantity > bar_vol * MAX_PARTICIPATION:
+                        stats_entry_expired += 1
+                        continue
+                    entry_idx = limit_bar
+                    pending_until_bar = limit_bar + 1  # capital freed immediately
+
+                # Slippage: breakout (market) gets higher slippage than pullback (LMT)
+                if liq_exempt[i]:
+                    FILL_SLIPPAGE = getattr(cm, 'CALIBRATION_FILL_SLIPPAGE', 0.0001)
+                else:
+                    FILL_SLIPPAGE = getattr(cm, 'CALIBRATION_BREAKOUT_SLIPPAGE', 0.0005)
+                if sig == 1:
+                    entry_price = limit_price * (1.0 + FILL_SLIPPAGE)
+                else:
+                    entry_price = limit_price * (1.0 - FILL_SLIPPAGE)
                 m_abs       = entry_price * margin_factor[i]
                 _, _, _, quantity = self.dolph.compute_position_size(
                     net_balance, entry_price, self.security)
