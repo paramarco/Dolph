@@ -19,7 +19,7 @@ sudo docker run -it --name dolph-container \
     -v ~/pgdata:/var/lib/postgresql/14/main \
     -e DISPLAY=$DISPLAY \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
-    -p 10171:5901 \
+    -p 127.0.0.1:10171:5901 \
     --privileged \
     dolph-container /bin/bash
    
@@ -31,7 +31,7 @@ sudo docker run \
     -v ~/pgdata:/var/lib/postgresql/14/main \
     -e DISPLAY=$DISPLAY \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
-    -p 10171:5901 \
+    -p 127.0.0.1:10171:5901 \
     --privileged \
     8xv7t7tg.c1.de1.container-registry.ovh.net/e1256adf-9c74-4b6c-a238-86bbfc8fe1f9/dolph-container:latest  &
 
