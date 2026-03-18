@@ -75,11 +75,30 @@ update-alternatives --set iptables /usr/sbin/iptables-legacy
 # Ensure cron is running and crontab is configured
 echo "Configuring crontab..."
 cat <<EOF | crontab -
-59 23 * * * sudo -u dolph_user /home/dolph_user/stop.sh >> /var/log/stop_cron_test.log 2>&1
-0 0 * * * sleep 1 && sudo -u dolph_user /home/dolph_user/compress_logs.sh >> /var/log/compress_logs.log 2>&1
-0 0 * * * sleep 10 && sudo -u postgres /usr/lib/postgresql/14/bin/pg_ctl -D /var/lib/postgresql/14/main -l /var/log/postgresql/postgresql-14-main.log restart >> /var/log/db_restart_cron_test.log 2>&1
-0 0 * * * sleep 20 && sudo -u dolph_user /home/dolph_user/start.sh >> /var/log/start_cron_test.log 2>&1
-0 8 * * * /usr/bin/python3 /home/dolph_user/monitor_logs.py
+  TZ=UTC
+
+  # 1. Stop all instances (21:00 UTC — after US market close)
+  0 21 * * * sudo -u dolph_user /home/dolph_user/stop.sh 5 >> /var/log/stop_cron_test.log 2>&1
+  0 21 * * * sudo -u dolph_user /home/dolph_user/stop.sh 1 >> /var/log/stop_cron_test.log 2>&1
+  0 21 * * * sudo -u dolph_user /home/dolph_user/stop.sh 2 >> /var/log/stop_cron_test.log 2>&1
+  0 21 * * * sudo -u dolph_user /home/dolph_user/stop.sh 3 >> /var/log/stop_cron_test.log 2>&1
+
+  # 2. Compress logs (21:05 UTC — all instances stopped)
+  5 21 * * * sudo -u dolph_user /home/dolph_user/compress_logs.sh >> /var/log/compress_logs.log 2>&1
+
+  # 3. PostgreSQL restart (21:10 UTC)
+  10 21 * * * sudo -u postgres /usr/lib/postgresql/14/bin/pg_ctl -D /var/lib/postgresql/14/main -l /var/log/postgresql/postgresql-14-main.log restart
+
+  # 4. Start calibration instances (21:15 UTC)
+  15 21 * * * sudo -u dolph_user /home/dolph_user/start.sh 1 >> /var/log/start_cron.log 2>&1
+  15 21 * * * sleep 3 && sudo -u dolph_user /home/dolph_user/start.sh 2 >> /var/log/start_cron.log 2>&1
+  15 21 * * * sleep 6 && sudo -u dolph_user /home/dolph_user/start.sh 3 >> /var/log/start_cron.log 2>&1
+
+  # 5. Start OPERATIONAL instance (21:30 UTC — after calibration started)
+  30 21 * * * sudo -u dolph_user /home/dolph_user/start.sh 5 >> /var/log/start_cron.log 2>&1
+
+  # 6. Monitor logs (08:00 UTC)
+  0 8 * * * /usr/bin/python3 /home/dolph_user/monitor_logs.py
 EOF
 
 echo "Starting cron service..."
