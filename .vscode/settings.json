@@ -1,0 +1,5 @@
+{
+    "git.env": {
+        "SSH_AUTH_SOCK": "/tmp/ssh-agent-dolph.sock"
+    }
+}
