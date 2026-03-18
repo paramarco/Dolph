@@ -12,7 +12,7 @@
   ],
   "overrideCommand": false,
   "remoteUser": "root",
-  "postStartCommand": "bash -c 'chown -R dolph_user:dolph_user /home/dolph_user && cd /home/dolph_user/Dolph && . /opt/venv/bin/activate && git config --global user.email \"4086177+paramarco@users.noreply.github.com\" && git config --global user.name \"paramarco\" && rm -f /tmp/ssh-agent-dolph.sock && eval $(ssh-agent -a /tmp/ssh-agent-dolph.sock -s) && ssh-add /home/dolph_user/.ssh/id_ed25519'",
+  "postStartCommand": "bash -c 'chown -R dolph_user:dolph_user /home/dolph_user && cd /home/dolph_user/Dolph && . /opt/venv/bin/activate && git config --global user.email \"4086177+paramarco@users.noreply.github.com\" && git config --global user.name \"paramarco\" && rm -f /tmp/ssh-agent-dolph.sock && eval $(ssh-agent -a /tmp/ssh-agent-dolph.sock -s) && ssh-add /home/dolph_user/.ssh/id_ed25519 && chmod 777 /tmp/ssh-agent-dolph.sock'",
   "remoteEnv": {
     "SSH_AUTH_SOCK": "/tmp/ssh-agent-dolph.sock"
   },
