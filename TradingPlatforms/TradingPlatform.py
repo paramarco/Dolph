@@ -2567,10 +2567,11 @@ class IBTradingPlatform(TradingPlatform):
 
         buysell = "BUY" if position.takePosition == "long" else "SELL"
 
-        # Respect entryByMarket from security config instead of forcing MKT
-        sec = next((s for s in self.securities if s['seccode'] == position.seccode), {})
-        entry_by_market = sec.get('params', {}).get('entryByMarket', True)
-        position.bymarket = entry_by_market
+        # Use bymarket from position (set by evaluatePosition based on entry_type).
+        # Fall back to entryByMarket from security config only if position has default False.
+        if not position.bymarket:
+            sec = next((s for s in self.securities if s['seccode'] == position.seccode), {})
+            position.bymarket = sec.get('params', {}).get('entryByMarket', False)
 
         position.expdate = self.getExpDate(position.seccode)
         position.expdate = self.convert_to_utc(position.expdate)
@@ -2589,14 +2590,14 @@ class IBTradingPlatform(TradingPlatform):
 
             position.entry_id = res.id  # Capture the IB order ID
             # Track limit entry attempt
-            if not entry_by_market:
+            if not position.bymarket:
                 position.entry_limit_prices.append({
                     'price': price,
                     'time': datetime.datetime.now(timezone.utc).isoformat(),
                     'order_id': res.id
                 })
             self.monitoredPositions.append(position)
-            log.info(f"orderId: {res.id}, status: {res.status}, bymarket: {entry_by_market}")
+            log.info(f"orderId: {res.id}, status: {res.status}, bymarket: {position.bymarket}")
 
         else:
             log.error(f"Order failed or in invalid state: {res.status}")
