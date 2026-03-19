@@ -466,6 +466,9 @@ class TradingPlatform(ABC):
                     now_utc = datetime.datetime.now(datetime.timezone.utc)
                     monitoredPosition.entry_time = now_utc
                     self.position_entry_filled_at[monitoredPosition.seccode] = now_utc
+                    # Mark BEFORE calling triggerExitOrder to prevent duplicate
+                    # brackets from concurrent Filled callbacks (MKT orders)
+                    monitoredPosition.exitOrderRequested = True
                     self.triggerExitOrder(order, monitoredPosition)                
                 else:
                     self.removeMonitoredPositionByExit(order)
