@@ -463,6 +463,70 @@ class DataServer:
             if conn:
                 conn.close()
 
+    def loadSecuritiesFromDB(self, tz_filter=None):
+        """Load full security list from DB (replaces config securities list).
+
+        Args:
+            tz_filter: timezone prefix to filter by region, e.g. 'America/', 'Europe/', 'Asia/'.
+                       None = load all securities (OPERATIONAL mode).
+        """
+        from Configuration.SecurityDefs import _BASE_PARAMS
+        try:
+            conn = psycopg2.connect(**cm.db_connection_params)
+            cursor = conn.cursor()
+            query = """
+                SELECT id, code, board, decimals, market, timezone, currency, exchange,
+                       primary_exchange, trading_times_start, trading_times_end,
+                       time2close, board_lot, fallback_source, fallback_ticker,
+                       company_name, sector, beta_info, volatility_range,
+                       alg_parameters
+                FROM security
+                WHERE alg_parameters IS NOT NULL
+            """
+            params = []
+            if tz_filter:
+                query += " AND timezone LIKE %s"
+                params.append(tz_filter + '%')
+            query += " ORDER BY code"
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
+            cursor.close()
+            conn.close()
+
+            securities = []
+            for row in rows:
+                (sec_id, code, board, decimals, market, timezone, currency, exchange,
+                 primary_exchange, tt_start, tt_end, t2c, board_lot,
+                 fallback_source, fallback_ticker,
+                 company_name, sector, beta_info, volatility_range,
+                 alg_parameters) = row
+                merged_params = dict(_BASE_PARAMS)
+                if alg_parameters:
+                    merged_params.update(alg_parameters)
+                sec = {
+                    'seccode': code,
+                    'board': board,
+                    'market': market,
+                    'decimals': decimals,
+                    'id': str(sec_id),
+                    'timezone': timezone,
+                    'currency': currency,
+                    'exchange': exchange,
+                    'primaryExchange': primary_exchange or 'NASDAQ',
+                    'tradingTimes': (tt_start, tt_end),
+                    'time2close': t2c,
+                    'board_lot': board_lot or 1,
+                    'fallback_source': fallback_source or 'yfinance',
+                    'fallback_ticker': fallback_ticker or code,
+                    'params': merged_params,
+                }
+                securities.append(sec)
+            log.info(f"Loaded {len(securities)} securities from DB (tz_filter={tz_filter})")
+            return securities
+        except Exception as e:
+            log.error(f"Failed to load securities from DB: {e}")
+            raise
+
     def saveSecurityParamsToDB(self, securities):
         """Save each security's params dict to the alg_parameters JSONB column."""
         try:
@@ -866,14 +930,38 @@ class DataServer:
             exchange_val = sec_cfg.get('exchange', 'SMART')
             alg_params = sec_cfg.get('params')
             alg_params_json = json.dumps(alg_params) if alg_params else None
+            # New metadata columns
+            primary_exchange_val = sec_cfg.get('primaryExchange', 'NASDAQ')
+            tt = sec_cfg.get('tradingTimes', (dt.time(9, 46), dt.time(15, 45)))
+            tt_start = tt[0] if tt else dt.time(9, 46)
+            tt_end = tt[1] if tt else dt.time(15, 45)
+            t2c_val = sec_cfg.get('time2close', dt.time(15, 53))
+            board_lot_val = sec_cfg.get('board_lot', 1)
+            fallback_source_val = sec_cfg.get('fallback_source', 'yfinance')
+            fallback_ticker_val = sec_cfg.get('fallback_ticker')
+            company_name_val = sec_cfg.get('company_name')
+            sector_val = sec_cfg.get('sector')
+            beta_info_val = sec_cfg.get('beta_info')
+            volatility_range_val = sec_cfg.get('volatility_range')
 
-            # Insert with fields from config (market, decimals, timezone, currency, exchange)
+            # Insert with all metadata columns
             insert_query = """
-                INSERT INTO security (code, board, period, decimals, market, platform, timezone, currency, exchange, alg_parameters)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO security (code, board, period, decimals, market, platform,
+                    timezone, currency, exchange, alg_parameters,
+                    primary_exchange, trading_times_start, trading_times_end, time2close,
+                    board_lot, fallback_source, fallback_ticker,
+                    company_name, sector, beta_info, volatility_range)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
             """
-            cursor.execute(insert_query, (seccode, board, period_val, decimals_val, market_val, platform_val, tz_val, currency_val, exchange_val, alg_params_json))
+            cursor.execute(insert_query, (
+                seccode, board, period_val, decimals_val, market_val, platform_val,
+                tz_val, currency_val, exchange_val, alg_params_json,
+                primary_exchange_val, tt_start, tt_end, t2c_val,
+                board_lot_val, fallback_source_val, fallback_ticker_val,
+                company_name_val, sector_val, beta_info_val, volatility_range_val
+            ))
             new_id = cursor.fetchone()[0]
                         
             # Confirmar la transacción

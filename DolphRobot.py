@@ -21,14 +21,16 @@ class Dolph:
     def __init__(self):
         
         self._init_configuration()
-        self.logger = None      
+        self.logger = None
         self._init_logging()
         self.ds = ds.DataServer()
-        self.tp = tp.initTradingPlatform( self.onCounterPosition )   
+        # For non-INIT_DB modes, load securities from DB instead of config
+        if getattr(self, '_securities_from_db', False):
+            tz_filter = getattr(cm, 'SECURITY_TZ_FILTER', None)
+            self.securities = self.ds.loadSecuritiesFromDB(tz_filter=tz_filter)
+            self.logger.info(f"{self.MODE} mode: loaded {len(self.securities)} securities from DB (tz_filter={tz_filter})")
+        self.tp = tp.initTradingPlatform( self.onCounterPosition )
         self.initDB()
-        if self.MODE in ('OPERATIONAL', 'TEST_OFFLINE'):
-            self.ds.loadSecurityParamsFromDB(self.securities)
-            self.logger.info(f"{self.MODE} mode: loaded calibrated params from DB")
         self._init_securities()
         self.tv = tv.TrendViewer( self.evaluatePosition )
         self.data = {}
@@ -37,7 +39,7 @@ class Dolph:
         
 
     def _init_configuration(self):
-        
+
         self.MODE = cm.MODE
         self.numTestSample = cm.numTestSample
         self.since = cm.since
@@ -45,9 +47,13 @@ class Dolph:
         self.between_time = cm.between_time
         self.TrainingHour = cm.TrainingHour
         self.periods = cm.periods
-        self.securities = cm.securities
         self.currentTestIndex = cm.currentTestIndex
         self.open_ai_key=cm.openaikey
+        # INIT_DB uses config securities for insertion; all other modes load from DB
+        if self.MODE == 'INIT_DB':
+            self.securities = cm.securities
+        else:
+            self._securities_from_db = True  # flag: securities loaded later in __init__
 
 
     @staticmethod
