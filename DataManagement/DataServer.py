@@ -472,19 +472,20 @@ class DataServer:
             conn = psycopg2.connect(**cm.db_connection_params)
             cursor = conn.cursor()
             query = """
-                SELECT id, code, board, decimals, market, timezone, currency, exchange,
-                       primary_exchange, trading_times_start, trading_times_end,
-                       time2close, board_lot, fallback_source, fallback_ticker,
-                       company_name, sector, beta_info, volatility_range,
-                       alg_parameters
-                FROM security
-                WHERE alg_parameters IS NOT NULL
+                SELECT s.id, s.code, s.board, s.decimals, s.market, s.timezone, s.currency, s.exchange,
+                       s.primary_exchange, s.trading_times_start, s.trading_times_end,
+                       s.time2close, s.board_lot, s.fallback_source, s.fallback_ticker,
+                       s.company_name, s.sector, s.beta_info, s.volatility_range,
+                       s.alg_parameters
+                FROM security s
+                WHERE s.alg_parameters IS NOT NULL
+                  AND EXISTS (SELECT 1 FROM quote q WHERE q.security_id = s.id)
             """
             params = []
             if tz_filter:
-                query += " AND timezone LIKE %s"
+                query += " AND s.timezone LIKE %s"
                 params.append(tz_filter + '%')
-            query += " ORDER BY code"
+            query += " ORDER BY s.code"
             cursor.execute(query, params)
             rows = cursor.fetchall()
             cursor.close()

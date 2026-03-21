@@ -28,6 +28,7 @@ class Dolph:
         if getattr(self, '_securities_from_db', False):
             tz_filter = getattr(cm, 'SECURITY_TZ_FILTER', None)
             self.securities = self.ds.loadSecuritiesFromDB(tz_filter=tz_filter)
+            self.ds.securities = self.securities  # sync so searchData uses DB securities
             self.logger.info(f"{self.MODE} mode: loaded {len(self.securities)} securities from DB (tz_filter={tz_filter})")
         self.tp = tp.initTradingPlatform( self.onCounterPosition )
         self.initDB()
