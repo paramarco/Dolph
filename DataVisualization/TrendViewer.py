@@ -70,16 +70,16 @@ class TrendViewer:
         self.between_time = cm.between_time
         self.TrainingHour = cm.TrainingHour
         self.periods = cm.periods
-        self.securities = cm.securities
-        self.currentTestIndex = cm.currentTestIndex 
+        self.securities = getattr(cm, 'securities', [])
+        self.currentTestIndex = cm.currentTestIndex
 
     def set_display_prediction_method(self):
-        
-        if not cm.securities:
+
+        if not self.securities:
             self.showPrediction = self.displayNothing
             return
         
-        sec = cm.securities[0]
+        sec = self.securities[0]
         params = ds.DataServer().getSecurityAlgParams( sec )
         alg = params["algorithm"]
    

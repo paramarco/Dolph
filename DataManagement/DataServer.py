@@ -26,7 +26,7 @@ class DataServer:
         log.info('DataServer starting ...')
 
     def _init_configuration(self):
-        
+
         self.MODE = cm.MODE
         self.numTestSample = cm.numTestSample
         self.since = cm.since
@@ -34,19 +34,16 @@ class DataServer:
         self.between_time = cm.between_time
         self.TrainingHour = cm.TrainingHour
         self.periods = cm.periods
-        self.securities = cm.securities
+        self.securities = getattr(cm, 'securities', [])
         self.currentTestIndex = cm.currentTestIndex
         self.lastUpdate = None
         self._init_securities()
 
     def _init_securities(self):
-        
-        # for sec in self.securities:
-        #     sec['params'] = self.getSecurityAlgParams(sec)
-            
+
         for sec in self.securities:
             board, seccode = sec['board'], sec['seccode']
-            sec['id'] = self.getSecurityIdSQL( board, seccode)   
+            sec['id'] = self.getSecurityIdSQL( board, seccode)
 
     def __createDBtables(self):
         try:

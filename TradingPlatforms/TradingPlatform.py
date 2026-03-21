@@ -155,8 +155,8 @@ class TradingPlatform(ABC):
         self.between_time = cm.between_time
         self.TrainingHour = cm.TrainingHour
         self.periods = cm.periods
-        self.securities = cm.securities
-        self.currentTestIndex = cm.currentTestIndex 
+        self.securities = getattr(cm, 'securities', [])
+        self.currentTestIndex = cm.currentTestIndex
         self.ds = ds.DataServer()
         #platform  = self.ds.getPlatformDetails(cm.securities)    
         platform = cm.platform
@@ -3115,7 +3115,7 @@ if __name__== "__main__":
      onCounterPosition = None     
      tp = initTradingPlatform( onCounterPosition )
      
-     for sec in cm.securities:
+     for sec in getattr(cm, 'securities', []):
          
          seccode = sec['seccode']
          candles = tp.get_candles( seccode, since, until, period)
