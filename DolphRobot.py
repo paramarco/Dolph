@@ -711,39 +711,70 @@ class Dolph:
 
         for sec in self.securities:
             board, seccode = sec['board'], sec['seccode']
-            sec['id'] = self.ds.getSecurityIdSQL(board, seccode)        
-        
-        
-        if self.MODE != 'INIT_DB' : 
+            sec['id'] = self.ds.getSecurityIdSQL(board, seccode)
+
+
+        if self.MODE != 'INIT_DB' :
             return
-        
-        self.logger.info('init database according to Trading platform ...')
 
-        for sec in self.securities:
+        # ===== PHASE 1: Insert new securities + download 90-day history =====
+        if self.securities:
+            self.logger.info(f'INIT_DB Phase 1: inserting {len(self.securities)} new securities (90-day history)...')
+            for sec in self.securities:
+                self.logger.info(f"Phase 1: getting candles for {sec['seccode']} ... ")
+                candles = self.tp.get_candles(sec, self.since, self.until, period = '1Min')
 
-            self.logger.info(f"getting candles for {sec['seccode']} ... ")
-            candles = self.tp.get_candles(sec, self.since, self.until, period = '1Min')
+                if candles is None:
+                    self.logger.warning(
+                        f"IB returned no data for {sec['seccode']}, trying fallback...")
+                    candles = self._fetch_candles_fallback(sec, self.since, self.until)
 
-            # FALLBACK: if primary platform returned no data, try alternative source
+                if candles is None:
+                    self.logger.error(
+                        f"No data for {sec['seccode']} from any source, skipping")
+                    continue
+
+                self.logger.info(f"Phase 1: storing candles for {sec['seccode']} ... ")
+                self.ds.store_candles(candles, sec)
+
+            self.logger.info('Phase 1: saving initial calibration params to DB ...')
+            self.ds.saveSecurityParamsToDB(self.securities)
+        else:
+            self.logger.info('INIT_DB Phase 1: no new securities in config list, skipping.')
+
+        # ===== PHASE 2: Refresh 7-day quotes for ALL securities in DB =====
+        self.logger.info('INIT_DB Phase 2: refreshing 7-day quotes for ALL securities in DB...')
+        all_db_securities = self.ds.loadSecuritiesFromDB(tz_filter=None, require_quotes=False)
+        self.logger.info(f'Phase 2: found {len(all_db_securities)} securities in DB')
+
+        refresh_since = cm._tz.localize(dt.datetime.now() - dt.timedelta(days=7))
+        refresh_until = cm._tz.localize(dt.datetime.now())
+        refreshed = 0
+        failed = 0
+
+        for sec in all_db_securities:
+            seccode = sec['seccode']
+            self.logger.info(f"Phase 2: refreshing quotes for {seccode} (last 7 days)...")
+
+            candles = self.tp.get_candles(sec, refresh_since, refresh_until, period='1Min')
+
             if candles is None:
                 self.logger.warning(
-                    f"IB returned no data for {sec['seccode']}, trying fallback...")
-                candles = self._fetch_candles_fallback(sec, self.since, self.until)
+                    f"Phase 2: IB returned no data for {seccode}, trying fallback...")
+                candles = self._fetch_candles_fallback(sec, refresh_since, refresh_until)
 
             if candles is None:
-                self.logger.error(
-                    f"No data for {sec['seccode']} from any source, skipping")
+                self.logger.warning(f"Phase 2: no data for {seccode} from any source, skipping")
+                failed += 1
                 continue
 
-            self.logger.info(f"storing candles for {sec['seccode']} ... ")
-            self.ds.store_candles(candles,sec)
+            self.logger.info(f"Phase 2: storing {len(candles)} candles for {seccode}")
+            self.ds.store_candles(candles, sec)
+            refreshed += 1
 
-        # Save initial calibration params from config to DB
-        self.logger.info('saving initial calibration params to DB ...')
-        self.ds.saveSecurityParamsToDB(self.securities)
+        self.logger.info(f'INIT_DB Phase 2 complete: refreshed {refreshed}, failed {failed}, total {len(all_db_securities)}')
 
         sys.exit(0)
-        raise SystemExit("Stopping the program") 
 
 
     def setSecurityParams(self, seccode, **params):

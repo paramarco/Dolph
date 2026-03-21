@@ -460,12 +460,14 @@ class DataServer:
             if conn:
                 conn.close()
 
-    def loadSecuritiesFromDB(self, tz_filter=None):
+    def loadSecuritiesFromDB(self, tz_filter=None, require_quotes=True):
         """Load full security list from DB (replaces config securities list).
 
         Args:
             tz_filter: timezone prefix to filter by region, e.g. 'America/', 'Europe/', 'Asia/'.
                        None = load all securities (OPERATIONAL mode).
+            require_quotes: if True, only return securities that have quote data.
+                           Set to False for INIT_DB Phase 2 (refresh all).
         """
         from Configuration.SecurityDefs import _BASE_PARAMS
         try:
@@ -479,8 +481,9 @@ class DataServer:
                        s.alg_parameters
                 FROM security s
                 WHERE s.alg_parameters IS NOT NULL
-                  AND EXISTS (SELECT 1 FROM quote q WHERE q.security_id = s.id)
             """
+            if require_quotes:
+                query += "  AND EXISTS (SELECT 1 FROM quote q WHERE q.security_id = s.id)\n"
             params = []
             if tz_filter:
                 query += " AND s.timezone LIKE %s"
