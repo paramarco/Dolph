@@ -208,8 +208,8 @@ def _sec_hk(code, decimals=2, board_lot=100,
 
 securities = [
     # === New securities to insert (uncomment to add via INIT_DB) ===
-    _sec_eu('STMPA', market='SBF', timezone='Europe/Paris', primary_exchange='SBF',
-            company_name='STMicroelectronics', sector='semiconductor', beta_info='beta 1.22', volatility_range='2-3%'),
+    # _sec_eu('STMPA', market='SBF', timezone='Europe/Paris', primary_exchange='SBF',
+    #         company_name='STMicroelectronics', sector='semiconductor', beta_info='beta 1.22', volatility_range='2-3%'),
 #     # ==================== AMERICAS - NASDAQ ====================
 #     _sec('TSLA', company_name='Tesla', sector='EV/energy', beta_info='very volatile', volatility_range='2-4%'),
 #     _sec('AMD', company_name='AMD', sector='semiconductor', beta_info='beta ~1.7', volatility_range='2-3%'),
