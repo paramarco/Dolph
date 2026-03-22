@@ -15,6 +15,14 @@
 
 set -e
 
+# Kill any previous orchestrator instance (prevents accumulation from daily cron)
+prev_pids=$(pgrep -f "calibration_orchestrator.sh" | grep -v "$$" || true)
+if [ -n "$prev_pids" ]; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') | ORCHESTRATOR | Killing previous orchestrator(s): $prev_pids"
+    echo "$prev_pids" | xargs kill 2>/dev/null || true
+    sleep 2
+fi
+
 BATCH_SIZE=12
 MAX_PARALLEL=$(nproc 2>/dev/null || echo 2)  # auto-detect CPUs
 DRY_RUN=false
