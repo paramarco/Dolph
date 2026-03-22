@@ -279,7 +279,7 @@ while [ ${#RUNNING_INSTS[@]} -gt 0 ] || [ "$queue_idx" -lt "${#all_inst_nums[@]}
     done
 
     # Safety timeout
-    local elapsed=$(( $(date +%s) - start_time ))
+    elapsed=$(( $(date +%s) - start_time ))
     if [ "$elapsed" -ge "$MAX_WAIT" ]; then
         log "WARNING: timeout ${MAX_WAIT}s reached, force-stopping all"
         for inst in "${!RUNNING_INSTS[@]}"; do
@@ -290,9 +290,9 @@ while [ ${#RUNNING_INSTS[@]} -gt 0 ] || [ "$queue_idx" -lt "${#all_inst_nums[@]}
 
     # Status update every 10 polls (~10 min)
     if (( elapsed % (POLL_INTERVAL * 10) < POLL_INTERVAL )); then
-        local running_list="${!RUNNING_INSTS[*]}"
-        local done_count=${#DONE_INSTS[@]}
-        local total=${#all_inst_nums[@]}
+        running_list="${!RUNNING_INSTS[*]}"
+        done_count=${#DONE_INSTS[@]}
+        total=${#all_inst_nums[@]}
         log "Status: running=[${running_list}], done=${done_count}/${total}, elapsed=$((elapsed/60))min"
     fi
 
