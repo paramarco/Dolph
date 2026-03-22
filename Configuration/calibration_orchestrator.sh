@@ -162,7 +162,8 @@ instance_calibration_done() {
 
     for code in $codes; do
         local count
-        count=$(grep -c "seccode=${code} calibration complete" "$logfile" 2>/dev/null || echo 0)
+        count=$(grep -c "seccode=${code} calibration complete" "$logfile" 2>/dev/null || true)
+        count=$((count + 0))  # force integer
         if [ "$count" -lt "$MIN_PASSES" ]; then
             return 1
         fi
