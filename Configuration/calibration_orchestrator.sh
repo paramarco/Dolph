@@ -131,15 +131,127 @@ sleep 2
 # ============================================================
 # Step 4: Deploy and launch with max MAX_PARALLEL at a time
 # ============================================================
-wait_for_instance() {
+MIN_PASSES=2          # Wait for at least N complete calibration passes
+POLL_INTERVAL=60      # Check logs every N seconds
+MAX_WAIT=43200        # Safety timeout: 12 hours max per region
+
+# Get the expected seccodes for an instance from its Conf file
+get_instance_codes() {
     local inst=$1
+    local conf="${DATA_DIR}/${inst}/Dolph/Configuration/Conf.py"
+    python3 -c "
+import ast, re
+with open('${conf}') as f:
+    for line in f:
+        m = re.match(r'SECURITY_CODES_FILTER\s*=\s*(.+)', line)
+        if m:
+            print(' '.join(ast.literal_eval(m.group(1))))
+            break
+" 2>/dev/null
+}
+
+# Check if instance has completed MIN_PASSES calibration passes for all its seccodes
+instance_calibration_done() {
+    local inst=$1
+    local logfile="${DATA_DIR}/${inst}/Dolph/log/Dolph.log"
+    [ ! -f "$logfile" ] && return 1
+
+    local codes
+    codes=$(get_instance_codes "$inst")
+    [ -z "$codes" ] && return 1
+
+    for code in $codes; do
+        local count
+        count=$(grep -c "seccode=${code} calibration complete" "$logfile" 2>/dev/null || echo 0)
+        if [ "$count" -lt "$MIN_PASSES" ]; then
+            return 1
+        fi
+    done
+    return 0
+}
+
+# Stop an instance gracefully
+stop_instance() {
+    local inst=$1
+    log "Stopping instance ${inst}..."
+    bash "${STOP_SCRIPT}" "$inst" 2>/dev/null || true
+    # Double check
     local pid
     pid=$(pgrep -f "python ${DATA_DIR}/${inst}/Dolph/DolphRobot.py" 2>/dev/null) || return 0
-    log "Waiting for instance ${inst} (PID=${pid}) to finish..."
-    while kill -0 "$pid" 2>/dev/null; do
-        sleep 30
+    sleep 2
+    kill "$pid" 2>/dev/null || true
+}
+
+deploy_instance() {
+    local inst=$1
+    log "Deploying instance ${inst}..."
+    bash "${DEPLOY_SCRIPT}" "$inst" --no-launch 2>&1 | sed "s/^/  [deploy-${inst}] /"
+    # Copy the generated Conf-N.py AFTER deploy (deploy clones fresh from GitHub)
+    local conf_src="${DOLPH_DIR}/Configuration/Conf-${inst}.py"
+    local conf_dst="${DATA_DIR}/${inst}/Dolph/Configuration/Conf.py"
+    if [ -f "$conf_src" ]; then
+        cp "$conf_src" "$conf_dst"
+        log "Copied Conf-${inst}.py -> instance ${inst} Conf.py"
+    fi
+    # Overlay local code changes (not yet on GitHub) over the cloned repo
+    cp "${DOLPH_DIR}/DolphRobot.py" "${DATA_DIR}/${inst}/Dolph/DolphRobot.py"
+    cp "${DOLPH_DIR}/DataManagement/DataServer.py" "${DATA_DIR}/${inst}/Dolph/DataManagement/DataServer.py"
+    cp "${DOLPH_DIR}/Configuration/SecurityDefs.py" "${DATA_DIR}/${inst}/Dolph/Configuration/SecurityDefs.py"
+    cp "${DOLPH_DIR}/DataVisualization/TrendViewer.py" "${DATA_DIR}/${inst}/Dolph/DataVisualization/TrendViewer.py"
+    cp "${DOLPH_DIR}/TradingPlatforms/TradingPlatform.py" "${DATA_DIR}/${inst}/Dolph/TradingPlatforms/TradingPlatform.py" 2>/dev/null || true
+    cp "${DOLPH_DIR}/PredictionModels/MinerviniClaude.py" "${DATA_DIR}/${inst}/Dolph/PredictionModels/MinerviniClaude.py" 2>/dev/null || true
+    log "Overlaid local code changes -> instance ${inst}"
+}
+
+launch_instance() {
+    local inst=$1
+    log "Launching instance ${inst}..."
+    cd "${DATA_DIR}/${inst}/Dolph"
+    nohup python "${DATA_DIR}/${inst}/Dolph/DolphRobot.py" > /dev/null 2>&1 &
+    log "Instance ${inst} launched (PID=$!)"
+    sleep 3  # stagger launches
+}
+
+# Wait for a batch of running instances to complete calibration, then stop them
+wait_and_stop_batch() {
+    local insts=("$@")
+    local start_time=$(date +%s)
+
+    log "Monitoring ${#insts[@]} instances: ${insts[*]} (min ${MIN_PASSES} passes, poll every ${POLL_INTERVAL}s)"
+
+    while true; do
+        local all_done=true
+        for inst in "${insts[@]}"; do
+            # Check if process is still alive
+            if ! pgrep -f "python ${DATA_DIR}/${inst}/Dolph/DolphRobot.py" &>/dev/null; then
+                log "Instance ${inst} process already exited"
+                continue
+            fi
+            if ! instance_calibration_done "$inst"; then
+                all_done=false
+            else
+                log "Instance ${inst}: all seccodes completed >= ${MIN_PASSES} passes"
+                stop_instance "$inst"
+            fi
+        done
+
+        if $all_done; then
+            log "All instances in batch completed calibration."
+            break
+        fi
+
+        # Safety timeout
+        local elapsed=$(( $(date +%s) - start_time ))
+        if [ "$elapsed" -ge "$MAX_WAIT" ]; then
+            log "WARNING: timeout ${MAX_WAIT}s reached, force-stopping remaining instances"
+            for inst in "${insts[@]}"; do
+                stop_instance "$inst"
+            done
+            break
+        fi
+
+        sleep "$POLL_INTERVAL"
     done
-    log "Instance ${inst} finished."
 }
 
 # Process each timezone group sequentially
@@ -156,52 +268,23 @@ for region in Americas Europe Asia; do
     [ ${#region_instances[@]} -eq 0 ] && continue
     log "=== Processing ${region}: ${#region_instances[@]} instances ==="
 
-    # Deploy all instances for this region (--no-launch: orchestrator controls launch)
+    # Deploy all instances for this region
     for inst in "${region_instances[@]}"; do
-        log "Deploying instance ${inst}..."
-        bash "${DEPLOY_SCRIPT}" "$inst" --no-launch 2>&1 | sed "s/^/  [deploy-${inst}] /"
-        # Copy the generated Conf-N.py AFTER deploy (deploy clones fresh from GitHub)
-        conf_src="${DOLPH_DIR}/Configuration/Conf-${inst}.py"
-        conf_dst="${DATA_DIR}/${inst}/Dolph/Configuration/Conf.py"
-        if [ -f "$conf_src" ]; then
-            cp "$conf_src" "$conf_dst"
-            log "Copied Conf-${inst}.py -> instance ${inst} Conf.py"
-        fi
-        # Overlay local code changes (not yet on GitHub) over the cloned repo
-        cp "${DOLPH_DIR}/DolphRobot.py" "${DATA_DIR}/${inst}/Dolph/DolphRobot.py"
-        cp "${DOLPH_DIR}/DataManagement/DataServer.py" "${DATA_DIR}/${inst}/Dolph/DataManagement/DataServer.py"
-        cp "${DOLPH_DIR}/Configuration/SecurityDefs.py" "${DATA_DIR}/${inst}/Dolph/Configuration/SecurityDefs.py"
-        cp "${DOLPH_DIR}/DataVisualization/TrendViewer.py" "${DATA_DIR}/${inst}/Dolph/DataVisualization/TrendViewer.py"
-        cp "${DOLPH_DIR}/TradingPlatforms/TradingPlatform.py" "${DATA_DIR}/${inst}/Dolph/TradingPlatforms/TradingPlatform.py" 2>/dev/null || true
-        log "Overlaid local code changes -> instance ${inst}"
+        deploy_instance "$inst"
     done
 
-    # Launch in pairs of MAX_PARALLEL, wait for each pair to complete
+    # Launch in pairs of MAX_PARALLEL, monitor calibration, stop when done
     idx=0
     while [ $idx -lt ${#region_instances[@]} ]; do
-        running_pids=()
-        running_insts=()
+        batch_insts=()
 
         for ((p=0; p<MAX_PARALLEL && idx<${#region_instances[@]}; p++, idx++)); do
             inst="${region_instances[$idx]}"
-            log "Launching instance ${inst}..."
-            cd "${DATA_DIR}/${inst}/Dolph"
-            nohup python "${DATA_DIR}/${inst}/Dolph/DolphRobot.py" > /dev/null 2>&1 &
-            lpid=$!
-            running_pids+=("$lpid")
-            running_insts+=("$inst")
-            log "Instance ${inst} launched (PID=${lpid})"
-            sleep 3  # stagger launches
+            launch_instance "$inst"
+            batch_insts+=("$inst")
         done
 
-        # Wait for all in this batch to complete
-        for i in "${!running_pids[@]}"; do
-            inst="${running_insts[$i]}"
-            pid="${running_pids[$i]}"
-            log "Waiting for instance ${inst} (PID=${pid})..."
-            wait "$pid" 2>/dev/null || true
-            log "Instance ${inst} completed."
-        done
+        wait_and_stop_batch "${batch_insts[@]}"
     done
 
     log "=== ${region} complete ==="
