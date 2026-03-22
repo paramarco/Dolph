@@ -778,7 +778,8 @@ class Dolph:
 
         self.logger.info(f'INIT_DB Phase 2 complete: refreshed {refreshed}, failed {failed}, total {len(all_db_securities)}')
 
-        sys.exit(0)
+        self.logger.info('INIT_DB finished, exiting process.')
+        os._exit(0)  # Force exit — sys.exit() doesn't kill IB background threads
 
 
     def setSecurityParams(self, seccode, **params):
