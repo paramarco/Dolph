@@ -8,7 +8,7 @@ from Configuration import TradingPlatfomSettings as tps
 platform = tps.platform
 
 SECURITY_TZ_FILTER = 'America/'
-SECURITY_CODES_FILTER = ['MARA','MRNA','MSFT','MSTR','NET','NVDA','ONCO','PENN','PLTR','RBLX','RIVN','ROKU']
+SECURITY_CODES_FILTER = ['MARA','MRNA','MSFT','MSTR','NET','NVDA','PENN','PLTR','RBLX','RIVN','ROKU','SHOP']
 
 _BASE_PARAMS = {
     'algorithm': 'MinerviniClaude',

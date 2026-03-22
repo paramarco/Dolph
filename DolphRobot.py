@@ -267,6 +267,34 @@ class Dolph:
             self._getPredictionModel(sec, period )            
 
 
+    def _is_data_stale(self, sec, max_age_seconds=100):
+        """Check if the last quote for this security is older than max_age_seconds.
+        Returns True if data is stale (should NOT trade), False if fresh."""
+        seccode = sec['seccode']
+        try:
+            df = self.data.get('1Min')
+            if df is None or df.empty:
+                return True
+            sec_data = df[df['mnemonic'] == seccode]
+            if sec_data.empty:
+                return True
+            last_ts = sec_data.index[-1]
+            if hasattr(last_ts, 'to_pydatetime'):
+                last_ts = last_ts.to_pydatetime()
+            now_utc = dt.datetime.now(dt.timezone.utc)
+            if last_ts.tzinfo is None:
+                last_ts = last_ts.replace(tzinfo=dt.timezone.utc)
+            age = (now_utc - last_ts).total_seconds()
+            if age > max_age_seconds:
+                self.logger.warning(
+                    f"STALE DATA: {seccode} last quote {age:.0f}s ago "
+                    f"(max {max_age_seconds}s), skipping trade")
+                return True
+            return False
+        except Exception as e:
+            self.logger.error(f"_is_data_stale error for {seccode}: {e}")
+            return True
+
     def _is_outside_trading_hours(self, sec):
         """Return True if current time is outside the security's trading session
         (from tradingTimes start to time2close)."""
@@ -625,6 +653,8 @@ class Dolph:
         for sec in self.securities:
 
             if self._is_outside_trading_hours(sec):
+                continue
+            if self._is_data_stale(sec):
                 continue
             position, confidence = self.evaluatePosition(sec)
             action = position.takePosition
