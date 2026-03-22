@@ -16,7 +16,7 @@
 set -e
 
 BATCH_SIZE=12
-MAX_PARALLEL=2
+MAX_PARALLEL=$(nproc 2>/dev/null || echo 2)  # auto-detect CPUs
 DRY_RUN=false
 DOLPH_DIR="/home/dolph_user/Dolph"
 DATA_DIR="/home/dolph_user/data"
@@ -213,83 +213,93 @@ launch_instance() {
     sleep 3  # stagger launches
 }
 
-# Wait for a batch of running instances to complete calibration, then stop them
-wait_and_stop_batch() {
-    local insts=("$@")
-    local start_time=$(date +%s)
+# ============================================================
+# Step 4: Deploy all instances, then run as a pool
+# ============================================================
 
-    log "Monitoring ${#insts[@]} instances: ${insts[*]} (min ${MIN_PASSES} passes, poll every ${POLL_INTERVAL}s)"
+# Collect ALL instance numbers in order
+all_inst_nums=()
+for entry in "${ALL_INSTANCES[@]}"; do
+    all_inst_nums+=("$(echo "$entry" | cut -d: -f1)")
+done
 
-    while true; do
-        local all_done=true
-        for inst in "${insts[@]}"; do
-            # Check if process is still alive
-            if ! pgrep -f "python ${DATA_DIR}/${inst}/Dolph/DolphRobot.py" &>/dev/null; then
-                log "Instance ${inst} process already exited"
-                continue
-            fi
-            if ! instance_calibration_done "$inst"; then
-                all_done=false
-            else
-                log "Instance ${inst}: all seccodes completed >= ${MIN_PASSES} passes"
-                stop_instance "$inst"
-            fi
-        done
+log "Deploying ${#all_inst_nums[@]} instances..."
+for inst in "${all_inst_nums[@]}"; do
+    deploy_instance "$inst"
+done
 
-        if $all_done; then
-            log "All instances in batch completed calibration."
-            break
-        fi
+# ============================================================
+# Step 5: Pool executor — keep MAX_PARALLEL running at all times
+# ============================================================
+log "=== Pool executor: ${#all_inst_nums[@]} instances, MAX_PARALLEL=${MAX_PARALLEL} ==="
 
-        # Safety timeout
-        local elapsed=$(( $(date +%s) - start_time ))
-        if [ "$elapsed" -ge "$MAX_WAIT" ]; then
-            log "WARNING: timeout ${MAX_WAIT}s reached, force-stopping remaining instances"
-            for inst in "${insts[@]}"; do
-                stop_instance "$inst"
-            done
-            break
-        fi
+declare -A RUNNING_INSTS  # inst -> 1 (running)
+declare -A DONE_INSTS     # inst -> 1 (completed)
+queue_idx=0               # next instance to launch from all_inst_nums
+start_time=$(date +%s)
 
-        sleep "$POLL_INTERVAL"
+# Fill pool up to MAX_PARALLEL
+fill_pool() {
+    while [ ${#RUNNING_INSTS[@]} -lt "$MAX_PARALLEL" ] && [ "$queue_idx" -lt "${#all_inst_nums[@]}" ]; do
+        local inst="${all_inst_nums[$queue_idx]}"
+        queue_idx=$((queue_idx + 1))
+
+        # Skip if already done
+        [ "${DONE_INSTS[$inst]:-}" = "1" ] && continue
+
+        launch_instance "$inst"
+        RUNNING_INSTS[$inst]=1
     done
 }
 
-# Process each timezone group sequentially
-for region in Americas Europe Asia; do
-    prefix="${TZ_PREFIXES[$region]}"
+fill_pool
 
-    # Collect instances for this region
-    region_instances=()
-    for entry in "${ALL_INSTANCES[@]}"; do
-        entry_region=$(echo "$entry" | cut -d: -f2)
-        [ "$entry_region" = "$region" ] && region_instances+=("$(echo "$entry" | cut -d: -f1)")
+log "Pool started: running=${!RUNNING_INSTS[*]}, queued=$((${#all_inst_nums[@]} - queue_idx))"
+
+while [ ${#RUNNING_INSTS[@]} -gt 0 ] || [ "$queue_idx" -lt "${#all_inst_nums[@]}" ]; do
+
+    for inst in "${!RUNNING_INSTS[@]}"; do
+        # Check if process died
+        if ! pgrep -f "python ${DATA_DIR}/${inst}/Dolph/DolphRobot.py" &>/dev/null; then
+            log "Instance ${inst}: process exited"
+            unset RUNNING_INSTS[$inst]
+            DONE_INSTS[$inst]=1
+            fill_pool
+            continue
+        fi
+
+        # Check calibration completion
+        if instance_calibration_done "$inst"; then
+            log "Instance ${inst}: all seccodes completed >= ${MIN_PASSES} passes"
+            stop_instance "$inst"
+            unset RUNNING_INSTS[$inst]
+            DONE_INSTS[$inst]=1
+            fill_pool
+        fi
     done
 
-    [ ${#region_instances[@]} -eq 0 ] && continue
-    log "=== Processing ${region}: ${#region_instances[@]} instances ==="
-
-    # Deploy all instances for this region
-    for inst in "${region_instances[@]}"; do
-        deploy_instance "$inst"
-    done
-
-    # Launch in pairs of MAX_PARALLEL, monitor calibration, stop when done
-    idx=0
-    while [ $idx -lt ${#region_instances[@]} ]; do
-        batch_insts=()
-
-        for ((p=0; p<MAX_PARALLEL && idx<${#region_instances[@]}; p++, idx++)); do
-            inst="${region_instances[$idx]}"
-            launch_instance "$inst"
-            batch_insts+=("$inst")
+    # Safety timeout
+    local elapsed=$(( $(date +%s) - start_time ))
+    if [ "$elapsed" -ge "$MAX_WAIT" ]; then
+        log "WARNING: timeout ${MAX_WAIT}s reached, force-stopping all"
+        for inst in "${!RUNNING_INSTS[@]}"; do
+            stop_instance "$inst"
         done
+        break
+    fi
 
-        wait_and_stop_batch "${batch_insts[@]}"
-    done
+    # Status update every 10 polls (~10 min)
+    if (( elapsed % (POLL_INTERVAL * 10) < POLL_INTERVAL )); then
+        local running_list="${!RUNNING_INSTS[*]}"
+        local done_count=${#DONE_INSTS[@]}
+        local total=${#all_inst_nums[@]}
+        log "Status: running=[${running_list}], done=${done_count}/${total}, elapsed=$((elapsed/60))min"
+    fi
 
-    log "=== ${region} complete ==="
+    sleep "$POLL_INTERVAL"
 done
+
+log "=== All ${#all_inst_nums[@]} instances completed ==="
 
 # ============================================================
 # Step 5: Cleanup dynamic instances (>= 6)
