@@ -27,9 +27,13 @@ class Dolph:
         # For non-INIT_DB modes, load securities from DB instead of config
         if getattr(self, '_securities_from_db', False):
             tz_filter = getattr(cm, 'SECURITY_TZ_FILTER', None)
-            self.securities = self.ds.loadSecuritiesFromDB(tz_filter=tz_filter)
+            codes_filter = getattr(cm, 'SECURITY_CODES_FILTER', None)
+            self.securities = self.ds.loadSecuritiesFromDB(
+                tz_filter=tz_filter, codes_filter=codes_filter)
             self.ds.securities = self.securities  # sync so searchData uses DB securities
-            self.logger.info(f"{self.MODE} mode: loaded {len(self.securities)} securities from DB (tz_filter={tz_filter})")
+            self.logger.info(
+                f"{self.MODE} mode: loaded {len(self.securities)} securities from DB "
+                f"(tz_filter={tz_filter}, codes_filter={'%d codes' % len(codes_filter) if codes_filter else None})")
         self.tp = tp.initTradingPlatform( self.onCounterPosition )
         self.initDB()
         self._init_securities()

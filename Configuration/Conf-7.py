@@ -7,6 +7,9 @@ from Configuration import TradingPlatfomSettings as tps
 
 platform = tps.platform
 
+SECURITY_TZ_FILTER = 'America/'
+SECURITY_CODES_FILTER = ['SHOP','SMCI','SNAP','SOFI','TSLA']
+
 _BASE_PARAMS = {
     'algorithm': 'MinerviniClaude',
     'entryByMarket': False,

@@ -56,13 +56,19 @@ fi
 
 # Replacing TradingPlatfomSettings-$1.py of the container by the TradingPlatfomSettings.py in the instance ...
 echo "Replacing TradingPlatfomSettings-$1.py of the container by the TradingPlatfomSettings.py in the instance ..."
-cp /home/dolph_user/TradingPlatfomSettings-$1.py ${instance}/Dolph/Configuration/TradingPlatfomSettings.py
+TPS_FILE="/home/dolph_user/TradingPlatfomSettings-$1.py"
+[ ! -f "$TPS_FILE" ] && TPS_FILE="/home/dolph_user/TradingPlatfomSettings-1.py" && echo "Fallback: using TradingPlatfomSettings-1.py for instance $1"
+cp "$TPS_FILE" ${instance}/Dolph/Configuration/TradingPlatfomSettings.py
 
 # Replacing Conf-X.py of the instance in the repository by the Conf.py for the instance ...
 echo "Replacing Conf-X.py of the instance in the repository by the Conf.py for the instance  ..."
 cp ${instance}/Dolph/Configuration/Conf-$1.py ${instance}/Dolph/Configuration/Conf.py
 
 
-# Launch the application
-echo "Launching DolphRobot.py..."
-nohup python ${instance}/Dolph/DolphRobot.py > /dev/null 2>&1 &
+# Launch the application (skip if --no-launch flag is set)
+if [ "$2" != "--no-launch" ]; then
+  echo "Launching DolphRobot.py..."
+  nohup python ${instance}/Dolph/DolphRobot.py > /dev/null 2>&1 &
+else
+  echo "Skipping launch (--no-launch flag set)."
+fi

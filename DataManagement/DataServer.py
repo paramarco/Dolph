@@ -460,7 +460,7 @@ class DataServer:
             if conn:
                 conn.close()
 
-    def loadSecuritiesFromDB(self, tz_filter=None, require_quotes=True):
+    def loadSecuritiesFromDB(self, tz_filter=None, require_quotes=True, codes_filter=None):
         """Load full security list from DB (replaces config securities list).
 
         Args:
@@ -468,6 +468,8 @@ class DataServer:
                        None = load all securities (OPERATIONAL mode).
             require_quotes: if True, only return securities that have quote data.
                            Set to False for INIT_DB Phase 2 (refresh all).
+            codes_filter: list of security codes to load, e.g. ['TSLA','AMD','NVDA'].
+                         None = no code filter (load all matching other criteria).
         """
         from Configuration.SecurityDefs import _BASE_PARAMS
         try:
@@ -488,6 +490,10 @@ class DataServer:
             if tz_filter:
                 query += " AND s.timezone LIKE %s"
                 params.append(tz_filter + '%')
+            if codes_filter:
+                placeholders = ','.join(['%s'] * len(codes_filter))
+                query += f" AND s.code IN ({placeholders})"
+                params.extend(codes_filter)
             query += " ORDER BY s.code"
             cursor.execute(query, params)
             rows = cursor.fetchall()

@@ -7,6 +7,9 @@ from Configuration import TradingPlatfomSettings as tps
 
 platform = tps.platform
 
+SECURITY_TZ_FILTER = 'Asia/'
+SECURITY_CODES_FILTER = ['6857','6861','6920','700','7201','7203','7261','7267','7974','8035','9432','9434']
+
 _BASE_PARAMS = {
     'algorithm': 'MinerviniClaude',
     'entryByMarket': False,
