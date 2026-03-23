@@ -38,6 +38,7 @@ class Dolph:
         self.initDB()
         self._init_securities()
         self.tp.securities = self.securities  # sync filtered list to TradingPlatform
+        self.ds.securities = self.securities  # sync filtered list to DataServer
         self.tv = tv.TrendViewer( self.evaluatePosition )
         self.data = {}
         self._init_signaling()

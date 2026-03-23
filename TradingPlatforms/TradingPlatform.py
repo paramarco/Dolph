@@ -2021,10 +2021,7 @@ class IBTradingPlatform(TradingPlatform):
             return
         try:
             bars = self.symbol_to_bars[seccode]
-            if self.ib_loop and self.ib_loop.is_running():
-                self._run_ib(self.ib.cancelHistoricalDataAsync(bars), timeout=5)
-            else:
-                self.ib.cancelHistoricalData(bars)
+            self.ib.cancelHistoricalData(bars)
         except Exception as e:
             log.warning(f"Failed to cancel subscription for {seccode}: {e}")
         del self.symbol_to_bars[seccode]
