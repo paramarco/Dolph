@@ -805,14 +805,29 @@ class DataServer:
 
             for sec in self.securities:
                 seccode = sec['seccode']
+
+                # Skip securities outside their trading hours (± 1h margin)
+                try:
+                    import pytz
+                    sec_tz = pytz.timezone(sec.get('timezone', 'America/New_York'))
+                    now_local = dt.datetime.now(sec_tz)
+                    trading_start, trading_end = sec.get('tradingTimes', (dt.time(9, 30), dt.time(16, 0)))
+                    margin = dt.timedelta(minutes=60)
+                    start_dt = dt.datetime.combine(now_local.date(), trading_start) - margin
+                    end_dt = dt.datetime.combine(now_local.date(), trading_end) + margin
+                    if not (start_dt.time() <= now_local.time() <= end_dt.time()):
+                        continue
+                except Exception:
+                    pass  # if timezone check fails, don't skip
+
                 df = dataFrame[dataFrame['mnemonic'] == seccode]
                 df_1min = dataFrame_1min[dataFrame_1min['mnemonic'] == seccode]
-                
+
                 # Validar que hay datos para este security
                 if df.empty or df_1min.empty:
                     log.debug(f"No data for {seccode} in isPeriodSynced")
                     continue
-                
+
                 timelastPeriod = df.tail(1).index
                 timelastPeriod = timelastPeriod.to_pydatetime()
                 timelast1Min = df_1min.tail(1).index
