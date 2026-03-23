@@ -1888,18 +1888,20 @@ class IBTradingPlatform(TradingPlatform):
          self.ib.connect(self.host, self.port, clientId=self.client_id)
          self.connected = True
 
-         # Subscribe to market data BEFORE starting the event loop thread
-         # (reqHistoricalData uses loop.run_until_complete() which works fine here)
-         log.info("subscribing to Market data...")
-         self.subscribe_to_market_data()
+         # Dynamic subscription: only subscribe to securities within trading hours (± 1h)
+         log.info("subscribing to Market data (by trading hours)...")
+         self.symbol_to_bars = {}
+         self.ib.barUpdateEvent += self.on_bar_update
+         self._update_subscriptions()
 
-         log.info("Retrieving and storing initial candles...")
+         log.info("Retrieving and storing initial candles for subscribed securities...")
          now = self.getTradingPlatformTime()
          months_ago = now - datetime.timedelta(days=cm.numDaysHistCandles)
 
          for sec in self.securities:
-             candles = self.get_candles(sec, months_ago, now, period='1Min')
-             self.ds.store_candles_from_IB(candles, sec)
+             if sec['seccode'] in self.symbol_to_bars:
+                 candles = self.get_candles(sec, months_ago, now, period='1Min')
+                 self.ds.store_candles_from_IB(candles, sec)
 
          # Get the event loop that ib.connect() created/used
          self.ib_loop = asyncio.get_event_loop()
@@ -1974,8 +1976,59 @@ class IBTradingPlatform(TradingPlatform):
             contract.primaryExchange = primary_exchange
         return contract
 
+    def _is_within_subscription_window(self, sec, margin_minutes=60):
+        """Check if current time is within tradingTimes ± margin for this security."""
+        sec_tz = pytz.timezone(sec.get('timezone', 'America/New_York'))
+        now_local = datetime.datetime.now(sec_tz)
+        current_time = now_local.time()
+        trading_start, trading_end = sec.get('tradingTimes', (datetime.time(9, 30), datetime.time(16, 0)))
+        start_dt = datetime.datetime.combine(now_local.date(), trading_start) - datetime.timedelta(minutes=margin_minutes)
+        end_dt = datetime.datetime.combine(now_local.date(), trading_end) + datetime.timedelta(minutes=margin_minutes)
+        return start_dt.time() <= current_time <= end_dt.time()
+
+    def _subscribe_security(self, sec):
+        """Subscribe to 1-min streaming bars for a single security."""
+        seccode = sec['seccode']
+        if seccode in self.symbol_to_bars:
+            return
+        contract = self._make_stock_contract(seccode)
+        try:
+            bars = self.ib.reqHistoricalData(
+                contract, endDateTime='', durationStr='300 S',
+                barSizeSetting='1 min', whatToShow='TRADES',
+                useRTH=False, formatDate=1, keepUpToDate=True)
+            self.symbol_to_bars[seccode] = bars
+            log.info(f"Subscribed to 1-minute bars for {seccode}.")
+        except Exception as e:
+            log.error(f"Failed to subscribe {seccode}: {e}")
+
+    def _unsubscribe_security(self, seccode):
+        """Unsubscribe from streaming bars for a single security."""
+        if seccode not in self.symbol_to_bars:
+            return
+        try:
+            bars = self.symbol_to_bars[seccode]
+            self.ib.cancelHistoricalData(bars)
+        except Exception as e:
+            log.warning(f"Failed to cancel subscription for {seccode}: {e}")
+        del self.symbol_to_bars[seccode]
+        log.info(f"Unsubscribed from {seccode}")
+
+    def _update_subscriptions(self):
+        """Subscribe/unsubscribe based on current trading hours ± 1h margin."""
+        for sec in self.securities:
+            seccode = sec['seccode']
+            should_sub = self._is_within_subscription_window(sec)
+            is_sub = seccode in self.symbol_to_bars
+            if should_sub and not is_sub:
+                self._subscribe_security(sec)
+            elif not should_sub and is_sub:
+                self._unsubscribe_security(seccode)
+        active = len(self.symbol_to_bars)
+        log.info(f"Subscription update: {active} active subscriptions")
+
     def subscribe_to_market_data(self):
-        """ Interactive Brokers """
+        """ Interactive Brokers — LEGACY, replaced by _update_subscriptions() """
 
         self.symbol_to_bars = {}  # A dictionary to store symbol -> Bars mapping
 

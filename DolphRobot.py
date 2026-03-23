@@ -37,6 +37,7 @@ class Dolph:
         self.tp = tp.initTradingPlatform( self.onCounterPosition )
         self.initDB()
         self._init_securities()
+        self.tp.securities = self.securities  # sync filtered list to TradingPlatform
         self.tv = tv.TrendViewer( self.evaluatePosition )
         self.data = {}
         self._init_signaling()
@@ -241,7 +242,10 @@ class Dolph:
         if self.MODE == 'TEST_OFFLINE':
             self.logger.info("TEST_OFFLINE mode: skipping dataAcquisition (calibration reads DB directly)")
             return
-        
+
+        if self.MODE == 'OPERATIONAL' and hasattr(self.tp, '_update_subscriptions'):
+            self.tp._update_subscriptions()
+
         self.ds.syncData( self.data )
 
         self.logger.info(f" Step 1/3: ✓ COMPLETED")
