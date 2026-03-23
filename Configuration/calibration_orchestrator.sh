@@ -141,7 +141,7 @@ sleep 2
 # ============================================================
 MIN_PASSES=1          # Wait for at least N complete calibration passes
 POLL_INTERVAL=60      # Check logs every N seconds
-MAX_WAIT=43200        # Safety timeout: 12 hours max per region
+MAX_WAIT=85800        # Safety timeout: 23h50m (daily cron stop.sh at 21:00 is the real cutoff)
 
 # Get the expected seccodes for an instance from its Conf file
 get_instance_codes() {
