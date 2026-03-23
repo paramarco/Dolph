@@ -1993,12 +1993,25 @@ class IBTradingPlatform(TradingPlatform):
             return
         contract = self._make_stock_contract(seccode)
         try:
-            bars = self.ib.reqHistoricalData(
-                contract, endDateTime='', durationStr='300 S',
-                barSizeSetting='1 min', whatToShow='TRADES',
-                useRTH=False, formatDate=1, keepUpToDate=True)
-            self.symbol_to_bars[seccode] = bars
-            log.info(f"Subscribed to 1-minute bars for {seccode}.")
+            # Use async path if event loop is already running (main loop calls)
+            if self.ib_loop and self.ib_loop.is_running():
+                bars = self._run_ib(
+                    self.ib.reqHistoricalDataAsync(
+                        contract, endDateTime='', durationStr='300 S',
+                        barSizeSetting='1 min', whatToShow='TRADES',
+                        useRTH=False, formatDate=1, keepUpToDate=True),
+                    timeout=10)
+            else:
+                # Sync path during connect() before event loop starts
+                bars = self.ib.reqHistoricalData(
+                    contract, endDateTime='', durationStr='300 S',
+                    barSizeSetting='1 min', whatToShow='TRADES',
+                    useRTH=False, formatDate=1, keepUpToDate=True)
+            if bars is not None:
+                self.symbol_to_bars[seccode] = bars
+                log.info(f"Subscribed to 1-minute bars for {seccode}.")
+            else:
+                log.warning(f"Subscription returned None for {seccode}")
         except Exception as e:
             log.error(f"Failed to subscribe {seccode}: {e}")
 
@@ -2008,7 +2021,10 @@ class IBTradingPlatform(TradingPlatform):
             return
         try:
             bars = self.symbol_to_bars[seccode]
-            self.ib.cancelHistoricalData(bars)
+            if self.ib_loop and self.ib_loop.is_running():
+                self._run_ib(self.ib.cancelHistoricalDataAsync(bars), timeout=5)
+            else:
+                self.ib.cancelHistoricalData(bars)
         except Exception as e:
             log.warning(f"Failed to cancel subscription for {seccode}: {e}")
         del self.symbol_to_bars[seccode]
