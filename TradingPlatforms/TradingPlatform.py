@@ -2007,11 +2007,11 @@ class IBTradingPlatform(TradingPlatform):
                     contract, endDateTime='', durationStr='300 S',
                     barSizeSetting='1 min', whatToShow='TRADES',
                     useRTH=False, formatDate=1, keepUpToDate=True)
-            if bars is not None:
+            if bars is not None and len(bars) > 0:
                 self.symbol_to_bars[seccode] = bars
-                log.info(f"Subscribed to 1-minute bars for {seccode}.")
+                log.info(f"Subscribed to 1-minute bars for {seccode} ({len(bars)} initial bars).")
             else:
-                log.warning(f"Subscription returned None for {seccode}")
+                log.warning(f"Subscription failed for {seccode}: no initial data (will retry next cycle)")
         except Exception as e:
             log.error(f"Failed to subscribe {seccode}: {e}")
 
