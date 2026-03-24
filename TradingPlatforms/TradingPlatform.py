@@ -2115,8 +2115,11 @@ class IBTradingPlatform(TradingPlatform):
             return
         # ---------------------
 
-        self.ds.store_bar(symbol, updated_data)
-           
+        # Defer DB write to avoid blocking the IB event loop
+        from threading import Thread
+        Thread(target=self.ds.store_bar, args=(symbol, updated_data),
+               name=f"storeBar-{symbol}", daemon=True).start()
+
 
     def on_historical_data(self, reqId, bar):
         """ Interactive Brokers 
@@ -2163,8 +2166,11 @@ class IBTradingPlatform(TradingPlatform):
             
 
     def onOrderStatus(self, trade: Trade):
-        """ Interactive Brokers """
-
+        """ Interactive Brokers
+        IMPORTANT: This callback runs ON the IB event loop thread.
+        Must NOT call _run_ib() (deadlock: scheduling work on the loop that's executing us).
+        Defer heavy work (triggerExitOrder) to a separate thread.
+        """
         order = OrderIB(trade)
 
         if self.isMarketCloseOrder(order):
@@ -2174,11 +2180,15 @@ class IBTradingPlatform(TradingPlatform):
         if order.account and self.account_number and order.account != self.account_number:
             return
 
-        # Process regular or stop orders
-        if order.type in ['MKT']:
-            self.processEntryOrderStatus(order)
-        elif order.type in ['STP', 'LMT', 'STP LMT']:
+        # Process exit order status directly (no _run_ib needed)
+        if order.type in ['STP', 'LMT', 'STP LMT']:
             self.processExitOrderStatus(order)
+        elif order.type in ['MKT']:
+            # Defer entry processing to avoid deadlock:
+            # processEntryOrderStatus → triggerExitOrder → _run_ib → deadlock
+            from threading import Thread
+            Thread(target=self.processEntryOrderStatus, args=(order,),
+                   name=f"entryStatus-{order.id}", daemon=True).start()
      
             
     def get_candles(self, security, since, until, period):
