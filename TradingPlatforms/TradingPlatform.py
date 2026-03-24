@@ -3036,39 +3036,67 @@ class IBTradingPlatform(TradingPlatform):
 
     
     def triggerExitOrder(self, order, monitoredPosition):
-        """ Interactive Brokers """    
-        
-        log.info('Triggering stop order...')        
-        # Determine buy/sell action based on position type
+        """ Interactive Brokers """
+        seccode = monitoredPosition.seccode
+
+        # Pre-flight: skip if this position already has exit orders assigned
+        if monitoredPosition.exit_tp_id is not None or monitoredPosition.exit_sl_id is not None:
+            log.info(f"triggerExitOrder skipped for {seccode}: brackets already exist "
+                     f"(TP={monitoredPosition.exit_tp_id}, SL={monitoredPosition.exit_sl_id})")
+            return
+
+        # Pre-flight: check IB for existing exit orders for this seccode
+        try:
+            open_trades = self.ib.openTrades()
+            exit_action = "SELL" if monitoredPosition.takePosition == "long" else "BUY"
+            existing_exits = [t for t in open_trades
+                              if t.contract.symbol == seccode
+                              and t.order.action == exit_action
+                              and t.order.orderType in ('LMT', 'STP')]
+            if len(existing_exits) >= 2:
+                log.warning(f"triggerExitOrder skipped for {seccode}: "
+                            f"{len(existing_exits)} exit orders already in IB, adopting them")
+                # Adopt the existing orders
+                for t in existing_exits:
+                    if t.order.orderType == 'LMT':
+                        monitoredPosition.exit_tp_id = t.order.orderId
+                    elif t.order.orderType == 'STP':
+                        monitoredPosition.exit_sl_id = t.order.orderId
+                monitoredPosition.exitOrderRequested = True
+                for t in existing_exits:
+                    oib = OrderIB(t)
+                    if oib not in self.monitoredExitOrders:
+                        self.monitoredExitOrders.append(oib)
+                self.storeMonitoredPositions()
+                return
+        except Exception as e:
+            log.warning(f"Pre-flight check failed for {seccode}: {e}, proceeding with order creation")
+
+        log.info(f'Triggering exit bracket for {seccode}...')
         exit_action = "SELL" if monitoredPosition.takePosition == "long" else "BUY"
-        # Format trigger prices
         trigger_price_tp = "{0:0.{prec}f}".format(
             round(monitoredPosition.exitPrice, monitoredPosition.decimals), prec=monitoredPosition.decimals
         )
         trigger_price_sl = "{0:0.{prec}f}".format(
             round(monitoredPosition.stoploss, monitoredPosition.decimals), prec=monitoredPosition.decimals
         )
-        
+
         res, res_sl = self.newExitOrder(
-            None, monitoredPosition.seccode, None, exit_action, 
+            None, seccode, None, exit_action,
             monitoredPosition.quantity, trigger_price_sl, trigger_price_tp,
-            None, None, None, False 
+            None, None, None, False
         )
-        
+
         if res is None:
-            log.error("Failed to create Exit order: newExitOrder returned None")
-            
+            log.error(f"Failed to create Exit order for {seccode}: newExitOrder returned None")
+
         elif res.orderStatus.status in cm.statusOrderForwarding or res.orderStatus.status in cm.statusOrderExecuted:
 
             monitoredPosition.exitOrderRequested = True
-            monitoredPosition.exit_tp_id = res.order.orderId  # Capture IB order ID
+            monitoredPosition.exit_tp_id = res.order.orderId
             monitoredPosition.exit_sl_id = res_sl.order.orderId
-            log.info(f"Exit order {order.id} successfully in IB OrderId: {res.order.orderId}")
-            log.info(repr(res))
+            log.info(f"Exit bracket for {seccode} created: TP={res.order.orderId}, SL={res_sl.order.orderId}")
 
-            # Immediately register exit orders in monitoredExitOrders to prevent
-            # reconcileOrphanedPositions from removing this position before
-            # processExitOrderStatus has a chance to add them
             tp_order_ib = OrderIB(res)
             sl_order_ib = OrderIB(res_sl)
             if tp_order_ib not in self.monitoredExitOrders:
@@ -3076,15 +3104,13 @@ class IBTradingPlatform(TradingPlatform):
             if sl_order_ib not in self.monitoredExitOrders:
                 self.monitoredExitOrders.append(sl_order_ib)
 
-            # Persist exit order IDs to DB so they survive restart
             self.storeMonitoredPositions()
 
-            # safety net to not collision with an Entry
             if order in self.monitoredOrders:
-                self.monitoredOrders.remove(order)               
-            
+                self.monitoredOrders.remove(order)
+
         else:
-            log.error(f"failed to Exit order for {order.id}, status: {res.orderStatus.status}")
+            log.error(f"Failed Exit order for {seccode}, status: {res.orderStatus.status}")
 
                                                                                      
     def convert_to_utc(self, timezone_aware_datetime):                                   
