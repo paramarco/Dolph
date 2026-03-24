@@ -273,22 +273,25 @@ class Dolph:
 
 
     def _is_data_stale(self, sec, max_age_seconds=100):
-        """Check if the last quote for this security is older than max_age_seconds.
+        """Check if the last quote for this security in the DB is older than max_age_seconds.
+        Reads directly from DB (not self.data) to avoid stale in-memory DataFrame.
         Returns True if data is stale (should NOT trade), False if fresh."""
         seccode = sec['seccode']
         try:
-            df = self.data.get('1Min')
-            if df is None or df.empty:
+            import psycopg2
+            conn = psycopg2.connect(**cm.db_connection_params)
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT MAX(date_time) AT TIME ZONE 'UTC' "
+                "FROM quote q JOIN security s ON q.security_id = s.id "
+                "WHERE s.code = %s", (seccode,))
+            row = cursor.fetchone()
+            cursor.close()
+            conn.close()
+            if row is None or row[0] is None:
                 return True
-            sec_data = df[df['mnemonic'] == seccode]
-            if sec_data.empty:
-                return True
-            last_ts = sec_data.index[-1]
-            if hasattr(last_ts, 'to_pydatetime'):
-                last_ts = last_ts.to_pydatetime()
+            last_ts = row[0].replace(tzinfo=dt.timezone.utc)
             now_utc = dt.datetime.now(dt.timezone.utc)
-            if last_ts.tzinfo is None:
-                last_ts = last_ts.replace(tzinfo=dt.timezone.utc)
             age = (now_utc - last_ts).total_seconds()
             if age > max_age_seconds:
                 self.logger.warning(
