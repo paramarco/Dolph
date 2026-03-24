@@ -1739,13 +1739,17 @@ class DataServer:
                     close = EXCLUDED.close,
                     vol = EXCLUDED.vol;
             """
+            # Convert timestamp to UTC before inserting to avoid timezone offset bugs
+            ts = bar_data['timestamp']
+            if hasattr(ts, 'astimezone'):
+                ts = ts.astimezone(dt.timezone.utc)
             cursor.execute(query, (
-                bar_data['timestamp'], 
-                bar_data['open'], 
-                bar_data['high'], 
-                bar_data['low'], 
-                bar_data['close'], 
-                bar_data['volume'], 
+                ts,
+                bar_data['open'],
+                bar_data['high'],
+                bar_data['low'],
+                bar_data['close'],
+                bar_data['volume'],
                 seccode
             ))
 

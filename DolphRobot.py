@@ -282,7 +282,7 @@ class Dolph:
             conn = psycopg2.connect(**cm.db_connection_params)
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT MAX(date_time) AT TIME ZONE 'UTC' "
+                "SELECT EXTRACT(EPOCH FROM (NOW() - MAX(date_time))) "
                 "FROM quote q JOIN security s ON q.security_id = s.id "
                 "WHERE s.code = %s", (seccode,))
             row = cursor.fetchone()
@@ -290,9 +290,7 @@ class Dolph:
             conn.close()
             if row is None or row[0] is None:
                 return True
-            last_ts = row[0].replace(tzinfo=dt.timezone.utc)
-            now_utc = dt.datetime.now(dt.timezone.utc)
-            age = (now_utc - last_ts).total_seconds()
+            age = row[0]
             if age > max_age_seconds:
                 self.logger.warning(
                     f"STALE DATA: {seccode} last quote {age:.0f}s ago "
