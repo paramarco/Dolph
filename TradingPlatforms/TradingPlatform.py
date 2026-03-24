@@ -2180,15 +2180,25 @@ class IBTradingPlatform(TradingPlatform):
         if order.account and self.account_number and order.account != self.account_number:
             return
 
-        # Process exit order status directly (no _run_ib needed)
-        if order.type in ['STP', 'LMT', 'STP LMT']:
-            self.processExitOrderStatus(order)
-        elif order.type in ['MKT']:
+        # Determine if a LMT order is an entry (pullback signal) or exit (TP/SL)
+        # Same logic as IB_OrderStatusTask.run() for consistent routing
+        is_entry = False
+        if order.type in ['MKT']:
+            is_entry = True
+        elif order.type in ['LMT']:
+            is_entry = any(mp.entry_id == order.id for mp in self.monitoredPositions
+                           if not mp.exitOrderRequested)
+            if not is_entry:
+                is_entry = any(mo.id == order.id for mo in self.monitoredOrders)
+
+        if is_entry:
             # Defer entry processing to avoid deadlock:
             # processEntryOrderStatus → triggerExitOrder → _run_ib → deadlock
             from threading import Thread
             Thread(target=self.processEntryOrderStatus, args=(order,),
                    name=f"entryStatus-{order.id}", daemon=True).start()
+        elif order.type in ['STP', 'LMT', 'STP LMT']:
+            self.processExitOrderStatus(order)
      
             
     def get_candles(self, security, since, until, period):
