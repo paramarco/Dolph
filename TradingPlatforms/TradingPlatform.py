@@ -770,19 +770,18 @@ class TradingPlatform(ABC):
                 reason = (f'open {seconds_open/60:.0f}min > {exit_timeout/60:.0f}min, '
                     f'prediction={pred_signal} != position={mp.takePosition}')
 
-            # Condition 4: Signal reversed — close position immediately
-            # Only triggers when prediction is the OPPOSITE direction (not no-go)
-            if not should_close and pred_signal is not None:
-                is_opposite = (
-                    (mp.takePosition == 'long' and pred_signal == 'short') or
-                    (mp.takePosition == 'short' and pred_signal == 'long')
-                )
-                if is_opposite:
-                    should_close = True
-                    reason = (
-                        f'SIGNAL REVERSED: position={mp.takePosition}, '
-                        f'current prediction={pred_signal} — closing immediately'
-                    )
+            # Condition 4: DISABLED — signal reversal closes cause churning (95 closes/day)
+            # if not should_close and pred_signal is not None:
+            #     is_opposite = (
+            #         (mp.takePosition == 'long' and pred_signal == 'short') or
+            #         (mp.takePosition == 'short' and pred_signal == 'long')
+            #     )
+            #     if is_opposite:
+            #         should_close = True
+            #         reason = (
+            #             f'SIGNAL REVERSED: position={mp.takePosition}, '
+            #             f'current prediction={pred_signal} — closing immediately'
+            #         )
 
             if should_close:
                 meo = next((o for o in self.monitoredExitOrders if o.id == mp.exit_tp_id), None)
