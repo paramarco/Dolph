@@ -448,51 +448,52 @@ class TradingPlatform(ABC):
 
     def processEntryOrderStatus(self, order):
         """ common """
-        log.debug(str(order))  
-        # clone = {'id': order.id, 'status': order.status} ;  self.triggerWhenMatched(clone) if s in cm.statusOrderExecuted   
+        log.debug(str(order))
+        # clone = {'id': order.id, 'status': order.status} ;  self.triggerWhenMatched(clone) if s in cm.statusOrderExecuted
         s = order.status
-        try:                
-            monitoredPosition = self.getPositionByOrder(order)                        
+        try:
+            # Lock to prevent dual-callback race condition (onOrderStatus thread +
+            # IB_OrderStatusTask thread both calling this for the same Filled order)
+            with self._entry_status_lock:
+                monitoredPosition = self.getPositionByOrder(order)
 
-            if s in cm.statusOrderExecuted : 
-                
-                if monitoredPosition is None:                    
+                if s in cm.statusOrderExecuted :
+
+                    if monitoredPosition is None:
+                        if order in self.monitoredOrders:
+                            self.monitoredOrders.remove(order)
+                            log.info(f'already processed before, deleting: {repr(order.id)}')
+
+                    elif not monitoredPosition.exitOrderRequested:
+                        log.info(f'Order is Filled-Monitored wo exitOrderRequested: {repr(order.id)}')
+                        now_utc = datetime.datetime.now(datetime.timezone.utc)
+                        monitoredPosition.entry_time = now_utc
+                        self.position_entry_filled_at[monitoredPosition.seccode] = now_utc
+                        monitoredPosition.exitOrderRequested = True
+                        self.triggerExitOrder(order, monitoredPosition)
+                    else:
+                        self.removeMonitoredPositionByExit(order)
+                        if order in self.monitoredOrders:
+                            self.monitoredOrders.remove(order)
+                            log.info(f"exit complete: {str(monitoredPosition)}")
+
+                elif s in cm.statusOrderForwarding :
+
+                    if order not in self.monitoredOrders:
+                        self.monitoredOrders.append(order)
+                        log.info(f'order {order.id} in status:{s} added to monitoredOrders')
+
+                elif s in cm.statusOrderCanceled :
+
+                    self.monitoredPositions = [p for p in self.monitoredPositions if p.entry_id != order.id]
                     if order in self.monitoredOrders:
                         self.monitoredOrders.remove(order)
-                        log.info(f'already processed before, deleting: {repr(order.id)}')
-                    
-                elif not monitoredPosition.exitOrderRequested:
-                    log.info(f'Order is Filled-Monitored wo exitOrderRequested: {repr(order.id)}')
-                    now_utc = datetime.datetime.now(datetime.timezone.utc)
-                    monitoredPosition.entry_time = now_utc
-                    self.position_entry_filled_at[monitoredPosition.seccode] = now_utc
-                    # Mark BEFORE calling triggerExitOrder to prevent duplicate
-                    # brackets from concurrent Filled callbacks (MKT orders)
-                    monitoredPosition.exitOrderRequested = True
-                    self.triggerExitOrder(order, monitoredPosition)                
+                        self.cancel_order(order.id)
+                        log.info(f'order {order.id} with status: {s} deleted from monitoredOrders')
+
                 else:
-                    self.removeMonitoredPositionByExit(order)
-                    if order in self.monitoredOrders:
-                        self.monitoredOrders.remove(order)
-                        log.info(f"exit complete: {str(monitoredPosition)}")                                   
-                
-            elif s in cm.statusOrderForwarding :
-               
-                if order not in self.monitoredOrders:
-                    self.monitoredOrders.append(order)
-                    log.info(f'order {order.id} in status:{s} added to monitoredOrders')   
-                    
-            elif s in cm.statusOrderCanceled :
+                    log.debug(f'order {order.id} in status: {s} ')
 
-                self.monitoredPositions = [p for p in self.monitoredPositions if p.entry_id != order.id]
-                if order in self.monitoredOrders:
-                    self.monitoredOrders.remove(order)
-                    self.cancel_order(order.id)                
-                    log.info(f'order {order.id} with status: {s} deleted from monitoredOrders')
-                
-            else:                
-                log.debug(f'order {order.id} in status: {s} ')
-           
         except Exception as e:
             log.error(f"Failed to processEntryOrderStatus: {e}")
       
@@ -1874,7 +1875,8 @@ class IBTradingPlatform(TradingPlatform):
         self.client_id = self.secrets.get("client_id", 1)
         self.req_id_to_symbol = {}
         self.symbol_to_bars = {}  # A dictionary to store symbol -> Bars mapping
-        self.ib_lock = Lock() 
+        self.ib_lock = Lock()
+        self._entry_status_lock = Lock()  # prevents dual-callback race in processEntryOrderStatus
         
         if self.connectOnInit :
             self.connect()
