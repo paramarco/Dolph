@@ -765,10 +765,10 @@ class TradingPlatform(ABC):
                     f' (prediction={pred_signal} != position={mp.takePosition})')
 
             # Condition 3: position seconds_open > exitTimeSeconds AND last prediction no longer supports direction
-            if not should_close and seconds_open > exit_timeout and pred_signal != mp.takePosition:
-                should_close = True
-                reason = (f'open {seconds_open/60:.0f}min > {exit_timeout/60:.0f}min, '
-                    f'prediction={pred_signal} != position={mp.takePosition}')
+            # if not should_close and seconds_open > exit_timeout and pred_signal != mp.takePosition:
+            #     should_close = True
+            #     reason = (f'open {seconds_open/60:.0f}min > {exit_timeout/60:.0f}min, '
+            #         f'prediction={pred_signal} != position={mp.takePosition}')
 
             # Condition 4: DISABLED — signal reversal closes cause churning (95 closes/day)
             # if not should_close and pred_signal is not None:
