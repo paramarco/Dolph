@@ -5,7 +5,8 @@
 BATCH_SIZE=12
 RAM_PER_INSTANCE=300  # MB
 RAM_DB_OS_OPER=720    # MB (DB ~200 + OPER ~220 + OS ~300)
-MAX_PARALLEL=2
+#MAX_PARALLEL=$(nproc 2>/dev/null || echo 2)  # auto-detect CPUs
+MAX_PARALLEL=3
 
 run_sql() {
     PGPASSWORD=dolph_password psql -h 127.0.0.1 -p 4713 -U dolph_user -d dolph_db -t -A -c "$1" 2>/dev/null
@@ -17,7 +18,8 @@ echo ""
 # Get counts per region
 count_am=$(run_sql "SELECT COUNT(*) FROM security s WHERE s.alg_parameters IS NOT NULL AND EXISTS (SELECT 1 FROM quote q WHERE q.security_id = s.id) AND s.timezone LIKE 'America/%'")
 count_eu=$(run_sql "SELECT COUNT(*) FROM security s WHERE s.alg_parameters IS NOT NULL AND EXISTS (SELECT 1 FROM quote q WHERE q.security_id = s.id) AND s.timezone LIKE 'Europe/%'")
-count_as=$(run_sql "SELECT COUNT(*) FROM security s WHERE s.alg_parameters IS NOT NULL AND EXISTS (SELECT 1 FROM quote q WHERE q.security_id = s.id) AND s.timezone LIKE 'Asia/%'")
+#count_as=$(run_sql "SELECT COUNT(*) FROM security s WHERE s.alg_parameters IS NOT NULL AND EXISTS (SELECT 1 FROM quote q WHERE q.security_id = s.id) AND s.timezone LIKE 'Asia/%'")
+count_as=0
 
 count_am=${count_am:-0}
 count_eu=${count_eu:-0}
@@ -25,24 +27,29 @@ count_as=${count_as:-0}
 
 batches_am=$(( (count_am + BATCH_SIZE - 1) / BATCH_SIZE ))
 batches_eu=$(( (count_eu + BATCH_SIZE - 1) / BATCH_SIZE ))
-batches_as=$(( (count_as + BATCH_SIZE - 1) / BATCH_SIZE ))
-total_sec=$((count_am + count_eu + count_as))
-total_batches=$((batches_am + batches_eu + batches_as))
+#batches_as=$(( (count_as + BATCH_SIZE - 1) / BATCH_SIZE ))
+batches_as=0
+#total_sec=$((count_am + count_eu + count_as))
+total_sec=$((count_am + count_eu))
+#total_batches=$((batches_am + batches_eu + batches_as))
+total_batches=$((batches_am + batches_eu))
 
 # Build instance lists
 inst_am="1"
 inst_eu="2"
-inst_as="3"
+#inst_as="3"
+inst_as="-"
 next=6
 for ((i=1; i<batches_am; i++)); do inst_am="$inst_am, $next"; next=$((next+1)); done
 for ((i=1; i<batches_eu; i++)); do inst_eu="$inst_eu, $next"; next=$((next+1)); done
-for ((i=1; i<batches_as; i++)); do inst_as="$inst_as, $next"; next=$((next+1)); done
+#for ((i=1; i<batches_as; i++)); do inst_as="$inst_as, $next"; next=$((next+1)); done
 
 printf "%-12s %10s %8s   %-15s\n" "Region" "Securities" "Batches" "Instances"
 printf "%-12s %10s %8s   %-15s\n" "----------" "----------" "-------" "---------------"
 printf "%-12s %10d %8d   %-15s\n" "Americas" "$count_am" "$batches_am" "$inst_am"
 printf "%-12s %10d %8d   %-15s\n" "Europe" "$count_eu" "$batches_eu" "$inst_eu"
-printf "%-12s %10d %8d   %-15s\n" "Asia" "$count_as" "$batches_as" "$inst_as"
+#printf "%-12s %10d %8d   %-15s\n" "Asia" "$count_as" "$batches_as" "$inst_as"
+printf "%-12s %10s %8s   %-15s\n" "Asia" "(skip)" "(skip)" "-"
 printf "%-12s %10s %8s   %-15s\n" "----------" "----------" "-------" "---------------"
 printf "%-12s %10d %8d\n" "TOTAL" "$total_sec" "$total_batches"
 

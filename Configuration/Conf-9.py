@@ -8,7 +8,7 @@ from Configuration import TradingPlatfomSettings as tps
 platform = tps.platform
 
 SECURITY_TZ_FILTER = 'Europe/'
-SECURITY_CODES_FILTER = ['ADS','AIR','ASML','BARC','BAS','BBVA','BMW','BNP','CBK','DBK','DHL','ENR']
+SECURITY_CODES_FILTER = ['VOW3']
 
 _BASE_PARAMS = {
     'algorithm': 'MinerviniClaude',
