@@ -524,19 +524,79 @@ class MinerviniClaude:
                     and p['TREND_RSI_SHORT_MIN'] < latest['RSI'] < p['TREND_RSI_SHORT_MAX']):
                 short_opt += 1
 
-        # Opt 3: Volume support (any supportive context for the direction)
+        # Opt 3: Volume support (weighted + gated)
         context = self._volume_context(df)
         active_contexts = [k for k, v in context.items() if v]
 
-        if ((context['no_supply'] and bullish) or context['stopping_volume']
-                or (context['trust'] and latest['close'] > latest['open'])
-                or (context['healthy'] and latest['close'] > latest['open'])):
-            long_opt += 1
-        if (context['buying_climax'] or context['divergence']
-                or (context['absorption'] and latest['close'] < latest['open'])
-                or (context['trust'] and latest['close'] <= latest['open'])
-                or (context['healthy'] and latest['close'] <= latest['open'])):
+        # ================================
+        # SHORT VOLUME SCORE (FINAL)
+        # ================================
+        short_vol_score = 0.0
+
+        # Tier 1 — strong structure
+        if context['buying_climax']:
+            short_vol_score += 1.0
+        if context['trust'] and latest['close'] <= latest['open']:
+            short_vol_score += 1.0
+
+        # Tier 2 — confirmed continuation
+        if context['selling_pressure']:
+            short_vol_score += 0.7
+        if context['persistent_sell']:
+            short_vol_score += 0.7
+        if context['trend_expansion_short']:
+            short_vol_score += 0.7
+        if context['healthy_short']:
+            short_vol_score += 0.7
+
+        # Tier 3 — weak / contextual
+        if context['divergence']:
+            short_vol_score += 0.4
+        if context['absorption'] and latest['close'] < latest['open']:
+            short_vol_score += 0.4
+
+        # Structural gate for high_volume_regime
+        if (context['high_volume_regime']
+                and bearish
+                and latest['close'] < latest['open']
+                and latest['close'] < latest['EMA_FAST']
+                and latest['-DI'] > latest['+DI']):
+            short_vol_score += 0.4
+
+        if short_vol_score >= 0.7:
             short_opt += 1
+
+        # ================================
+        # LONG VOLUME SCORE (FINAL)
+        # ================================
+        long_vol_score = 0.0
+
+        # Tier 1 — strong structure
+        if context['stopping_volume']:
+            long_vol_score += 1.0
+        if context['trust'] and latest['close'] > latest['open']:
+            long_vol_score += 1.0
+
+        # Tier 2 — confirmed continuation
+        if context['healthy_long']:
+            long_vol_score += 0.7
+        if context['no_supply']:
+            long_vol_score += 0.7
+
+        # Tier 3 — weak / contextual
+        if context['absorption'] and latest['close'] > latest['open']:
+            long_vol_score += 0.4
+
+        # Structural gate for high_volume_regime
+        if (context['high_volume_regime']
+                and bullish
+                and latest['close'] > latest['open']
+                and latest['close'] > latest['EMA_FAST']
+                and latest['+DI'] > latest['-DI']):
+            long_vol_score += 0.4
+
+        if long_vol_score >= 0.7:
+            long_opt += 1
 
         # Opt 4: Liquidity / SMC
         liq = self._detect_liquidity_pattern(df)
@@ -652,10 +712,29 @@ class MinerviniClaude:
             (rel_body > params['BIG_BODY_ATR_THRESHOLD'])
             & (rel_volume > params['BIG_VOLUME_THRESHOLD'])
         )
-        healthy = (
-            ((price_slope > 0) & (df['volume'].diff(vol_slope_win) > 0))
-            | ((price_slope < 0) & (df['volume'].diff(vol_slope_win) < 0))
+        healthy_long  = (price_slope > 0) & (df['volume'].diff(vol_slope_win) > 0)
+        healthy_short = (price_slope < 0) & (df['volume'].diff(vol_slope_win) > 0)
+
+        selling_pressure = (
+            (price_slope < 0)
+            & (rel_volume > 1.2)
+            & bearish_candle
         )
+
+        # Persistent selling: >= 3 bearish candles in last 5 bars + above-avg volume
+        down_sequence = (df['close'] < df['open']).astype(float).rolling(5).sum()
+        vol_avg_5 = df['volume'].rolling(5).mean()
+        persistent_sell = (down_sequence >= 3) & (vol_avg_5 > vol_avg)
+
+        # Volume regime: z-score > 1
+        vol_std = df['volume'].rolling(int(params['VOLUME_AVG_WINDOW'])).std()
+        vol_zscore = (df['volume'] - vol_avg) / vol_std.replace(0, np.nan)
+        high_volume_regime = vol_zscore > 1.0
+
+        # Expansion continuation short: range > ATR * 1.2 + bearish
+        range_expansion = (df['high'] - df['low']) > df['ATR'] * 1.2
+        trend_expansion_short = range_expansion & bearish_candle
+
         absorption = (rel_volume > params['BIG_VOLUME_THRESHOLD']) & (rel_body < 0.5)
 
         div_lb = int(params['DIVERGENCE_LOOKBACK'])
@@ -690,17 +769,68 @@ class MinerviniClaude:
                 else:
                     last_climax_time = t
 
-        # Aggregate volume support per direction (any supportive context = +1)
-        long_vol_support = (
-            (no_supply & bullish) | stopping_vol
-            | (trust & bullish_candle) | (healthy & bullish_candle)
+        # ================================
+        # SHORT VOLUME SCORE — vectorized
+        # ================================
+        short_vol_score = pd.Series(0.0, index=df.index)
+
+        # Tier 1
+        short_vol_score[buying_climax]                          += 1.0
+        short_or_flat_candle = df['close'] <= df['open']
+        short_vol_score[trust & short_or_flat_candle]            += 1.0
+
+        # Tier 2
+        short_vol_score[selling_pressure]                       += 0.7
+        short_vol_score[persistent_sell]                        += 0.7
+        short_vol_score[trend_expansion_short]                  += 0.7
+        short_vol_score[healthy_short]                          += 0.7
+
+        # Tier 3
+        short_vol_score[divergence]                             += 0.4
+        short_vol_score[absorption & bearish_candle]            += 0.4
+
+        # Structural gate for high_volume_regime
+        high_vol_short = (
+            high_volume_regime
+            & bearish
+            & bearish_candle
+            & (df['close'] < df['EMA_FAST'])
+            & (df['-DI'] > df['+DI'])
         )
-        short_vol_support = (
-            buying_climax | divergence
-            | (absorption & bearish_candle)
-            | (trust & ~bullish_candle) | (healthy & ~bullish_candle)
+        short_vol_score[high_vol_short]                         += 0.4
+
+        short_vol_support = short_vol_score >= 0.7
+
+        # ================================
+        # LONG VOLUME SCORE — vectorized
+        # ================================
+        long_vol_score = pd.Series(0.0, index=df.index)
+
+        # Tier 1
+        long_vol_score[stopping_vol]                            += 1.0
+        long_vol_score[trust & bullish_candle]                  += 1.0
+
+        # Tier 2
+        long_vol_score[healthy_long]                            += 0.7
+        long_vol_score[no_supply]                                += 0.7
+
+        # Tier 3
+        long_vol_score[absorption & bullish_candle]             += 0.4
+
+        # Structural gate for high_volume_regime
+        high_vol_long = (
+            high_volume_regime
+            & bullish
+            & bullish_candle
+            & (df['close'] > df['EMA_FAST'])
+            & (df['+DI'] > df['-DI'])
         )
-        long_opt[long_vol_support] += 1
+        long_vol_score[high_vol_long]                           += 0.4
+
+        long_vol_support = long_vol_score >= 0.7
+
+        # Apply to opts
+        long_opt[long_vol_support]  += 1
         short_opt[short_vol_support] += 1
 
         # Opt 4: Liquidity / SMC pattern
@@ -1722,11 +1852,8 @@ class MinerviniClaude:
 
         context = {}
 
-        context['healthy'] = (
-            (price_slope > 0 and volume_slope > 0)
-            or
-            (price_slope < 0 and volume_slope < 0)
-        )
+        context['healthy_long']  = (price_slope > 0 and volume_slope > 0)
+        context['healthy_short'] = (price_slope < 0 and volume_slope > 0)
 
         context['absorption'] = (
             relative_volume > p['BIG_VOLUME_THRESHOLD']
@@ -1788,6 +1915,33 @@ class MinerviniClaude:
         context['no_supply'] = (
             price_slope < 0
             and relative_volume < 0.7
+        )
+
+        context['selling_pressure'] = (
+            price_slope < 0
+            and relative_volume > 1.2
+            and latest['close'] < latest['open']
+        )
+
+        # Persistent selling pressure: >= 3 bearish candles in last 5 bars
+        # with above-average volume overall
+        down_sequence = (df['close'] < df['open']).rolling(5).sum().iloc[-1]
+        vol_avg_5 = df['volume'].rolling(5).mean().iloc[-1]
+        context['persistent_sell'] = (
+            down_sequence >= 3
+            and vol_avg_5 > volume_avg
+        )
+
+        # Volume regime: current bar volume is statistically elevated (z-score > 1)
+        vol_std = df['volume'].rolling(p['VOLUME_AVG_WINDOW']).std().iloc[-1]
+        vol_zscore = (latest['volume'] - volume_avg) / vol_std if vol_std > 0 else 0
+        context['high_volume_regime'] = vol_zscore > 1.0
+
+        # Expansion continuation short: candle range > ATR * 1.2 + bearish candle
+        range_expansion = (latest['high'] - latest['low']) > latest['ATR'] * 1.2
+        context['trend_expansion_short'] = (
+            range_expansion
+            and latest['close'] < latest['open']
         )
 
         return context
