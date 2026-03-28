@@ -142,7 +142,7 @@ sleep 2
 # ============================================================
 # Step 4: Deploy and launch with max MAX_PARALLEL at a time
 # ============================================================
-MIN_PASSES=1          # Wait for at least N complete calibration passes
+MIN_PASSES=2          # Wait for at least N complete calibration passes
 POLL_INTERVAL=60      # Check logs every N seconds
 MAX_WAIT=85800        # Safety timeout: 23h50m (daily cron stop.sh at 21:00 is the real cutoff)
 
