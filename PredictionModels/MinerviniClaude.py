@@ -1675,6 +1675,14 @@ class MinerviniClaude:
                     else:
                         tp_profit = standard_tp_profit - round_trip_cost
 
+                    # Gaussian time reward: favour TP hits around GAUSS_MU min after entry.
+                    # Unit peak (1.0) at mu, σ = sigma → ~0 outside [mu-2σ, mu+2σ].
+                    # Drives TP_MULT toward margins achievable within ~1 hour.
+                    _gauss_mu = getattr(cm, 'CALIBRATION_GAUSS_MU', 45)
+                    _gauss_sigma = getattr(cm, 'CALIBRATION_GAUSS_SIGMA', 15)
+                    gauss_reward = np.exp(-0.5 * ((tp_first - _gauss_mu) / _gauss_sigma) ** 2)
+                    tp_profit *= gauss_reward
+
                     # Stats only (no reward shaping — score = net_profit)
                     stats_tp_time_sum += tp_first
                     if tp_first < half_exit_timeout:
