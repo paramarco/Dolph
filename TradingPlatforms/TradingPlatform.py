@@ -19,6 +19,7 @@ from Configuration import Conf as cm
 from TradingPlatforms.Alpaca.Alpaca_Order import OrderAlpaca
 from TradingPlatforms.InteractiveBrokers.OrderIB import OrderIB  # Assuming OrderIB will handle casting
 import pandas as pd
+import psycopg2
 
 log = logging.getLogger("TradingPlatform")
 
@@ -37,8 +38,9 @@ class Position:
                  decimals, client, exitTime=None, correction=None, spread=None, bymarket = False,
                  entry_id=None, exit_tp_id=None, exit_sl_id=None, exit_order_no=None , union = None,
                  expdate = None, buysell = None , exitOrderRequested = None, exitOrderAlreadyCancelled = None,
-                 entry_time=None, entry_limit_prices=None, close_retry_count=0) :
-        
+                 entry_time=None, entry_limit_prices=None, close_retry_count=0,
+                 confidence=None) :
+
         # id:= transactionid of the first order, "your entry" of the Position
         # will be assigned once upon successful entry of the Position
         self.entry_id = entry_id  # Add entry_id field
@@ -86,6 +88,8 @@ class Position:
         self.entry_limit_prices = entry_limit_prices if entry_limit_prices else []
         # close_retry_count := number of times a market close order was cancelled and restored
         self.close_retry_count = close_retry_count
+        # confidence := prediction confidence at time of entry (for trade_history tracking)
+        self.confidence = confidence
 
     def __str__(self):
         
@@ -716,6 +720,78 @@ class TradingPlatform(ABC):
         return True
 
 
+    # ================================================================
+    # TRADE HISTORY persistence (trade_history table)
+    # ================================================================
+
+    def _insert_trade_history(self, mp):
+        """Insert a new trade into trade_history when a bracket is created (OPERATIONAL only)."""
+        if cm.MODE != 'OPERATIONAL':
+            return
+        try:
+            conn = psycopg2.connect(**cm.db_connection_params)
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT INTO trade_history
+                    (open_ts, seccode, direction, confidence, entry_price, tp_target, sl_target,
+                     tp_order_id, sl_order_id, quantity, outcome, source)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'PENDING', 'live')
+            """, (
+                datetime.datetime.now(timezone.utc),
+                mp.seccode,
+                mp.takePosition,
+                getattr(mp, 'confidence', None),
+                float(mp.entryPrice),
+                float(mp.exitPrice),
+                float(mp.stoploss),
+                mp.exit_tp_id,
+                mp.exit_sl_id,
+                mp.quantity,
+            ))
+            conn.commit()
+            cur.close()
+            conn.close()
+            log.debug(f"trade_history INSERT for {mp.seccode} TP={mp.exit_tp_id} SL={mp.exit_sl_id}")
+        except Exception as e:
+            log.error(f"trade_history INSERT failed for {mp.seccode}: {e}")
+
+    def _update_trade_history(self, mp, outcome, close_price=None):
+        """Update trade_history when a trade is closed (TP/SL hit or forced close)."""
+        if cm.MODE != 'OPERATIONAL':
+            return
+        try:
+            # Determine outcome_class and pnl
+            pnl = None
+            outcome_class = None
+            if outcome == 'TP_HIT':
+                outcome_class = 'WIN'
+                pnl = (float(mp.exitPrice) - float(mp.entryPrice)) if mp.takePosition == 'long' else (float(mp.entryPrice) - float(mp.exitPrice))
+            elif outcome == 'SL_HIT':
+                outcome_class = 'LOSS'
+                pnl = (float(mp.entryPrice) - float(mp.stoploss)) if mp.takePosition == 'long' else (float(mp.stoploss) - float(mp.entryPrice))
+            elif close_price is not None:
+                pnl = (close_price - float(mp.entryPrice)) if mp.takePosition == 'long' else (float(mp.entryPrice) - close_price)
+                outcome_class = 'WIN' if pnl > 0 else ('LOSS' if pnl < 0 else 'NEUTRAL')
+
+            conn = psycopg2.connect(**cm.db_connection_params)
+            cur = conn.cursor()
+            cur.execute("""
+                UPDATE trade_history
+                SET close_ts = %s, outcome = %s, outcome_class = %s, pnl_pips = %s, close_price = %s
+                WHERE tp_order_id = %s AND sl_order_id = %s AND outcome = 'PENDING'
+            """, (
+                datetime.datetime.now(timezone.utc),
+                outcome, outcome_class, pnl, close_price,
+                mp.exit_tp_id, mp.exit_sl_id,
+            ))
+            conn.commit()
+            cur.close()
+            conn.close()
+            log.debug(f"trade_history UPDATE for {mp.seccode}: {outcome} ({outcome_class}) pnl={pnl}")
+        except Exception as e:
+            log.error(f"trade_history UPDATE failed for {mp.seccode}: {e}")
+
+
     def cancelTimedoutExits(self):
         """common"""
         positions_to_close = []
@@ -784,15 +860,25 @@ class TradingPlatform(ABC):
             #         )
 
             if should_close:
+                # Map reason to FORCED_* outcome for trade_history
+                if 'time2close exceeded' in reason:
+                    forced_outcome = 'FORCED_TIME2CLOSE'
+                elif 'SIGNAL REVERSED' in reason:
+                    forced_outcome = 'FORCED_SIGNAL_REVERSED'
+                elif 'endOfTradingTimes' in reason:
+                    forced_outcome = 'FORCED_ENDOFTRADINGTIMES'
+                else:
+                    forced_outcome = 'FORCED_OTHER'
                 meo = next((o for o in self.monitoredExitOrders if o.id == mp.exit_tp_id), None)
                 if meo is not None:
                     log.info(f'closing position for {mp.seccode}: {reason}')
-                    positions_to_close.append((mp, meo))
+                    positions_to_close.append((mp, meo, forced_outcome))
                 elif mp.exit_tp_id is None:
                     log.info(f'closing position for {mp.seccode} (no exit orders): {reason}')
-                    positions_to_close.append((mp, None))
+                    positions_to_close.append((mp, None, forced_outcome))
 
-        for mp, meo in positions_to_close:
+        for mp, meo, forced_outcome in positions_to_close:
+            self._update_trade_history(mp, forced_outcome)
             self.closeExit(mp, meo)
 
 
@@ -2710,6 +2796,9 @@ class IBTradingPlatform(TradingPlatform):
                         log.info(f"Position closed for {p.seccode} after {duration:.0f}s, normal cooldown")
                 else:
                     log.info(f"Position closed for {p.seccode}, cooldown started")
+                # Record outcome in trade_history
+                outcome = 'TP_HIT' if order.id == p.exit_tp_id else 'SL_HIT'
+                self._update_trade_history(p, outcome)
         self.monitoredPositions = [
             p for p in self.monitoredPositions
             if order.id not in (p.exit_tp_id, p.exit_sl_id)
@@ -3117,6 +3206,7 @@ class IBTradingPlatform(TradingPlatform):
             monitoredPosition.exit_tp_id = res.order.orderId
             monitoredPosition.exit_sl_id = res_sl.order.orderId
             log.info(f"Exit bracket for {seccode} created: TP={res.order.orderId}, SL={res_sl.order.orderId}")
+            self._insert_trade_history(monitoredPosition)
 
             tp_order_ib = OrderIB(res)
             sl_order_ib = OrderIB(res_sl)

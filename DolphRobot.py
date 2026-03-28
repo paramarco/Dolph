@@ -639,7 +639,8 @@ class Dolph:
         position = tp.Position(
             takePosition, board, seccode, marketId,
             quantity, entryPrice, exitPrice, stoploss, decimals, client,
-            exitTime, correction, spread, byMarket
+            exitTime, correction, spread, byMarket,
+            confidence=confidence
         )
 
         self.logger.debug(f'decision: {position}')
