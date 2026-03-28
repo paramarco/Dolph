@@ -24,7 +24,8 @@ if [ -n "$prev_pids" ]; then
 fi
 
 BATCH_SIZE=12
-MAX_PARALLEL=$(nproc 2>/dev/null || echo 2)  # auto-detect CPUs
+#MAX_PARALLEL=$(nproc 2>/dev/null || echo 2)  # auto-detect CPUs
+MAX_PARALLEL=3
 DRY_RUN=false
 DOLPH_DIR="/home/dolph_user/Dolph"
 DATA_DIR="/home/dolph_user/data"
@@ -53,7 +54,8 @@ declare -A TZ_PREFIXES=( ["Americas"]="America/" ["Europe"]="Europe/" ["Asia"]="
 declare -A FIRST_INST=( ["Americas"]=1 ["Europe"]=2 ["Asia"]=3 )
 declare -A REGION_CODES
 
-for region in Americas Europe Asia; do
+#for region in Americas Europe Asia; do
+for region in Americas Europe; do
     prefix="${TZ_PREFIXES[$region]}"
     codes=$(run_sql "
         SELECT s.code FROM security s
@@ -90,7 +92,8 @@ SECURITY_CODES_FILTER = [${codes_py}]" "${conf_file}"
     log "Generated Conf-${inst}.py: tz=${tz_filter}, codes=[${codes_py}]"
 }
 
-for region in Americas Europe Asia; do
+#for region in Americas Europe Asia; do
+for region in Americas Europe; do
     prefix="${TZ_PREFIXES[$region]}"
     codes_arr=(${REGION_CODES[$region]})
     count=${#codes_arr[@]}
