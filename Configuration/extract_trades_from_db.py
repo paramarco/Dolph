@@ -39,7 +39,8 @@ conn = psycopg2.connect(**DB)
 cur = conn.cursor()
 cur.execute(f"""
     SELECT open_ts, seccode, direction, confidence, entry_price, tp_target, sl_target,
-           outcome, outcome_class, pnl_pips, tp_order_id, sl_order_id, source
+           outcome, outcome_class, pnl_pips, tp_order_id, sl_order_id, source,
+           close_ts
     FROM trade_history
     {where_sql}
     ORDER BY open_ts
@@ -68,21 +69,23 @@ for r in rows:
         'tp_id': r[10] or 0,
         'sl_id': r[11] or 0,
         'source': r[12],
+        'duration_min': (r[13] - r[0]).total_seconds() / 60.0 if r[13] and r[0] else None,
     })
 
 # ============================================================
 # OUTPUT (identical format to correlate_trades.py)
 # ============================================================
 
-print("=" * 160)
-print(f"{'Date':20s} {'Seccode':8s} {'Dir':6s} {'Conf':6s} {'Entry':10s} {'TP':10s} {'SL':10s} {'Outcome':28s} {'Class':8s} {'PnL':10s} {'TP_ID':8s} {'SL_ID':8s}")
-print("=" * 160)
+print("=" * 170)
+print(f"{'Date':20s} {'Seccode':8s} {'Dir':6s} {'Conf':6s} {'Entry':10s} {'TP':10s} {'SL':10s} {'Outcome':28s} {'Class':8s} {'PnL':10s} {'Mins':6s} {'TP_ID':8s} {'SL_ID':8s}")
+print("=" * 170)
 
 for t in trades:
     conf_str = f"{t['confidence']:.4f}" if t['confidence'] is not None else "N/A"
     cls = t.get('outcome_class') or ''
     pnl_str = f"{t['pnl_pips']:.4f}" if t.get('pnl_pips') is not None else "N/A"
-    print(f"{t['bracket_ts']:20s} {t['seccode']:8s} {t['position']:6s} {conf_str:6s} {t['entryPrice']:10.3f} {t['exitTP']:10.3f} {t['exitSL']:10.3f} {t['outcome']:28s} {cls:8s} {pnl_str:>10s} {t['tp_id']:8d} {t['sl_id']:8d}")
+    dur_str = f"{t['duration_min']:.0f}" if t.get('duration_min') is not None else "N/A"
+    print(f"{t['bracket_ts']:20s} {t['seccode']:8s} {t['position']:6s} {conf_str:6s} {t['entryPrice']:10.3f} {t['exitTP']:10.3f} {t['exitSL']:10.3f} {t['outcome']:28s} {cls:8s} {pnl_str:>10s} {dur_str:>6s} {t['tp_id']:8d} {t['sl_id']:8d}")
 
 # Count by outcome type
 outcome_counts = defaultdict(int)
@@ -136,17 +139,19 @@ for t in all_resolved:
         elif t['outcome'].startswith('FORCED_') and t['outcome_class'] == 'WIN': buckets[bucket]['forced_win'] += 1
         elif t['outcome'].startswith('FORCED_') and t['outcome_class'] == 'LOSS': buckets[bucket]['forced_loss'] += 1
 
-print(f"\n{'Confidence':12s} {'Total':6s} {'WIN':5s} {'LOSS':5s} {'WR%':7s}  {'TP':4s} {'SL':4s} {'F.Win':5s} {'F.Loss':6s}")
-print("-" * 70)
+print(f"\n{'Confidence':12s} {'Total':6s} {'WIN':5s} {'LOSS':5s} {'WR%':7s}  {'TP':4s} {'SL':4s} {'F.Win':5s} {'F.Loss':6s} {'AvgMin':7s}")
+print("-" * 78)
 for conf in sorted(buckets.keys()):
     b = buckets[conf]
     wr = b['win'] / b['total'] * 100 if b['total'] > 0 else 0
-    print(f"{conf:12.4f} {b['total']:6d} {b['win']:5d} {b['loss']:5d} {wr:6.1f}%  {b['tp_hit']:4d} {b['sl_hit']:4d} {b['forced_win']:5d} {b['forced_loss']:6d}")
+    durs = [t['duration_min'] for t in all_resolved if t['confidence'] is not None and round(t['confidence'], 2) == conf and t.get('duration_min') is not None]
+    avg_dur = sum(durs) / len(durs) if durs else 0
+    print(f"{conf:12.4f} {b['total']:6d} {b['win']:5d} {b['loss']:5d} {wr:6.1f}%  {b['tp_hit']:4d} {b['sl_hit']:4d} {b['forced_win']:5d} {b['forced_loss']:6d} {avg_dur:6.0f}m")
 
 # Wider buckets
 print("\n\nWIDER CONFIDENCE RANGES:")
-print(f"{'Range':15s} {'Total':6s} {'WIN':5s} {'LOSS':5s} {'WR%':7s}  {'TP':4s} {'SL':4s} {'F.Win':5s} {'F.Loss':6s}")
-print("-" * 70)
+print(f"{'Range':15s} {'Total':6s} {'WIN':5s} {'LOSS':5s} {'WR%':7s}  {'TP':4s} {'SL':4s} {'F.Win':5s} {'F.Loss':6s} {'AvgMin':7s}")
+print("-" * 78)
 ranges = [(0.0, 0.65), (0.65, 0.75), (0.75, 0.85), (0.85, 0.95), (0.95, 1.01)]
 for lo, hi in ranges:
     sub = [t for t in all_resolved if t['confidence'] is not None and lo <= t['confidence'] < hi]
@@ -158,7 +163,9 @@ for lo, hi in ranges:
     fl = sum(1 for t in sub if t['outcome'].startswith('FORCED_') and t['outcome_class'] == 'LOSS')
     total = w + l
     wr = w / total * 100 if total > 0 else 0
-    print(f"[{lo:.2f}, {hi:.2f})   {total:6d} {w:5d} {l:5d} {wr:6.1f}%  {tp:4d} {sl:4d} {fw:5d} {fl:6d}")
+    durs = [t['duration_min'] for t in sub if t.get('duration_min') is not None]
+    avg_dur = sum(durs) / len(durs) if durs else 0
+    print(f"[{lo:.2f}, {hi:.2f})   {total:6d} {w:5d} {l:5d} {wr:6.1f}%  {tp:4d} {sl:4d} {fw:5d} {fl:6d} {avg_dur:6.0f}m")
 
 ow = sum(1 for t in all_resolved if t['outcome_class'] == 'WIN')
 ol = sum(1 for t in all_resolved if t['outcome_class'] == 'LOSS')
@@ -171,8 +178,8 @@ print(f"\n{'OVERALL':15s} {ot:6d} {ow:5d} {ol:5d} {ow/ot*100 if ot else 0:6.1f}%
 print("\n" + "=" * 80)
 print("ESTIMATED P&L BY CONFIDENCE (all resolved trades)")
 print("=" * 80)
-print(f"\n{'Confidence':12s} {'Trades':8s} {'Avg Win':12s} {'Avg Loss':12s} {'Expectancy':12s}")
-print("-" * 60)
+print(f"\n{'Confidence':12s} {'Trades':8s} {'Avg Win':12s} {'Avg Loss':12s} {'Expectancy':12s} {'WinMin':7s} {'LossMin':8s}")
+print("-" * 75)
 for conf in sorted(buckets.keys()):
     relevant = [t for t in all_resolved if t['confidence'] is not None and round(t['confidence'], 2) == conf and t.get('pnl_pips') is not None]
     win_pnl = [t['pnl_pips'] for t in relevant if t['outcome_class'] == 'WIN']
@@ -182,7 +189,11 @@ for conf in sorted(buckets.keys()):
     b = buckets[conf]
     wr = b['win'] / b['total'] if b['total'] > 0 else 0
     expectancy = wr * avg_win - (1-wr) * avg_loss
-    print(f"{conf:12.4f} {b['total']:8d} {avg_win:12.4f} {avg_loss:12.4f} {expectancy:12.4f}")
+    win_durs = [t['duration_min'] for t in relevant if t['outcome_class'] == 'WIN' and t.get('duration_min') is not None]
+    loss_durs = [t['duration_min'] for t in relevant if t['outcome_class'] == 'LOSS' and t.get('duration_min') is not None]
+    avg_win_dur = sum(win_durs) / len(win_durs) if win_durs else 0
+    avg_loss_dur = sum(loss_durs) / len(loss_durs) if loss_durs else 0
+    print(f"{conf:12.4f} {b['total']:8d} {avg_win:12.4f} {avg_loss:12.4f} {expectancy:12.4f} {avg_win_dur:6.0f}m {avg_loss_dur:7.0f}m")
 
 # ============================================================
 # BY DIRECTION
@@ -191,25 +202,31 @@ print("\n" + "=" * 80)
 print("WIN RATE BY DIRECTION (all resolved)")
 print("=" * 80)
 for direction in ['long', 'short']:
-    w = sum(1 for t in all_resolved if t['position'] == direction and t['outcome_class'] == 'WIN')
-    l = sum(1 for t in all_resolved if t['position'] == direction and t['outcome_class'] == 'LOSS')
+    sub = [t for t in all_resolved if t['position'] == direction]
+    w = sum(1 for t in sub if t['outcome_class'] == 'WIN')
+    l = sum(1 for t in sub if t['outcome_class'] == 'LOSS')
     total = w + l
     wr = w / total * 100 if total > 0 else 0
-    print(f"{direction:6s}: {total} trades, {w} WIN, {l} LOSS, Win Rate: {wr:.1f}%")
+    durs = [t['duration_min'] for t in sub if t.get('duration_min') is not None]
+    avg_dur = sum(durs) / len(durs) if durs else 0
+    print(f"{direction:6s}: {total} trades, {w} WIN, {l} LOSS, Win Rate: {wr:.1f}%, Avg: {avg_dur:.0f}m")
 
 # Cross-tab
 print("\n" + "=" * 80)
 print("WIN RATE BY DIRECTION x CONFIDENCE (all resolved)")
 print("=" * 80)
-print(f"{'Dir':6s} {'Confidence':12s} {'Trades':8s} {'WIN':6s} {'LOSS':6s} {'WR%':8s}")
-print("-" * 50)
+print(f"{'Dir':6s} {'Confidence':12s} {'Trades':8s} {'WIN':6s} {'LOSS':6s} {'WR%':8s} {'AvgMin':7s}")
+print("-" * 58)
 for direction in ['long', 'short']:
     for conf in sorted(buckets.keys()):
-        w = sum(1 for t in all_resolved if t['position'] == direction and t['confidence'] is not None and round(t['confidence'],2) == conf and t['outcome_class'] == 'WIN')
-        l = sum(1 for t in all_resolved if t['position'] == direction and t['confidence'] is not None and round(t['confidence'],2) == conf and t['outcome_class'] == 'LOSS')
+        sub = [t for t in all_resolved if t['position'] == direction and t['confidence'] is not None and round(t['confidence'],2) == conf]
+        w = sum(1 for t in sub if t['outcome_class'] == 'WIN')
+        l = sum(1 for t in sub if t['outcome_class'] == 'LOSS')
         total = w + l
         if total > 0:
-            print(f"{direction:6s} {conf:12.4f} {total:8d} {w:6d} {l:6d} {w/total*100:7.1f}%")
+            durs = [t['duration_min'] for t in sub if t.get('duration_min') is not None]
+            avg_dur = sum(durs) / len(durs) if durs else 0
+            print(f"{direction:6s} {conf:12.4f} {total:8d} {w:6d} {l:6d} {w/total*100:7.1f}% {avg_dur:6.0f}m")
 
 # ============================================================
 # FORCED CLOSE BREAKDOWN
@@ -224,4 +241,6 @@ for reason in sorted(set(t['outcome'] for t in forced_trades)):
     w = sum(1 for t in sub if t.get('outcome_class') == 'WIN')
     l = sum(1 for t in sub if t.get('outcome_class') == 'LOSS')
     u = sum(1 for t in sub if t.get('outcome_class') in ('UNKNOWN', 'NEUTRAL', None))
-    print(f"  {reason:30s}: {len(sub):4d} (WIN={w}, LOSS={l}, unknown={u})")
+    durs = [t['duration_min'] for t in sub if t.get('duration_min') is not None]
+    avg_dur = sum(durs) / len(durs) if durs else 0
+    print(f"  {reason:30s}: {len(sub):4d} (WIN={w}, LOSS={l}, unknown={u}, avg={avg_dur:.0f}m)")

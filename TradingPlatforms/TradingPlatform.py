@@ -39,7 +39,7 @@ class Position:
                  entry_id=None, exit_tp_id=None, exit_sl_id=None, exit_order_no=None , union = None,
                  expdate = None, buysell = None , exitOrderRequested = None, exitOrderAlreadyCancelled = None,
                  entry_time=None, entry_limit_prices=None, close_retry_count=0,
-                 confidence=None) :
+                 confidence=None, prediction_data=None) :
 
         # id:= transactionid of the first order, "your entry" of the Position
         # will be assigned once upon successful entry of the Position
@@ -90,6 +90,8 @@ class Position:
         self.close_retry_count = close_retry_count
         # confidence := prediction confidence at time of entry (for trade_history tracking)
         self.confidence = confidence
+        # prediction_data := full prediction dict for trade_history (phase, contexts, n_opt, etc.)
+        self.prediction_data = prediction_data
 
     def __str__(self):
         
@@ -729,13 +731,30 @@ class TradingPlatform(ABC):
         if cm.MODE != 'OPERATIONAL':
             return
         try:
+            import json as _json
+            pred_json = None
+            pred_data = getattr(mp, 'prediction_data', None)
+            if pred_data:
+                # Convert non-serializable types (numpy, bool) to plain Python
+                clean = {}
+                for k, v in pred_data.items():
+                    if isinstance(v, (list, tuple)):
+                        clean[k] = list(v)
+                    elif isinstance(v, bool):
+                        clean[k] = v
+                    elif hasattr(v, 'item'):  # numpy scalar
+                        clean[k] = v.item()
+                    else:
+                        clean[k] = v
+                pred_json = _json.dumps(clean)
+
             conn = psycopg2.connect(**cm.db_connection_params)
             cur = conn.cursor()
             cur.execute("""
                 INSERT INTO trade_history
                     (open_ts, seccode, direction, confidence, entry_price, tp_target, sl_target,
-                     tp_order_id, sl_order_id, quantity, outcome, source)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'PENDING', 'live')
+                     tp_order_id, sl_order_id, quantity, outcome, source, prediction_data)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'PENDING', 'live', %s)
             """, (
                 datetime.datetime.now(timezone.utc),
                 mp.seccode,
@@ -747,6 +766,7 @@ class TradingPlatform(ABC):
                 mp.exit_tp_id,
                 mp.exit_sl_id,
                 mp.quantity,
+                pred_json,
             ))
             conn.commit()
             cur.close()

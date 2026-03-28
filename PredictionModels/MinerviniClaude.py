@@ -238,7 +238,21 @@ class MinerviniClaude:
             )
 
             entry_type = 'pullback' if has_liquidity else 'breakout'
-            return {'signal': signal, 'confidence': confidence, 'entry_type': entry_type}
+            return {
+                'signal': signal,
+                'confidence': confidence,
+                'entry_type': entry_type,
+                'phase': signal_result.get('phase', phase),
+                'volume_contexts': volume_contexts,
+                'n_opt': signal_result.get('n_opt', 0),
+                'long_opt': signal_result.get('long_opt', 0),
+                'short_opt': signal_result.get('short_opt', 0),
+                'long_mandatory': signal_result.get('long_mandatory', False),
+                'short_mandatory': signal_result.get('short_mandatory', False),
+                'long_vol_score': signal_result.get('long_vol_score', 0.0),
+                'short_vol_score': signal_result.get('short_vol_score', 0.0),
+                'counter_trend_penalty': signal_result.get('counter_trend_penalty', 0.0),
+            }
 
         except Exception as e:
             log.error(f"{self.seccode}: MinerviniClaude failed: {e}")
@@ -629,15 +643,29 @@ class MinerviniClaude:
         COUNTER_TREND_THRESHOLD = p.get('COUNTER_TREND_THRESHOLD', 0.003)
         COUNTER_TREND_FACTOR = p.get('COUNTER_TREND_FACTOR', 10.0)
 
+        counter_trend_penalty = 0.0
         if len(df) > MOMENTUM_LOOKBACK + 1:
             price_change = latest['close'] / df['close'].iloc[-(MOMENTUM_LOOKBACK + 1)] - 1.0
             is_counter = ((signal_dir == 'long' and price_change < -COUNTER_TREND_THRESHOLD)
                        or (signal_dir == 'short' and price_change > COUNTER_TREND_THRESHOLD))
             if is_counter:
-                penalty = min(0.7, abs(price_change) * COUNTER_TREND_FACTOR)
-                confidence *= (1.0 - penalty)
+                counter_trend_penalty = min(0.7, abs(price_change) * COUNTER_TREND_FACTOR)
+                confidence *= (1.0 - counter_trend_penalty)
 
-        return {'signal': signal_dir, 'confidence': confidence, 'volume_contexts': active_contexts}
+        return {
+            'signal': signal_dir,
+            'confidence': confidence,
+            'volume_contexts': active_contexts,
+            'phase': phase,
+            'n_opt': n_opt,
+            'long_opt': long_opt,
+            'short_opt': short_opt,
+            'long_mandatory': long_mandatory,
+            'short_mandatory': short_mandatory,
+            'long_vol_score': long_vol_score,
+            'short_vol_score': short_vol_score,
+            'counter_trend_penalty': counter_trend_penalty,
+        }
 
     def _generate_signals_vectorized(self, df, params, expansion_mask, trend_mask, bullish, bearish):
         """Vectorized signal generation using mandatory/optional architecture.

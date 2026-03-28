@@ -636,11 +636,19 @@ class Dolph:
             exitPrice = entryPrice  - margin
             stoploss = entryPrice  + k * margin
 
+        # Build prediction_data dict for trade_history persistence
+        prediction_data = None
+        if isinstance(last_pred, dict):
+            prediction_data = {
+                k: v for k, v in last_pred.items()
+                if k not in ('signal',)  # signal is already stored as direction
+            }
+
         position = tp.Position(
             takePosition, board, seccode, marketId,
             quantity, entryPrice, exitPrice, stoploss, decimals, client,
             exitTime, correction, spread, byMarket,
-            confidence=confidence
+            confidence=confidence, prediction_data=prediction_data
         )
 
         self.logger.debug(f'decision: {position}')
