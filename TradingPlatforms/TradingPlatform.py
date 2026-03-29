@@ -850,15 +850,15 @@ class TradingPlatform(ABC):
                 reason = (f'time2close exceeded ({current_time_in_sec_tz} > {sec_time2close} in {sec.get("timezone", defaut_tz)})')
 
             # Conditions 2 and 3 require a valid prediction signal
-            if not should_close and pred_signal is None:
-                continue
+            # if not should_close and pred_signal is None:
+            #     continue
 
             # Condition 2: after endOfTradingTimes but before time2close, close if prediction is opposite
-            if not should_close and endOfTradingTimes < current_time_in_sec_tz < sec_time2close and pred_signal != mp.takePosition:
-                should_close = True
-                reason = (f'after endOfTradingTimes ({current_time_in_sec_tz} > {endOfTradingTimes} '
-                    f'before {sec_time2close} in {sec.get("timezone", defaut_tz)}) but positioned opposite to current prediction'
-                    f' (prediction={pred_signal} != position={mp.takePosition})')
+            # if not should_close and endOfTradingTimes < current_time_in_sec_tz < sec_time2close and pred_signal != mp.takePosition:
+            #     should_close = True
+            #     reason = (f'after endOfTradingTimes ({current_time_in_sec_tz} > {endOfTradingTimes} '
+            #         f'before {sec_time2close} in {sec.get("timezone", defaut_tz)}) but positioned opposite to current prediction'
+            #         f' (prediction={pred_signal} != position={mp.takePosition})')
 
             # Condition 3: position seconds_open > exitTimeSeconds AND last prediction no longer supports direction
             # if not should_close and seconds_open > exit_timeout and pred_signal != mp.takePosition:
