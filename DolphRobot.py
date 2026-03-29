@@ -6,7 +6,6 @@ import sys
 import os
 import signal
 import time
-import gc; gc.collect()
 import datetime as dt
 import copy
 import pandas as pd
@@ -14,7 +13,6 @@ import DataManagement.DataServer as ds
 import Configuration.Conf as cm
 import TradingPlatforms.TradingPlatform as tp 
 import PredictionModels.PredictionModel as pm
-import DataVisualization.TrendViewer as tv
 
 class Dolph:
 
@@ -39,7 +37,6 @@ class Dolph:
         self._init_securities()
         self.tp.securities = self.securities  # sync filtered list to TradingPlatform
         self.ds.securities = self.securities  # sync filtered list to DataServer
-        self.tv = tv.TrendViewer( self.evaluatePosition )
         self.data = {}
         self._init_signaling()
         
@@ -48,14 +45,9 @@ class Dolph:
     def _init_configuration(self):
 
         self.MODE = cm.MODE
-        self.numTestSample = cm.numTestSample
         self.since = cm.since
         self.until = cm.until
-        self.between_time = cm.between_time
-        self.TrainingHour = cm.TrainingHour
         self.periods = cm.periods
-        self.currentTestIndex = cm.currentTestIndex
-        self.open_ai_key=cm.openaikey
         # INIT_DB uses config securities for insertion; all other modes load from DB
         if self.MODE == 'INIT_DB':
             self.securities = cm.securities
@@ -139,21 +131,6 @@ class Dolph:
         signal.signal(signal.SIGTERM, signalHandler)
         
 
-    # return next((s for s in self.securities if s['seccode'] == seccode), None)
-    def getSecurityBySeccode(self, seccode):
-        sec = None
-        for s in self.securities: 
-            if seccode == s['seccode']:
-                sec = s
-                break
-        
-        if sec is None: 
-            self.logger.error('Security not found... ' + seccode);
-            sys.exit(0)
-        
-        return sec
-        
-    
     def getLastClosePrice(self, seccode):
 
         dataFrame_1min = self.data['1Min']  # Get the 1-minute data
@@ -295,19 +272,6 @@ class Dolph:
         if sec['seccode'] in mc.MinerviniClaude._calibration_cache:
             del mc.MinerviniClaude._calibration_cache[sec['seccode']]
 
-    def _calibration_pause(self):
-        """Sleep calibrationPauseSeconds split into 7 logged intervals."""
-        pause_total = getattr(cm, 'calibrationPauseSeconds', 0)
-        if pause_total <= 0:
-            return
-        num_checks = 7
-        interval = pause_total / num_checks
-        self.logger.info(f"Calibration pause: {pause_total}s total, {num_checks} checks every {interval:.0f}s")
-        for i in range(1, num_checks + 1):
-            time.sleep(interval)
-            self.logger.info(f"Calibration pause check {i}/{num_checks} — {i * interval:.0f}s / {pause_total}s elapsed")
-        self.logger.info(f"Calibration pause complete, resuming.")
-
     def predict(self):
 
         self.logger.info(f" Step 2/3: Predict")
@@ -315,9 +279,6 @@ class Dolph:
         for period in self.periods:
             for sec in self.securities:
                 if self.MODE == 'TEST_OFFLINE':
-                    # if not self._is_outside_trading_hours(sec):
-                    #     self._calibration_pause()
-                    #     continue
                     self.loadModel(sec, period)
                     self._post_calibration_single(sec)
                     
@@ -330,15 +291,6 @@ class Dolph:
         self.logger.info(f" Step 2/3: ✓ COMPLETED")
 
 
-    def displayPredictions (self):
-        
-        period = self.periods[-1]
-        
-        for security in self.securities:
-            prediction = copy.deepcopy(security['predictions'][period])
-            self.tv.showPrediction( prediction , period, security)    
-  
-    
     def getEntryPrice(self, seccode, takePosition ):    
         
         currentClose = self.getLastClosePrice( seccode)
@@ -354,47 +306,6 @@ class Dolph:
             entryPricePV=currentClose 
         return entryPricePV
     
-    # def isBetterToClosePosition(self, security):
-        
-    #     seccode = security['seccode']
-    #     params = security['params']
-
-    #     position = self.tp.getMonitoredPositionBySeccode(seccode)
-    #     if position is None :
-    #         self.logger.error(f'seccode={seccode} has an open-position, but there is no MonitoredPosition')
-    #         return True
-        
-    #     lastClosePrice = self.getLastClosePrice(seccode)
-    #     entryPrice = position.entryPrice
-    #     factorMargin_Position = params['positionMargin']
-    #     stopLossCoefficient = params['stopLossCoefficient']
-    #     limitToAcceptFallingOfPrice = entryPrice * factorMargin_Position * stopLossCoefficient
-    #     decision = False
-    #     if ( abs( entryPrice - lastClosePrice ) > limitToAcceptFallingOfPrice):
-    #         decision = True
-    #         self.logger.info(f'entryPrice: {entryPrice},lastClosePrice: {lastClosePrice}')
-        
-    #     return decision
-    
-    def isPredictionInOppositeDirection(self, prediction, security ) :
-
-        # Support both dict and string format
-        if isinstance(prediction, dict):
-            pred_signal = prediction['signal']
-        else:
-            pred_signal = prediction
-
-        inOppositeDirection = False
-
-        if security['lastPositionTaken'] == 'long' and pred_signal == 'short':
-            inOppositeDirection = True
-
-        if security['lastPositionTaken'] == 'short' and pred_signal == 'long':
-            inOppositeDirection = True
-
-        return inOppositeDirection
-    
-  
     def takeDecision(self, security, prediction ):
 
         seccode = security['seccode']
@@ -406,15 +317,8 @@ class Dolph:
             prediction_signal = last_pred['signal']
         else:
             prediction_signal = last_pred
-        #isBetterToClose = self.isBetterToClosePosition(security) if openPosition else False
-
         if openPosition and security['lastPositionTaken'] == prediction_signal :
-
             takePosition = 'no-go'
-
-        # elif openPosition and isBetterToClose:
-        #     takePosition = 'close'
-        #     security['lastPositionTaken'] = takePosition
 
         elif not openPosition:
 
@@ -530,22 +434,20 @@ class Dolph:
             # FIXME: Are these parameters automatically calculated?
             exitTimeSeconds = params['exitTimeSeconds']
             k = params['stopLossCoefficient']
-            correction = params.get('correction', 0.0)
-            spread = params.get('spread', 0.0)
-            
-            decimals = int(decimals)                   
+
+            decimals = int(decimals)
             ct = self.tp.getTradingPlatformTime()
             exitTime = ct + dt.timedelta(seconds=exitTimeSeconds)
-            
-            return (longestPeriod, board, seccode, exitTimeSeconds, 
-                quantity, k, decimals, marketId, spread, correction, margin, exitTime )
-        
+
+            return (longestPeriod, board, seccode, exitTimeSeconds,
+                quantity, k, decimals, marketId, margin, exitTime )
+
         except Exception as e:
             self.logger.error("Failed to get_evaluation_parameters: %s", e)
-            k = margin = quantity = correction = spread = decimals = marketId = ct = exitTime = 0            
-            
-            return (longestPeriod, board, seccode, exitTimeSeconds, 
-                quantity, k, decimals, marketId, spread, correction, margin, exitTime )
+            k = margin = quantity = decimals = marketId = ct = exitTime = 0
+
+            return (longestPeriod, board, seccode, exitTimeSeconds,
+                quantity, k, decimals, marketId, margin, exitTime )
        
 
 
@@ -553,7 +455,7 @@ class Dolph:
     def evaluatePosition (self, security):
 
         (longestPeriod, board, seccode, exitTimeSeconds,
-         quantity, k, decimals, marketId, spread, correction, margin, exitTime ) = self.get_evaluation_parameters(security)
+         quantity, k, decimals, marketId, margin, exitTime ) = self.get_evaluation_parameters(security)
 
         prediction = copy.deepcopy(security['predictions'][longestPeriod])
 
@@ -612,7 +514,7 @@ class Dolph:
         position = tp.Position(
             takePosition, board, seccode, marketId,
             quantity, entryPrice, exitPrice, stoploss, decimals, client,
-            exitTime, correction, spread, byMarket,
+            exitTime, bymarket=byMarket,
             confidence=confidence, prediction_data=prediction_data
         )
 
@@ -791,27 +693,6 @@ class Dolph:
         self.logger.info('INIT_DB finished, exiting process.')
         os._exit(0)  # Force exit — sys.exit() doesn't kill IB background threads
 
-
-    def setSecurityParams(self, seccode, **params):
-        """ 
-        How to use:          
-        params = {'positionMargin': 0.01}
-        self.dolph.setSecurityParams('INTC', **params )        
-        params = {'stopLossCoefficient': 3 }
-        self.dolph.setSecurityParams('INTC', **params )        
-        """
-        for sec in self.securities:
-            if sec['seccode'] == seccode:
-                for key, value in params.items():
-                    if key in sec['params']:
-                        m = f"Updating {seccode}: {sec['params'][key]} -> {value}"
-                        logging.info(m)
-                        sec['params'][key] = value
-                    else:
-                        logging.warning(f"Key '{key}' does not exist in {seccode}")
-                return
-        logging.error(f"Security with seccode '{seccode}' not found")
-    
 
 def main():
 
