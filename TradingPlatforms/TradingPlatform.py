@@ -2210,21 +2210,12 @@ class IBTradingPlatform(TradingPlatform):
         }
 
 
-        # --- Do not store the bar if we are currently outside_trading_time & VOLUME = 0 ---
-        sec = next((s for s in self.securities if s['seccode'] == symbol), {})
-        sec_tz = pytz.timezone(sec.get('timezone', 'America/New_York'))
-        sec_trading_times = sec.get('tradingTimes', cm.tradingTimes)
-        current_time_in_sec_tz = datetime.datetime.now(datetime.timezone.utc).astimezone(sec_tz).time()
-        outside_trading_time = not (sec_trading_times[0] <= current_time_in_sec_tz <= sec_trading_times[1])
-
-        if outside_trading_time and bar.volume == 0:
-            log.debug(f"Skipping bar for {symbol} because outside trading time and volume=0")
-            return
-        # ---------------------
+        # Filter via should_store_bar (reusable across all insertion points)
+        sec = next((s for s in self.securities if s['seccode'] == symbol), None)
 
         # Defer DB write to avoid blocking the IB event loop
         from threading import Thread
-        Thread(target=self.ds.store_bar, args=(symbol, updated_data),
+        Thread(target=self.ds.store_bar, args=(symbol, updated_data, sec),
                name=f"storeBar-{symbol}", daemon=True).start()
 
 
@@ -2246,7 +2237,8 @@ class IBTradingPlatform(TradingPlatform):
             'close': bar.close,
             'volume': bar.volume
         }
-        self.ds.store_bar(symbol, updated_data)
+        sec = next((s for s in self.securities if s['seccode'] == symbol), None)
+        self.ds.store_bar(symbol, updated_data, sec)
 
 
 
@@ -2269,7 +2261,8 @@ class IBTradingPlatform(TradingPlatform):
                 'volume': ticker.volume
             }
             log.info(f"Received update for MktData {security_code}: {updated_data}")
-            self.ds.store_bar(security_code, updated_data) 
+            sec = next((s for s in self.securities if s['seccode'] == security_code), None)
+            self.ds.store_bar(security_code, updated_data, sec)
             
 
     def onOrderStatus(self, trade: Trade):

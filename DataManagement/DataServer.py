@@ -17,6 +17,54 @@ from Configuration import Conf as cm
 log = logging.getLogger("DataServer")
 
 
+def is_within_trading_hours(timestamp, security):
+    """Check if a timestamp falls within the security's tradingTimes in its local timezone.
+
+    Args:
+        timestamp: datetime (aware or naive-UTC) of the bar
+        security: dict with 'timezone' and 'tradingTimes' keys
+    Returns:
+        True if the bar is within trading hours, False otherwise.
+    """
+    sec_tz = pytz.timezone(security.get('timezone', 'America/New_York'))
+    trading_start, trading_end = security.get('tradingTimes',
+        getattr(cm, 'tradingTimes', (dt.time(9, 30), dt.time(16, 0))))
+
+    if isinstance(timestamp, pd.Timestamp):
+        if timestamp.tzinfo is None:
+            local_time = pytz.utc.localize(timestamp).astimezone(sec_tz).time()
+        else:
+            local_time = timestamp.astimezone(sec_tz).time()
+    elif isinstance(timestamp, dt.datetime):
+        if timestamp.tzinfo is None:
+            local_time = pytz.utc.localize(timestamp).astimezone(sec_tz).time()
+        else:
+            local_time = timestamp.astimezone(sec_tz).time()
+    else:
+        return True  # cannot determine, allow through
+
+    return trading_start <= local_time <= trading_end
+
+
+def should_store_bar(timestamp, volume, security):
+    """Filter predicate for quote insertion: reject bars with vol=0 outside trading hours.
+
+    Bars with volume > 0 are always stored (even outside hours — pre/post market trades).
+    Bars with volume = 0 inside trading hours are stored (legitimate zero-activity minutes).
+    Bars with volume = 0 outside trading hours are rejected (noise from IB streaming).
+
+    Args:
+        timestamp: datetime of the bar (UTC or tz-aware)
+        volume: bar volume (int/float)
+        security: dict with 'timezone' and 'tradingTimes'
+    Returns:
+        True if the bar should be stored, False to skip.
+    """
+    if volume is not None and volume > 0:
+        return True
+    return is_within_trading_hours(timestamp, security)
+
+
 class DataServer:
     def __init__(self):
 
@@ -1493,32 +1541,39 @@ class DataServer:
             
             #security_id = self.getSecurityIdSQL(board, seccode)            
     
+            skipped = 0
             for index, row in candles.iterrows():
                 timestamp = row['date'] if 'date' in row.index else index
+                vol = row['volume']
+                if not should_store_bar(timestamp, vol, security):
+                    skipped += 1
+                    continue
                 values = (
                     timestamp,
                     row['open'],
                     row['high'],
                     row['low'],
                     row['close'],
-                    row['volume'],
+                    vol,
                     security_id
                 )
-    
+
                 query_insert = """
                     INSERT INTO quote
-                    (DATE_TIME, OPEN, HIGH, LOW, CLOSE, VOL, security_id) 
+                    (DATE_TIME, OPEN, HIGH, LOW, CLOSE, VOL, security_id)
                     VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (DATE_TIME, security_id) 
-                    DO UPDATE SET 
+                    ON CONFLICT (DATE_TIME, security_id)
+                    DO UPDATE SET
                         OPEN = EXCLUDED.OPEN,
                         HIGH = EXCLUDED.HIGH,
                         LOW = EXCLUDED.LOW,
                         CLOSE = EXCLUDED.CLOSE,
                         VOL = EXCLUDED.VOL;
                 """
-    
+
                 cursor.execute(query_insert, values)
+            if skipped > 0:
+                log.info(f"{seccode}: skipped {skipped} zero-vol bars outside trading hours")
     
             cursor.execute("COMMIT")
             conn.commit()
@@ -1587,13 +1642,20 @@ class DataServer:
             
             #security_id = self.getSecurityIdSQL(board, seccode)
     
+            skipped = 0
             for index, row in df.iterrows():
                 try:
                     # Ensure the index is a valid timestamp
                     if index is None or pd.isnull(index):
                         log.warning(f"Skipping candle with invalid timestamp for {seccode}")
                         continue
-    
+
+                    # Skip zero-vol bars outside trading hours
+                    vol = row.get('volume', 0)
+                    if not should_store_bar(index, vol, security):
+                        skipped += 1
+                        continue
+
                     # Extract values with fallback defaults
                     values = (
                         index,  # Timestamp as index
@@ -1628,13 +1690,16 @@ class DataServer:
                 except Exception as e:
                     log.error(f"Failed to insert candle {row} for {seccode}: {e}")
     
+            if skipped > 0:
+                log.info(f"{seccode}: skipped {skipped} zero-vol bars outside trading hours")
+
             # Commit changes
             cursor.execute("COMMIT")
             conn.commit()
             cursor.close()
-    
+
         except Exception as e:
-            log.error(f"Failed to commit: {e}")    
+            log.error(f"Failed to commit: {e}")
         finally:
             if conn:
                 conn.close()
@@ -1719,10 +1784,17 @@ class DataServer:
                 conn.close()
     
     
-    def store_bar(self, seccode, bar_data):
+    def store_bar(self, seccode, bar_data, security=None):
         """
         Store the incoming quote data into the database or update in-memory storage.
+        Skips zero-volume bars outside trading hours when security info is available.
         """
+        if security is not None:
+            ts = bar_data.get('timestamp')
+            vol = bar_data.get('volume', 0)
+            if not should_store_bar(ts, vol, security):
+                log.debug(f"Skipping bar for {seccode}: vol=0 outside trading hours")
+                return
         try:
             conn = psycopg2.connect(**cm.db_connection_params)
             cursor = conn.cursor()
