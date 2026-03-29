@@ -109,8 +109,8 @@ class Position:
         return msg
 
 
-def initTradingPlatform( onCounterPosition ):
-           
+def initTradingPlatform():
+
     #platform  = ds.DataServer().getPlatformDetails(cm.securities)
     platform = cm.platform
     log.debug(str(platform))
@@ -118,25 +118,23 @@ def initTradingPlatform( onCounterPosition ):
     if platform is None :
         return None
     elif platform["name"] == 'finam':
-        return FinamTradingPlatform( onCounterPosition )
+        return FinamTradingPlatform()
     elif platform["name"] == 'alpaca':
-        return AlpacaTradingPlatform( onCounterPosition )
+        return AlpacaTradingPlatform()
     elif platform["name"] == 'interactive_brokers':
-        return IBTradingPlatform( onCounterPosition )
+        return IBTradingPlatform()
     else:
         raise ValueError("Unsupported trading platform")
 
 class TradingPlatform(ABC):
     
-    def __init__(self, onCounterPosition ):
-        
+    def __init__(self):
+
         self._init_configuration()
-        self.onCounterPosition = onCounterPosition
         self.clientAccounts = []
         self.monitoredPositions = []
         self.monitoredOrders = []
         self.monitoredExitOrders = []
-        self.counterPositions = []
         self.position_closed_at = {}  # seccode → UTC datetime of last position close
         self.position_entry_filled_at = {}  # seccode → UTC datetime of entry fill
         self.position_scalp_cooldown = {}  # seccode → extended cooldown seconds (set on quick close)
@@ -343,14 +341,12 @@ class TradingPlatform(ABC):
         
         log.debug("takePosition ...")
 
-        if position.takePosition in ["long", "short"]:   
+        if position.takePosition in ["long", "short"]:
             log.debug("takePosition ... long oder short ")
 
             self.openPosition(position)
         elif position.takePosition == "close":
             self.closePosition(position)
-        elif position.takePosition == "close-counterPosition":
-            self.closePosition(position, withCounterPosition=True)
         else:
             log.error("takePosition must be either long, short or close")
             raise Exception(position.takePosition)
@@ -387,28 +383,8 @@ class TradingPlatform(ABC):
         raise Exception("market "+marketId+" not found") 
 
         
-    def triggerWhenMatched(self, order):
-        """ common """      
-        trigger = False
-        transactionId = None
-        position = None
-        
-        log.debug(repr(order))
-        
-        for cp in self.counterPositions:
-            transactionId, position = cp
-            if order.id == transactionId:
-                trigger = True
-                break
 
-        if trigger:
-            m = f"triggering onCounterPosition for {str(position)}"
-            log.info(m)
-            position2invert = copy.deepcopy(position)
-            self.counterPositions = list(filter(lambda x: x[0] != transactionId, self.counterPositions))            
-            self.onCounterPosition(position2invert)
-    
-    
+
     def triggerExitByMarket(self, stopOrder, monitoredPosition):
         """ common """
                 
@@ -455,7 +431,6 @@ class TradingPlatform(ABC):
     def processEntryOrderStatus(self, order):
         """ common """
         log.debug(str(order))
-        # clone = {'id': order.id, 'status': order.status} ;  self.triggerWhenMatched(clone) if s in cm.statusOrderExecuted
         s = order.status
         try:
             # Lock to prevent dual-callback race condition (onOrderStatus thread +
@@ -586,7 +561,7 @@ class TradingPlatform(ABC):
         return tradingPlatformTime_plusNsec
     
     
-    def closePosition(self, position, withCounterPosition=False):
+    def closePosition(self, position):
         """common"""        
         code = position.seccode        
         monitoredPosition = self.getMonitoredPositionBySeccode(code)
@@ -636,7 +611,7 @@ class TradingPlatform(ABC):
                 position.union = self.getUnionIdByMarket(position.marketId)
             
             
-            if self.isPositionOpen(position.seccode) and position.takePosition not in ['close', 'close-counterPosition']:
+            if self.isPositionOpen(position.seccode) and position.takePosition not in ['close']:
                 msg = f'there is a position opened for {position.seccode}'            
                 log.warning(msg)
                 return False
@@ -1016,8 +991,8 @@ class candleUpdateTask:
 
 class FinamTradingPlatform(TradingPlatform):
     
-    def __init__(self, onCounterPosition):
-        super().__init__( onCounterPosition )
+    def __init__(self):
+        super().__init__()
         self.tc = tc.TransaqConnector()
 
 
@@ -1392,9 +1367,9 @@ class OrderStatusUpdateTask:
 
 class AlpacaTradingPlatform(TradingPlatform):
     
-    def __init__(self, onCounterPosition ):
+    def __init__(self):
         log.info("Initializing AlpacaTradingPlatform...")
-        super().__init__( onCounterPosition )
+        super().__init__()
         self.api = None
         self.stream = None  # Alpaca WebSocket connection
         self.barsUpdateTask = None
@@ -1960,10 +1935,10 @@ class IB_OrderStatusTask:
 #     PendingReplace: The order is being modified with new parameters.
 class IBTradingPlatform(TradingPlatform):
 
-    def __init__(self, onCounterPosition):
+    def __init__(self):
 
-        super().__init__(onCounterPosition)
-        
+        super().__init__()
+
         # Optional: Disable lower-level logs from ib_insync specifically
         logging.getLogger('ib_insync').setLevel(logging.ERROR)
         
@@ -3328,8 +3303,7 @@ if __name__== "__main__":
      since = cm.since
      until = cm.until
      period = '1Min'
-     onCounterPosition = None     
-     tp = initTradingPlatform( onCounterPosition )
+     tp = initTradingPlatform()
      
      for sec in getattr(cm, 'securities', []):
          

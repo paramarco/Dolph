@@ -34,7 +34,7 @@ class Dolph:
             self.logger.info(
                 f"{self.MODE} mode: loaded {len(self.securities)} securities from DB "
                 f"(tz_filter={tz_filter}, codes_filter={'%d codes' % len(codes_filter) if codes_filter else None})")
-        self.tp = tp.initTradingPlatform( self.onCounterPosition )
+        self.tp = tp.initTradingPlatform()
         self.initDB()
         self._init_securities()
         self.tp.securities = self.securities  # sync filtered list to TradingPlatform
@@ -201,41 +201,6 @@ class Dolph:
         return timelast1Min , LastClosePrice
         
     
-    def onCounterPosition(self, position2invert ):
-        
-        position = copy.deepcopy(position2invert)
-        if (position2invert.takePosition == "long"):           
-            position.takePosition = "short"
-        elif (position2invert.takePosition  == "short"):
-            position.takePosition = "long"
-        else:
-            self.logger.error( "takePosition must be either long or short")
-            raise Exception( position.takePosition )
-                
-        sec = self.getSecurityBySeccode( position.seccode )
-        lastClosePrice = self.getLastClosePrice(position.seccode)                
-        params = sec['params']
-        ct = self.tp.getTradingPlatformTime()        
-        deltaForExit =  params['positionMargin'][str(ct.hour)]
-        position.exitTime = ct + dt.timedelta(seconds = params['exitTimeSeconds'])
-        smallDeltaExtreamCase = params['smallDeltaExtreamCase']
-        
-        if position.takePosition == 'long':
-            position.entryPrice = lastClosePrice + smallDeltaExtreamCase
-            position.exitPrice = position.entryPrice + deltaForExit
-            position.stoploss = position.entryPrice - params['stopLossCoefficient'] * deltaForExit
-            
-        elif position.takePosition == 'short':
-            position.entryPrice = lastClosePrice - smallDeltaExtreamCase
-            position.exitPrice =position.entryPrice-deltaForExit
-            position.stoploss = position.entryPrice + params['stopLossCoefficient'] * deltaForExit
-        else:
-            self.logger.info('this shouldnt happen ' + position.takePosition )
-        
-        self.logger.info('sending '+position.takePosition+' to Trading platform')
-        self.tp.processPosition(position)     
-       
-
     def dataAcquisition(self):
 
         self.logger.info(f" Step 1/3: Data Acquisition")
@@ -673,7 +638,7 @@ class Dolph:
                 continue
             position, confidence = self.evaluatePosition(sec)
             action = position.takePosition
-            if action not in ['long','short','close','close-counterPosition']:
+            if action not in ['long','short','close']:
                 self.logger.info(f"seccode:{position.seccode} action={action}, nothing to do ...")
                 continue
             candidates.append((position, confidence, self._cal_score_usd(sec)))
