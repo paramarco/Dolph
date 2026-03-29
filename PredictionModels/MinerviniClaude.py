@@ -1017,6 +1017,8 @@ class MinerviniClaude:
                     and p.get('_calibration_perturb_count', 0) >= getattr(cm, 'CALIBRATION_MAX_PERTURBS', 3)):
                 log.info(f"{self.seccode}: calibration SKIPPED (converged, data unchanged, "
                          f"perturbs exhausted={p.get('_calibration_perturb_count', 0)})")
+                log.info(f"seccode={self.seccode} calibration complete. "
+                         f"profit score: {p.get('calibration_score', 0):.6f} -> {p.get('calibration_score', 0):.6f}")
                 MinerviniClaude._calibration_cache[self.seccode] = dict(p)
                 return
 
@@ -1182,11 +1184,6 @@ class MinerviniClaude:
             test_score  = self._simulate_profit(test_df, best_params)
             log.info(f"{self.seccode}: walk-forward result: train={train_score:.2f}, test={test_score:.2f}, ratio={test_score/max(abs(train_score),1.0):.2f}")
 
-            # ---- Store convergence metadata ----
-            self.security['params']['_calibration_converged'] = not any_improved_overall
-            self.security['params']['_calibration_fingerprint'] = data_fingerprint
-            self.security['params']['_calibration_perturb_count'] = perturb_count if not any_improved_overall else 0
-
             # ---- Save optimized params ----
             # Note: stopLossCoefficient is NOT clamped here — stored value (e.g. 8) is used
             # by OPERATIONAL as-is. The [1.5, 3.0] clamp only applies inside _simulate_profit()
@@ -1198,6 +1195,13 @@ class MinerviniClaude:
             for k, v in best_params.items():
                 self.security['params'][k] = v
             self.params = self.security['params']
+
+            # ---- Store convergence metadata AFTER best_params copy ----
+            # (must be after the loop above, otherwise best_params overwrites
+            #  these with stale values from the start of calibration)
+            self.security['params']['_calibration_converged'] = not any_improved_overall
+            self.security['params']['_calibration_fingerprint'] = data_fingerprint
+            self.security['params']['_calibration_perturb_count'] = perturb_count if not any_improved_overall else 0
 
             final = self._simulate_profit(hist, best_params)
 
