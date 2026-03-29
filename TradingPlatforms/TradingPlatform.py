@@ -35,7 +35,7 @@ class Position:
     
     def __init__(self, takePosition, board, seccode, marketId,
                  quantity, entryPrice, exitPrice, stoploss,
-                 decimals, client, exitTime=None, correction=None, spread=None, bymarket = False,
+                 decimals, client, exitTime=None, bymarket = False,
                  entry_id=None, exit_tp_id=None, exit_sl_id=None, exit_order_no=None , union = None,
                  expdate = None, buysell = None , exitOrderRequested = None, exitOrderAlreadyCancelled = None,
                  entry_time=None, entry_limit_prices=None, close_retry_count=0,
@@ -68,8 +68,6 @@ class Position:
         # this time by market if the planned exit is not executed yet
         self.exitTime = exitTime if exitTime else datetime.datetime.now()   # Default to current time if None
         
-        self.correction = correction
-        self.spread = spread               
         self.bymarket = bymarket
         
         self.client = client
@@ -131,15 +129,12 @@ class TradingPlatform(ABC):
     def __init__(self):
 
         self._init_configuration()
-        self.clientAccounts = []
         self.monitoredPositions = []
         self.monitoredOrders = []
         self.monitoredExitOrders = []
         self.position_closed_at = {}  # seccode → UTC datetime of last position close
         self.position_entry_filled_at = {}  # seccode → UTC datetime of entry fill
         self.position_scalp_cooldown = {}  # seccode → extended cooldown seconds (set on quick close)
-        self.profitBalance = 0
-        self.currentTradingHour = 0
         self.candlesUpdateThread = None
         self.candlesUpdateTask = None
         self.fmt = "%d.%m.%Y %H:%M:%S"
@@ -354,62 +349,6 @@ class TradingPlatform(ABC):
         self.reportCurrentOpenPositions()
 
     
-    def cancellAllOrders(self):
-        """ common """
-        for mo in self.monitoredOrders:
-            res = self.cancel_order(mo.id)
-            log.debug(repr(res))
-        log.debug('finished!')
-          
-        
-    def addClientAccount(self, clientAccount):
-        """ common """
-        self.clientAccounts.append(clientAccount)
-    
-    
-    def getClientIdByMarket(self, marketId):        
-        """ common """
-        for c in self.clientAccounts:
-            if c.market == marketId:
-                return c.id
-        raise Exception("market "+str(marketId)+" not found")     
-
-
-    def getUnionIdByMarket(self, marketId):        
-        """ common """
-        for c in self.clientAccounts:
-            if c.market == marketId:
-                return c.union
-        raise Exception("market "+marketId+" not found") 
-
-        
-
-
-    def triggerExitByMarket(self, stopOrder, monitoredPosition):
-        """ common """
-                
-        if monitoredPosition.exit_tp_id != stopOrder.id: 
-            return
-        
-        mp = monitoredPosition
-        mp.exitOrderRequested = True
-        log.info(f"trigerring exit by Market {mp.exit_tp_id} due to cancelling {mp}")  
-
-        res = self.new_order(
-            mp.board, mp.seccode, mp.client, mp.union, stopOrder.buysell, mp.expdate, 
-            mp.quantity, price=mp.entryPrice, bymarket=True, usecredit=False
-        )
-        if res is None:
-            log.info("Failed to create order by Market for the exit")  
-            
-        if res.status in cm.statusOrderForwarding or res.status in cm.statusOrderExecuted:
-    
-            if stopOrder in self.monitoredExitOrders:
-                self.monitoredExitOrders.remove(stopOrder)
- 
-            self.monitoredPositions = [p for p in self.monitoredPositions if p.exit_tp_id != stopOrder.id] 
-
-
     def updateExistingExitOrder(self, exitOrder):
         """ common """         
         for i, monitored_order in enumerate(self.monitoredExitOrders):
@@ -875,66 +814,6 @@ class TradingPlatform(ABC):
         for mp, meo, forced_outcome in positions_to_close:
             self._update_trade_history(mp, forced_outcome)
             self.closeExit(mp, meo)
-
-
-    def updatePortfolioPerformance(self, status):
-        """common"""        
-        if status == 'tp_executed':
-            self.profitBalance += 1
-        elif status == 'sl_executed':
-            self.profitBalance -= 1
-        else:
-            m = f'status: {status} does not update the portfolio performance'
-            log.info(m)
-        log.info(f'portforlio balance: {self.profitBalance}')       
-
-
-    def updateTradingHour(self):
-        """common"""        
-        tradingPlatformTime = self.getTradingPlatformTime()
-        currentHour = tradingPlatformTime.hour
-        if self.currentTradingHour != currentHour:
-            self.currentTradingHour = currentHour
-            self.profitBalance = 0
-            log.debug('hour changed ... profitBalance has been reset ')
-
-
-    def getProfitBalance(self):
-        """common"""        
-        return self.profitBalance
-    
-    
-    def cancelHangingOrders(self):        
-        """common"""        
-        tradingPlatformTime = self.getTradingPlatformTime()
-        list2cancel = []
-        for mo in self.monitoredOrders:
-            nSec = next((sec['params']['ActiveTimeSeconds'] for sec in self.securities if mo.seccode == sec['seccode']), 0)
-            if nSec == 0:
-                log.error('this shouldn\'t happen')
-                return
-            orderTime_plusNsec = mo.time + datetime.timedelta(seconds=nSec)
-            if tradingPlatformTime > orderTime_plusNsec:
-                list2cancel.append(mo)
-                msg = f'Order hanging since: {mo.time.strftime(self.fmt)}'
-                log.info(msg)                
-        for mo in list2cancel:
-            if mo in self.monitoredOrders:
-                clone = copy.deepcopy(mo)
-                self.monitoredOrders.remove(mo)
-                res = self.cancel_order(clone.id)
-                if res.success:
-                    res = self.new_order(
-                        clone.board, clone.seccode, clone.client, clone.union,
-                        clone.buysell, self.getExpDate(clone.seccode),
-                        clone.quantity, price=0, bymarket=True, usecredit=False
-                    )
-                    if res.success:
-                        log.info('exit was successfully processed' + repr(clone))
-                    else:
-                        log.error('exit was erroneously processed')
-                else:
-                    log.error("cancel active-order error by transaq")
 
 
     def getMonitoredPositionBySeccode(self, seccode):
@@ -1947,13 +1826,11 @@ class IBTradingPlatform(TradingPlatform):
         self.ib.orderStatusEvent += self.onOrderStatus
 
         self.ib_loop = None  # Will hold the asyncio event loop for cross-thread IB calls
-        self.eventLoopTask = None
         self.ordersStatusUpdateTask = None
         self.account_number = self.secrets.get("account_number")
         self.host = self.secrets.get("host", "127.0.0.1")
         self.port = self.secrets.get("port", 7497)
         self.client_id = self.secrets.get("client_id", 1)
-        self.req_id_to_symbol = {}
         self.symbol_to_bars = {}  # A dictionary to store symbol -> Bars mapping
         self.ib_lock = Lock()
         self._entry_status_lock = Lock()  # prevents dual-callback race in processEntryOrderStatus
@@ -2122,38 +1999,6 @@ class IBTradingPlatform(TradingPlatform):
         active = len(self.symbol_to_bars)
         log.info(f"Subscription update: {active} active subscriptions")
 
-    def subscribe_to_market_data(self):
-        """ Interactive Brokers — LEGACY, replaced by _update_subscriptions() """
-
-        self.symbol_to_bars = {}  # A dictionary to store symbol -> Bars mapping
-
-        for index, security in enumerate(self.securities):
-            contract = Stock(security['seccode'], security.get('exchange', 'SMART'), security.get('currency', 'USD'))
-            if security.get('primaryExchange'):
-                contract.primaryExchange = security['primaryExchange']
-    
-            # Request 1-minute bars with streaming updates
-            bars = self.ib.reqHistoricalData(
-                contract,
-                endDateTime='',
-                durationStr='300 S',
-                barSizeSetting='1 min',
-                whatToShow='TRADES',
-                useRTH=False,
-                formatDate=1,
-                keepUpToDate=True
-            )
-    
-            # Store the bars object for reference
-            self.symbol_to_bars[security['seccode']] = bars
-            log.info(f"Subscribed to 1-minute bars for {security['seccode']}.")
-    
-        # Register callback for live bar updates
-        self.ib.barUpdateEvent += self.on_bar_update
-
-      
-   
-
     def on_bar_update(self, bars, hasNewBar):
         """ Interactive Brokers """
         #log.debug (f"DEBUG bars all {bars}")
@@ -2193,52 +2038,6 @@ class IBTradingPlatform(TradingPlatform):
         Thread(target=self.ds.store_bar, args=(symbol, updated_data, sec),
                name=f"storeBar-{symbol}", daemon=True).start()
 
-
-    def on_historical_data(self, reqId, bar):
-        """ Interactive Brokers 
-            Callback for historical data updates.
-        """
-        symbol = self.req_id_to_symbol.get(reqId)
-        if not symbol:
-            log.error(f"Unknown reqId: {reqId}")
-            return
-        
-        log.info(f"Received bar for {symbol}: {bar}")
-        updated_data = {
-            'timestamp': bar.date,
-            'open': bar.open,
-            'high': bar.high,
-            'low': bar.low,
-            'close': bar.close,
-            'volume': bar.volume
-        }
-        sec = next((s for s in self.securities if s['seccode'] == symbol), None)
-        self.ds.store_bar(symbol, updated_data, sec)
-
-
-
-    def on_tick(self, tickers):
-        """ Interactive Brokers """
-       
-        # Convert the timestamp from Unix time (nanoseconds) to a timezone-aware datetime
-        #timeZone = self.getTradingPlatformTimeZone()
-        
-        for ticker in tickers:
-            security_code = ticker.contract.symbol
-            #timestamp_ns = ticker.time  # Unix time in nanoseconds
-            #timestamp_dt = datetime.datetime.fromtimestamp(timestamp_ns / 1e9, tz=timeZone)
-            updated_data = {
-                'timestamp': ticker.time,
-                'open': ticker.open,
-                'high': ticker.high,
-                'low': ticker.low,
-                'close': ticker.close,
-                'volume': ticker.volume
-            }
-            log.info(f"Received update for MktData {security_code}: {updated_data}")
-            sec = next((s for s in self.securities if s['seccode'] == security_code), None)
-            self.ds.store_bar(security_code, updated_data, sec)
-            
 
     def onOrderStatus(self, trade: Trade):
         """ Interactive Brokers
@@ -2364,7 +2163,6 @@ class IBTradingPlatform(TradingPlatform):
         if self.ib.isConnected():
             self.ib.disconnect()
 
-        #self.eventLoopTask.terminate()
         if self.ordersStatusUpdateTask is not None:
             self.ordersStatusUpdateTask.terminate()
         if self.MODE != 'TEST_OFFLINE':
