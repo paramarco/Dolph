@@ -976,6 +976,68 @@ class MinerviniClaude:
         return margin_factor
 
     # =====================================================
+    # WAVE FREQUENCY ANALYSIS (Per-Security GAUSS_MU)
+    # =====================================================
+
+    def _compute_wave_frequency(self, hist):
+        """Compute per-security GAUSS_MU from wave frequency analysis."""
+        from scipy import signal as sp_signal
+        from scipy.signal import find_peaks as sp_find_peaks
+
+        prices = ((hist['open'] + hist['high'] + hist['low'] + hist['close']) / 4.0).values
+
+        peak_distance = getattr(cm, 'PEAK_DISTANCE', 30)
+        if len(prices) < peak_distance * 3:
+            return None
+
+        butter_order = getattr(cm, 'BUTTER_ORDER', 2)
+        butter_cutoff = getattr(cm, 'BUTTER_CUTOFF', 0.05)
+        swing_threshold = getattr(cm, 'SWING_THRESHOLD', 0.90)
+
+        b, a = sp_signal.butter(butter_order, butter_cutoff)
+        try:
+            y = sp_signal.filtfilt(b, a, prices)
+        except ValueError:
+            return None
+
+        peak_idx, _ = sp_find_peaks(y, distance=peak_distance)
+        valley_idx, _ = sp_find_peaks(-y, distance=peak_distance)
+
+        # Merge into alternating sequence
+        events = [(i, 'peak') for i in peak_idx] + [(i, 'valley') for i in valley_idx]
+        events.sort(key=lambda x: x[0])
+        # Remove consecutive same-type
+        filtered = []
+        for e in events:
+            if not filtered or filtered[-1][1] != e[1]:
+                filtered.append(e)
+        events = filtered
+
+        closes = hist['close'].values
+        bars_list = []
+        for i in range(len(events) - 1):
+            s_idx, s_type = events[i]
+            e_idx, e_type = events[i + 1]
+            s_price = closes[s_idx]
+            e_price = closes[e_idx]
+            amplitude = abs(e_price - s_price)
+            if amplitude == 0:
+                continue
+            target = s_price + (e_price - s_price) * swing_threshold
+            for j in range(s_idx + 1, e_idx + 1):
+                if s_type == 'valley' and closes[j] >= target:
+                    bars_list.append(j - s_idx)
+                    break
+                elif s_type == 'peak' and closes[j] <= target:
+                    bars_list.append(j - s_idx)
+                    break
+
+        if not bars_list:
+            return None
+
+        return int(round(np.mean(bars_list)))
+
+    # =====================================================
     # DB CALIBRATION (Coordinate Descent Param Optimization)
     # =====================================================
 
@@ -1009,6 +1071,13 @@ class MinerviniClaude:
                     f"({rows} rows, need {p['CALIBRATION_MIN_ROWS']})"
                 )
                 return
+
+            # Compute per-security GAUSS_MU from wave frequency analysis
+            gauss_mu = self._compute_wave_frequency(hist)
+            if gauss_mu is not None and gauss_mu >= 5:
+                self.security['params']['CALIBRATION_GAUSS_MU'] = gauss_mu
+                self.security['params']['CALIBRATION_GAUSS_SIGMA'] = max(1, gauss_mu // 3)
+                log.info(f"{self.seccode}: wave frequency -> GAUSS_MU={gauss_mu}, GAUSS_SIGMA={gauss_mu // 3}")
 
             # ---- Data fingerprint for convergence detection ----
             data_fingerprint = f"{len(hist)}:{hist.index[-1].isoformat()}"
@@ -1710,8 +1779,8 @@ class MinerviniClaude:
                     # Gaussian time reward: favour TP hits around GAUSS_MU min after entry.
                     # Unit peak (1.0) at mu, σ = sigma → ~0 outside [mu-2σ, mu+2σ].
                     # Drives TP_MULT toward margins achievable within ~1 hour.
-                    _gauss_mu = getattr(cm, 'CALIBRATION_GAUSS_MU', 45)
-                    _gauss_sigma = getattr(cm, 'CALIBRATION_GAUSS_SIGMA', 15)
+                    _gauss_mu = params.get('CALIBRATION_GAUSS_MU', getattr(cm, 'CALIBRATION_GAUSS_MU', 25))
+                    _gauss_sigma = params.get('CALIBRATION_GAUSS_SIGMA', getattr(cm, 'CALIBRATION_GAUSS_SIGMA', 8))
                     gauss_reward = np.exp(-0.5 * ((tp_first - _gauss_mu) / _gauss_sigma) ** 2)
                     tp_profit *= gauss_reward
 

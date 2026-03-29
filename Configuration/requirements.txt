@@ -1,6 +1,6 @@
 # Core scientific packages
 numpy==1.26.4
-scipy==1.13.0
+scipy==1.17.1
 pandas==2.2.2
 
 # Plotting libraries

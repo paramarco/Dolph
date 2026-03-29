@@ -91,9 +91,11 @@ CALIBRATION_MIN_TRADES_PER_DAY = 0.5
 CALIBRATION_FILL_SLIPPAGE = 0.0001      # LMT pullback fill slippage
 CALIBRATION_BREAKOUT_SLIPPAGE = 0.0005  # Market-like breakout fill slippage (5x LMT)
 CALIBRATION_MAX_VOLUME_PARTICIPATION = 0.10
-# Gaussian time reward: multiplies TP profit to favour trades closing near the target time.
-CALIBRATION_GAUSS_MU = 45       # center (minutes after entry)
-CALIBRATION_GAUSS_SIGMA = 15    # width  (minutes)
+# Wave frequency analysis for per-security GAUSS_MU
+BUTTER_ORDER = 2         # Butterworth filter order
+BUTTER_CUTOFF = 0.05     # low cutoff for smoother curve
+PEAK_DISTANCE = 30       # minimum bars between peaks (30 min)
+SWING_THRESHOLD = 0.95   # 95% of swing amplitude
 CALIBRATION_TRAIN_RATIO = 0.67
 CALIBRATION_TEST_WEIGHT = 0.40
 
