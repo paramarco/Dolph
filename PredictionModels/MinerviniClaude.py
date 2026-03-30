@@ -116,7 +116,7 @@ class MinerviniClaude:
         # Ensure derived params are consistent with meta params
         MinerviniClaude._derive_params(self.params)
 
-        if cm.MODE == 'OPERATIONAL':
+        if cm.MODE in ('OPERATIONAL', 'TEST_ONLINE'):
             # Skip calibration, use pre-loaded params from DB (loaded by DolphRobot)
             if self.seccode in MinerviniClaude._calibration_cache:
                 cached = MinerviniClaude._calibration_cache[self.seccode]
