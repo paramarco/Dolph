@@ -725,6 +725,23 @@ class TradingPlatform(ABC):
         except Exception as e:
             log.error(f"trade_history UPDATE failed for {mp.seccode}: {e}")
 
+    def _get_last_close_price(self, seccode):
+        """Get the last known close price for a security from the quote table."""
+        try:
+            conn = psycopg2.connect(**cm.db_connection_params)
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT q.close FROM quote q
+                JOIN security s ON q.security_id = s.id
+                WHERE s.code = %s ORDER BY q.date_time DESC LIMIT 1
+            """, (seccode,))
+            row = cur.fetchone()
+            cur.close()
+            conn.close()
+            return float(row[0]) if row else None
+        except Exception:
+            return None
+
 
     def cancelTimedoutExits(self):
         """common"""
@@ -812,7 +829,8 @@ class TradingPlatform(ABC):
                     positions_to_close.append((mp, None, forced_outcome))
 
         for mp, meo, forced_outcome in positions_to_close:
-            self._update_trade_history(mp, forced_outcome)
+            close_price = self._get_last_close_price(mp.seccode)
+            self._update_trade_history(mp, forced_outcome, close_price)
             self.closeExit(mp, meo)
 
 
