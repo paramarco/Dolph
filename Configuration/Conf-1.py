@@ -280,6 +280,7 @@ CALIBRATION_STEP_SIZES = [0.30, 0.15, 0.08]
 CALIBRATION_PERTURB_RANGE = 0.15    # Random ±15% perturbation amplitude
 CALIBRATION_MAX_PERTURBS = 3        # Max failed perturbation attempts before giving up
 MIN_CALIBRATION_SCORE = 100.0
+MIN_CONFIDENCE_FILTER = 0.70
 # Idea #3: Volume confirmation gate (module-level fallback)
 MIN_RELATIVE_VOLUME = 0.8
 # Idea #4: Margin dynamic cost floor

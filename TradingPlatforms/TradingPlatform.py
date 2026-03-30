@@ -1749,11 +1749,10 @@ class IB_OrderStatusTask:
                     )
 
             if alerts:
-                cm.MODE = 'TEST_ONLINE'
                 alert_msg = (
                     "\n" + "=" * 80 + "\n"
                     "CRITICAL: POSITIONS WITH CLOSED MARKETS DETECTED!\n"
-                    "MODE changed to TEST_ONLINE — NO NEW TRADES WILL BE SENT\n"
+                    "Program will shut down after sending alert email.\n"
                     "Manual intervention required to normalize.\n"
                     + "=" * 80 + "\n"
                     + "\n".join(alerts) + "\n"
@@ -1761,6 +1760,9 @@ class IB_OrderStatusTask:
                 )
                 log.error(alert_msg)
                 self._send_orphan_alert_email(alerts)
+                log.info("Shutting down due to positions with closed markets...")
+                import os
+                os._exit(1)
 
         except Exception as e:
             log.error(f"Failed to check positions with closed markets: {e}")

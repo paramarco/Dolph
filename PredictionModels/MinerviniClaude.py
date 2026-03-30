@@ -577,9 +577,6 @@ class MinerviniClaude:
                 and latest['-DI'] > latest['+DI']):
             short_vol_score += 0.4
 
-        if short_vol_score >= 0.7:
-            short_opt += 1
-
         # ================================
         # LONG VOLUME SCORE (FINAL)
         # ================================
@@ -593,6 +590,8 @@ class MinerviniClaude:
 
         # Tier 2 — confirmed continuation
         if context['healthy_long']:
+            long_vol_score += 0.7
+        if context['buying_pressure']:
             long_vol_score += 0.7
         if context['no_supply']:
             long_vol_score += 0.7
@@ -608,6 +607,26 @@ class MinerviniClaude:
                 and latest['close'] > latest['EMA_FAST']
                 and latest['+DI'] > latest['-DI']):
             long_vol_score += 0.4
+
+        # ================================
+        # CROSS-CONTRADICTION PENALTY
+        # ================================
+        # Contradictory patterns penalise the opposing score.
+        # divergence (bearish warning) weakens long evidence
+        if context['divergence']:
+            long_vol_score *= 0.3
+        # healthy_long (bullish momentum) weakens short evidence
+        if context['healthy_long']:
+            short_vol_score *= 0.3
+        # healthy_short weakens long evidence
+        if context['healthy_short']:
+            long_vol_score *= 0.3
+        # selling_pressure weakens long evidence
+        if context['selling_pressure']:
+            long_vol_score *= 0.3
+        # buying_pressure weakens short evidence
+        if context['buying_pressure']:
+            short_vol_score *= 0.3
 
         if long_vol_score >= 0.7:
             long_opt += 1
@@ -749,6 +768,12 @@ class MinerviniClaude:
             & bearish_candle
         )
 
+        buying_pressure = (
+            (price_slope > 0)
+            & (rel_volume > 1.2)
+            & bullish_candle
+        )
+
         # Persistent selling: >= 3 bearish candles in last 5 bars + above-avg volume
         down_sequence = (df['close'] < df['open']).astype(float).rolling(5).sum()
         vol_avg_5 = df['volume'].rolling(5).mean()
@@ -840,6 +865,7 @@ class MinerviniClaude:
 
         # Tier 2
         long_vol_score[healthy_long]                            += 0.7
+        long_vol_score[buying_pressure]                         += 0.7
         long_vol_score[no_supply]                                += 0.7
 
         # Tier 3
@@ -855,7 +881,15 @@ class MinerviniClaude:
         )
         long_vol_score[high_vol_long]                           += 0.4
 
+        # Cross-contradiction penalty: opposing patterns weaken the score
+        long_vol_score[divergence]        *= 0.3   # bearish warning weakens long
+        long_vol_score[healthy_short]     *= 0.3   # bearish momentum weakens long
+        long_vol_score[selling_pressure]  *= 0.3   # selling weakens long
+        short_vol_score[healthy_long]     *= 0.3   # bullish momentum weakens short
+        short_vol_score[buying_pressure]  *= 0.3   # buying weakens short
+
         long_vol_support = long_vol_score >= 0.7
+        short_vol_support = short_vol_score >= 0.7
 
         # Apply to opts
         long_opt[long_vol_support]  += 1
@@ -2030,6 +2064,12 @@ class MinerviniClaude:
             price_slope < 0
             and relative_volume > 1.2
             and latest['close'] < latest['open']
+        )
+
+        context['buying_pressure'] = (
+            price_slope > 0
+            and relative_volume > 1.2
+            and latest['close'] > latest['open']
         )
 
         # Persistent selling pressure: >= 3 bearish candles in last 5 bars

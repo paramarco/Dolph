@@ -543,6 +543,12 @@ class Dolph:
             if action not in ['long','short','close']:
                 self.logger.info(f"seccode:{position.seccode} action={action}, nothing to do ...")
                 continue
+            # Minimum confidence filter: reject low-conviction signals
+            MIN_CONFIDENCE = getattr(cm, 'MIN_CONFIDENCE_FILTER', 0.70)
+            if action in ['long', 'short'] and confidence < MIN_CONFIDENCE:
+                self.logger.info(
+                    f"seccode:{position.seccode} confidence={confidence:.4f} < {MIN_CONFIDENCE}, filtered out")
+                continue
             candidates.append((position, confidence, self._cal_score_usd(sec)))
 
         # Phase 2: Rank by composite of confidence × calibration quality.
