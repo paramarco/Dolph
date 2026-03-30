@@ -1699,7 +1699,7 @@ class IB_OrderStatusTask:
 
             self.tp.cancelTimedoutEntries()
             self.tp.cancelTimedoutExits()
-            # self.tp.reconcileOrphanedPositions()  # DISABLED: causes duplicate brackets and IB lock contention
+            self.tp.reconcileOrphanedPositions()
             self._check_positions_with_closed_markets()
 
             # Sleep for 5 seconds before the next poll
