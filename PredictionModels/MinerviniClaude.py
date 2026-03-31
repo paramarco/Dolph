@@ -481,6 +481,26 @@ class MinerviniClaude:
         Mandatory conditions determine direction (expansion deviation or trend EMA).
         Optional confirmations (ADX, RSI, volume, liquidity) validate the signal.
         Entry requires: all mandatory + >= 1 optional confirmation.
+
+        Volume context patterns and their role in signal scoring:
+
+        Pattern             | Meaning                                       | Supports | Penalises
+        --------------------|-----------------------------------------------|----------|--------------------
+        healthy_long        | price up + volume up (momentum)               | LONG     | short_score * 0.3
+        healthy_short       | price down + volume up (momentum)             | SHORT    | long_score * 0.3
+        buying_pressure     | price up + high rel_volume + bullish candle   | LONG     | short_score * 0.3
+        selling_pressure    | price down + high rel_volume + bearish candle | SHORT    | long_score * 0.3
+        stopping_volume     | extreme vol + bearish candle closing high     | LONG     | short_score * 0.3
+                            |   (seller exhaustion -> bullish reversal)     |          |
+        buying_climax       | extreme vol + extreme body + overextended     | SHORT    | long_score * 0.3
+                            |   (buyer exhaustion -> bearish reversal)      |          |
+        trust               | big body + big volume (conviction candle)     | direction of candle (bullish->LONG, bearish->SHORT)
+        absorption          | big volume + small body (indecision)          | direction of candle (weak signal)
+        divergence          | price up + volume down (distribution)         | SHORT    | long_score * 0.3
+        no_supply           | price down + low volume (no sellers)          | LONG     | —
+        persistent_sell     | >= 3 bearish candles in 5 bars + high vol     | SHORT    | long_score * 0.3
+        trend_expansion_sh  | range > ATR*1.2 + bearish candle              | SHORT    | long_score * 0.3
+        high_volume_regime  | volume z-score > 1 (statistically elevated)   | gated by direction + EMA + DI alignment
         """
         p = self.params
         latest = df.iloc[-1]
@@ -627,6 +647,18 @@ class MinerviniClaude:
         # buying_pressure weakens short evidence
         if context['buying_pressure']:
             short_vol_score *= 0.3
+        # stopping_volume (seller exhaustion = bullish reversal) weakens short evidence
+        if context['stopping_volume']:
+            short_vol_score *= 0.3
+        # buying_climax (buyer exhaustion = bearish reversal) weakens long evidence
+        if context['buying_climax']:
+            long_vol_score *= 0.3
+        # persistent_sell (sustained bearish pressure) weakens long evidence
+        if context['persistent_sell']:
+            long_vol_score *= 0.3
+        # trend_expansion_short (strong bearish range expansion) weakens long evidence
+        if context['trend_expansion_short']:
+            long_vol_score *= 0.3
 
         if long_vol_score >= 0.7:
             long_opt += 1
@@ -885,8 +917,12 @@ class MinerviniClaude:
         long_vol_score[divergence]        *= 0.3   # bearish warning weakens long
         long_vol_score[healthy_short]     *= 0.3   # bearish momentum weakens long
         long_vol_score[selling_pressure]  *= 0.3   # selling weakens long
+        long_vol_score[buying_climax]     *= 0.3   # buyer exhaustion (bearish reversal) weakens long
+        long_vol_score[persistent_sell]   *= 0.3   # sustained bearish pressure weakens long
+        long_vol_score[trend_expansion_short] *= 0.3  # strong bearish range expansion weakens long
         short_vol_score[healthy_long]     *= 0.3   # bullish momentum weakens short
         short_vol_score[buying_pressure]  *= 0.3   # buying weakens short
+        short_vol_score[stopping_vol]     *= 0.3   # seller exhaustion (bullish reversal) weakens short
 
         long_vol_support = long_vol_score >= 0.7
         short_vol_support = short_vol_score >= 0.7
@@ -957,6 +993,32 @@ class MinerviniClaude:
         # If both valid, take direction with more optionals
         both = valid_long & valid_short
         signals[(both & (short_opt > long_opt)).values] = -1
+
+        # === CONFIDENCE FILTER (mirrors OPERATIONAL MIN_CONFIDENCE_FILTER) ===
+        # Compute confidence per bar: min(1.0, 0.5 + 0.15 * n_opt)
+        n_opt_arr = np.where(signals == 1, long_opt.values, np.where(signals == -1, short_opt.values, 0))
+        confidence = np.minimum(1.0, 0.5 + 0.15 * n_opt_arr)
+
+        # Counter-trend price momentum penalty
+        MOMENTUM_LOOKBACK = int(params.get('MOMENTUM_LOOKBACK', 5))
+        COUNTER_TREND_THRESHOLD = params.get('COUNTER_TREND_THRESHOLD', 0.003)
+        COUNTER_TREND_FACTOR = params.get('COUNTER_TREND_FACTOR', 10.0)
+
+        closes_arr = df['close'].values
+        if n > MOMENTUM_LOOKBACK + 1:
+            price_change = closes_arr / np.roll(closes_arr, MOMENTUM_LOOKBACK) - 1.0
+            price_change[:MOMENTUM_LOOKBACK] = 0.0  # no valid lookback for first bars
+            # Counter-trend: long with falling price, or short with rising price
+            counter_long = (signals == 1) & (price_change < -COUNTER_TREND_THRESHOLD)
+            counter_short = (signals == -1) & (price_change > COUNTER_TREND_THRESHOLD)
+            is_counter = counter_long | counter_short
+            penalty = np.minimum(0.7, np.abs(price_change) * COUNTER_TREND_FACTOR)
+            confidence[is_counter] *= (1.0 - penalty[is_counter])
+
+        # Apply MIN_CONFIDENCE_FILTER: suppress signals below threshold
+        MIN_CONF = getattr(cm, 'MIN_CONFIDENCE_FILTER', 0.70)
+        low_conf = (signals != 0) & (confidence < MIN_CONF)
+        signals[low_conf] = 0
 
         # Build liquidity exemption mask for stability filter
         liq_exempt = np.zeros(n, dtype=bool)
