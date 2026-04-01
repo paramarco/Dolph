@@ -336,7 +336,12 @@ class MinerviniClaude:
         ma  = df['close'].rolling(p['BB_WINDOW']).mean()                # cm.BB_WINDOW = 20
         std = df['close'].rolling(p['BB_WINDOW']).std()                 # cm.BB_WINDOW = 20
         # Normalized width (volatility relative to price level)
-        df['BB_width'] = (p['BB_STD'] * std) / ma.replace(0, np.nan)      # cm.BB_STD = 2
+        df['BB_width_raw'] = (p['BB_STD'] * std) / ma.replace(0, np.nan)   # cm.BB_STD = 2
+        # Smooth BB_width: median over BB_WINDOW bars to reject spikes
+        df['BB_width'] = df['BB_width_raw'].rolling(p['BB_WINDOW'], min_periods=1).median()
+        # Cap BB_width: never exceed 3x ATR/close to prevent extreme margins
+        atr_norm_cap = df['ATR'] / df['close'].replace(0, np.nan)
+        df['BB_width'] = df[['BB_width']].clip(upper=(3.0 * atr_norm_cap).values, axis=0)
         # Percentile of BB width over rolling window                    # cm.BB_PERCENTILE_WINDOW = 100
         df['BB_width_pctile'] = df['BB_width'].rolling(p['BB_PERCENTILE_WINDOW']).apply(
             lambda x: pd.Series(x).rank(pct=True).iloc[-1]
@@ -1037,6 +1042,7 @@ class MinerviniClaude:
         No phase dependency — naturally adapts to volatility regime.
         During contraction both ATR and BB_width are small → small margin.
         During expansion/trend the dominant measure grows → larger margin.
+        Capped at 33% of avg daily range to prevent unrealistic TP targets.
         """
         p = self.params
         latest = df.iloc[-1]
@@ -1044,6 +1050,15 @@ class MinerviniClaude:
         atr_norm = latest['ATR'] / close if close > 0 else 0
         bb_w = latest['BB_width'] if not np.isnan(latest['BB_width']) else 0
         m = p['TP_MULT'] * max(atr_norm, bb_w)
+
+        # Cap margin at 33% of avg daily range
+        MARGIN_CAP_RATIO = getattr(cm, 'MARGIN_DAILY_RANGE_CAP', 0.33)
+        if len(df) > 60:
+            # Estimate daily range from intraday high-low over rolling sessions
+            daily_range = (df['high'].rolling(390).max() - df['low'].rolling(390).min()) / df['close'].rolling(390).mean()
+            avg_dr = daily_range.iloc[-1] if not np.isnan(daily_range.iloc[-1]) else 0
+            if avg_dr > 0:
+                m = min(m, avg_dr * MARGIN_CAP_RATIO)
 
         # Dynamic cost floor: ensure margin covers transaction costs
         _margin_mult = getattr(cm, 'MIN_ABS_MARGIN_MULTIPLIER', 1.5)
@@ -1056,6 +1071,7 @@ class MinerviniClaude:
         """Vectorized unified margin for calibration.
 
         Same formula as _adapt_margin: TP_MULT * max(ATR/close, BB_width).
+        Capped at 33% of avg daily range to prevent unrealistic TP targets.
         Returns numpy array of margin factors (one per bar).
         """
         closes = df['close'].values
@@ -1063,6 +1079,15 @@ class MinerviniClaude:
             (df['ATR'] / df['close'].replace(0, np.nan)).values, nan=0.0)
         bb_w = np.nan_to_num(df['BB_width'].values, nan=0.0)
         margin_factor = params['TP_MULT'] * np.maximum(atr_norm, bb_w)
+
+        # Cap margin at 33% of avg daily range
+        MARGIN_CAP_RATIO = getattr(cm, 'MARGIN_DAILY_RANGE_CAP', 0.33)
+        if len(df) > 60:
+            daily_range = (df['high'].rolling(390).max() - df['low'].rolling(390).min()) / df['close'].rolling(390).mean()
+            daily_range_arr = np.nan_to_num(daily_range.values, nan=0.0)
+            cap = daily_range_arr * MARGIN_CAP_RATIO
+            cap[cap <= 0] = np.inf  # don't cap if no valid daily range
+            margin_factor = np.minimum(margin_factor, cap)
 
         # Dynamic cost floor: ensure margin covers transaction costs
         _margin_mult = getattr(cm, 'MIN_ABS_MARGIN_MULTIPLIER', 1.5)
@@ -1487,7 +1512,12 @@ class MinerviniClaude:
         bb_win = int(params['BB_WINDOW'])
         ma  = df['close'].rolling(bb_win).mean()
         std = df['close'].rolling(bb_win).std()
-        df['BB_width'] = (params['BB_STD'] * std) / ma.replace(0, np.nan)
+        df['BB_width_raw'] = (params['BB_STD'] * std) / ma.replace(0, np.nan)
+        # Smooth BB_width: median over BB_WINDOW bars to reject spikes
+        df['BB_width'] = df['BB_width_raw'].rolling(bb_win, min_periods=1).median()
+        # Cap BB_width: never exceed 3x ATR/close to prevent extreme margins
+        atr_norm_cap = df['ATR'] / df['close'].replace(0, np.nan)
+        df['BB_width'] = df[['BB_width']].clip(upper=(3.0 * atr_norm_cap).values, axis=0)
 
         # BB width percentile — relative position within rolling volatility history (fast numpy version)
         bb_vals = df['BB_width'].values
