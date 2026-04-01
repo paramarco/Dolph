@@ -7,6 +7,9 @@ from Configuration import TradingPlatfomSettings as tps
 
 platform = tps.platform
 
+SECURITY_TZ_FILTER = 'Europe/'
+SECURITY_CODES_FILTER = ['VOW3']
+
 _BASE_PARAMS = {
     'algorithm': 'MinerviniClaude',
     'entryByMarket': False,
@@ -249,7 +252,7 @@ statusExitOrderExecuted = ['tp_executed', 'sl_executed','matched','triggered']
 statusExitOrderFilled = ['filled','Filled']
 
 ########### default-fallback values ##########################################
-factorPosition_Balance = 0.20    # DolphRobot.py:436, MinerviniClaude.py:956 (direct cm.X usage)
+factorPosition_Balance = 0.18    # DolphRobot.py:436, MinerviniClaude.py:956 (direct cm.X usage)
 
 openaikey = platform['secrets']['openaikey']
 
