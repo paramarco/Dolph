@@ -2385,11 +2385,32 @@ class IBTradingPlatform(TradingPlatform):
             self.ib.cancelOrder(sl_meo_order, '')
 
         # Send market order to close the position
+        # Use actual remaining quantity from IB portfolio (not mp.quantity)
+        # to avoid reopening a position when a partial TP fill already occurred
         exit_action = "SELL" if mp.takePosition == "long" else "BUY"
         contract = self._make_stock_contract(mp.seccode)
         expdate = self.convert_to_utc(self.getExpDate(mp.seccode))
 
-        order = MarketOrder(exit_action, mp.quantity)
+        close_qty = mp.quantity
+        try:
+            positions = self.ib.positions()
+            for pos in positions:
+                if pos.contract.symbol == mp.seccode and pos.account == self.account_number:
+                    actual_qty = abs(pos.position)
+                    if actual_qty != mp.quantity and actual_qty > 0:
+                        log.warning(
+                            f"closeExit {mp.seccode}: IB has {actual_qty} shares "
+                            f"(mp.quantity={mp.quantity}), using actual IB quantity")
+                        close_qty = int(actual_qty)
+                    break
+        except Exception as e:
+            log.warning(f"closeExit {mp.seccode}: could not query IB positions: {e}, using mp.quantity={mp.quantity}")
+
+        if close_qty <= 0:
+            log.warning(f"closeExit {mp.seccode}: nothing to close (qty={close_qty}), position already fully closed")
+            return None
+
+        order = MarketOrder(exit_action, close_qty)
         order.tif = 'GTD'
         order.goodTillDate = expdate.strftime('%Y%m%d-%H:%M:%S')
         order.account = self.account_number

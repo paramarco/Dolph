@@ -37,7 +37,7 @@ class MinerviniClaude:
         'EXPANSION_DEVIATION_THRESHOLD': 0.00005,
         'MIN_RELATIVE_VOLUME': 0.2,
         'TP_MULT': 0.5,
-        'SL_RR': 1.0,
+        'SL_RR': 0.5,
     }
 
     # Maximum allowed values — prevents the optimizer from pushing thresholds
@@ -52,7 +52,7 @@ class MinerviniClaude:
         'EXPANSION_DEVIATION_THRESHOLD': 0.01,
         'MIN_RELATIVE_VOLUME': 3.0,
         'TP_MULT': 5.0,
-        'SL_RR': 5.0,
+        'SL_RR': 1.5,
     }
 
     @staticmethod
