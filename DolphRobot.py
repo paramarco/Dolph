@@ -510,6 +510,10 @@ class Dolph:
                 k: v for k, v in last_pred.items()
                 if k not in ('signal',)  # signal is already stored as direction
             }
+            # Include margin diagnostics from _adapt_margin
+            margin_diag = security['params'].get('_margin_diagnostics')
+            if margin_diag:
+                prediction_data['margin_diagnostics'] = margin_diag
 
         position = tp.Position(
             takePosition, board, seccode, marketId,

@@ -1049,23 +1049,47 @@ class MinerviniClaude:
         close = latest['close']
         atr_norm = latest['ATR'] / close if close > 0 else 0
         bb_w = latest['BB_width'] if not np.isnan(latest['BB_width']) else 0
-        m = p['TP_MULT'] * max(atr_norm, bb_w)
+        bb_w_raw = latest.get('BB_width_raw', bb_w)
+        if isinstance(bb_w_raw, float) and np.isnan(bb_w_raw):
+            bb_w_raw = 0
+        margin_raw = p['TP_MULT'] * max(atr_norm, bb_w)
+        m = margin_raw
 
         # Cap margin at 33% of avg daily range
         MARGIN_CAP_RATIO = getattr(cm, 'MARGIN_DAILY_RANGE_CAP', 0.33)
+        avg_dr = 0.0
+        cap_applied = False
         if len(df) > 60:
-            # Estimate daily range from intraday high-low over rolling sessions
             daily_range = (df['high'].rolling(390).max() - df['low'].rolling(390).min()) / df['close'].rolling(390).mean()
             avg_dr = daily_range.iloc[-1] if not np.isnan(daily_range.iloc[-1]) else 0
-            if avg_dr > 0:
-                m = min(m, avg_dr * MARGIN_CAP_RATIO)
+            if avg_dr > 0 and m > avg_dr * MARGIN_CAP_RATIO:
+                m = avg_dr * MARGIN_CAP_RATIO
+                cap_applied = True
 
         # Dynamic cost floor: ensure margin covers transaction costs
         _margin_mult = getattr(cm, 'MIN_ABS_MARGIN_MULTIPLIER', 1.5)
         cost_floor = _margin_mult * max(0.02, close * 0.0001) / close
+        floor_applied = m < cost_floor
         m = max(m, cost_floor)
 
         sec['params']['positionMargin'] = float(m)
+
+        # Store margin diagnostics for trade_history persistence
+        sec['params']['_margin_diagnostics'] = {
+            'close': round(float(close), 4),
+            'atr_norm': round(float(atr_norm), 6),
+            'bb_w': round(float(bb_w), 6),
+            'bb_w_raw': round(float(bb_w_raw), 6),
+            'tp_mult': round(float(p['TP_MULT']), 4),
+            'margin_raw': round(float(margin_raw), 6),
+            'avg_daily_range': round(float(avg_dr), 6),
+            'cap_ratio': MARGIN_CAP_RATIO,
+            'cap_applied': cap_applied,
+            'cost_floor_applied': floor_applied,
+            'margin_final': round(float(m), 6),
+            'dominant': 'ATR' if atr_norm >= bb_w else 'BB_w',
+            'phase': phase,
+        }
 
     def _compute_margin_vectorized(self, df, params):
         """Vectorized unified margin for calibration.
