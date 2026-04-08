@@ -260,6 +260,10 @@ class TradingPlatform(ABC):
         def default_serializer(obj):
             if isinstance(obj, datetime.datetime):
                 return obj.isoformat()  # Convert datetime to ISO format
+            if isinstance(obj, bool):
+                return obj
+            if hasattr(obj, 'item'):  # numpy scalar (int64, float64, bool_)
+                return obj.item()
             raise TypeError(f"Object of type {obj.__class__.__name__} is not JSON serializable")
 
         try:
@@ -649,18 +653,18 @@ class TradingPlatform(ABC):
             pred_json = None
             pred_data = getattr(mp, 'prediction_data', None)
             if pred_data:
-                # Convert non-serializable types (numpy, bool) to plain Python
-                clean = {}
-                for k, v in pred_data.items():
-                    if isinstance(v, (list, tuple)):
-                        clean[k] = list(v)
-                    elif isinstance(v, bool):
-                        clean[k] = v
-                    elif hasattr(v, 'item'):  # numpy scalar
-                        clean[k] = v.item()
-                    else:
-                        clean[k] = v
-                pred_json = _json.dumps(clean)
+                # Convert non-serializable types (numpy, bool) to plain Python (recursive)
+                def _clean_for_json(obj):
+                    if isinstance(obj, dict):
+                        return {k: _clean_for_json(v) for k, v in obj.items()}
+                    elif isinstance(obj, (list, tuple)):
+                        return [_clean_for_json(v) for v in obj]
+                    elif isinstance(obj, bool):
+                        return obj
+                    elif hasattr(obj, 'item'):  # numpy scalar (int64, float64, bool_)
+                        return obj.item()
+                    return obj
+                pred_json = _json.dumps(_clean_for_json(pred_data))
 
             conn = psycopg2.connect(**cm.db_connection_params)
             cur = conn.cursor()
