@@ -7,8 +7,8 @@ from Configuration import TradingPlatfomSettings as tps
 
 platform = tps.platform
 
-SECURITY_TZ_FILTER = 'Asia/'
-SECURITY_CODES_FILTER = ['1024','1211','175','1810','2015','2269','3350','3690','4568','4755','5401','6758']
+SECURITY_TZ_FILTER = 'Europe/'
+SECURITY_CODES_FILTER = ['VOW3']
 
 _BASE_PARAMS = {
     'algorithm': 'MinerviniClaude',
@@ -252,7 +252,7 @@ statusExitOrderExecuted = ['tp_executed', 'sl_executed','matched','triggered']
 statusExitOrderFilled = ['filled','Filled']
 
 ########### default-fallback values ##########################################
-factorPosition_Balance = 0.38    # DolphRobot.py:436, MinerviniClaude.py:956 (direct cm.X usage)
+factorPosition_Balance = 0.20    # DolphRobot.py:436, MinerviniClaude.py:956 (direct cm.X usage)
 
 openaikey = platform['secrets']['openaikey']
 
@@ -285,7 +285,7 @@ MIN_CONFIDENCE_FILTER = 0.70
 MIN_RELATIVE_VOLUME = 0.8
 # Idea #4: Margin dynamic cost floor
 MIN_ABS_MARGIN_MULTIPLIER = 1.5
-MARGIN_DAILY_RANGE_CAP = 0.28     # margin cap as fraction of avg daily range
+MARGIN_DAILY_RANGE_CAP = 0.3     # margin cap as fraction of avg daily range
 # (EXPANSION_SCORE_MULT, TREND_SCORE_MULT removed — mandatory/optional replaces score thresholds)
 # Idea #6: Trailing TP in simulation
 TRAILING_TP_ENABLED = True

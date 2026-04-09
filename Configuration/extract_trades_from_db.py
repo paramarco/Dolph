@@ -40,7 +40,7 @@ cur = conn.cursor()
 cur.execute(f"""
     SELECT open_ts, seccode, direction, confidence, entry_price, tp_target, sl_target,
            outcome, outcome_class, pnl_pips, tp_order_id, sl_order_id, source,
-           close_ts
+           close_ts, quantity
     FROM trade_history
     {where_sql}
     ORDER BY open_ts
@@ -70,22 +70,34 @@ for r in rows:
         'sl_id': r[11] or 0,
         'source': r[12],
         'duration_min': (r[13] - r[0]).total_seconds() / 60.0 if r[13] and r[0] else None,
+        'quantity': int(r[14]) if r[14] is not None else 0,
     })
+
+# Compute total PnL (quantity * pnl_per_share - round_trip_commission)
+for t in trades:
+    if t.get('pnl_pips') is not None and t['quantity'] > 0:
+        qty = t['quantity']
+        # IB commission: max($1.00, qty * $0.005) per side, 2 sides
+        commission = max(1.0, qty * 0.005) * 2
+        t['pnl_total'] = qty * t['pnl_pips'] - commission
+    else:
+        t['pnl_total'] = None
 
 # ============================================================
 # OUTPUT (identical format to correlate_trades.py)
 # ============================================================
 
-print("=" * 170)
-print(f"{'Date':20s} {'Seccode':8s} {'Dir':6s} {'Conf':6s} {'Entry':10s} {'TP':10s} {'SL':10s} {'Outcome':28s} {'Class':8s} {'PnL':10s} {'Mins':6s} {'TP_ID':8s} {'SL_ID':8s}")
-print("=" * 170)
+print("=" * 178)
+print(f"{'Date':20s} {'Seccode':8s} {'Dir':6s} {'Conf':6s} {'Entry':10s} {'TP':10s} {'SL':10s} {'Outcome':28s} {'Class':8s} {'Qty':>5s} {'PnL$':>8s} {'Mins':6s} {'TP_ID':8s} {'SL_ID':8s}")
+print("=" * 178)
 
 for t in trades:
     conf_str = f"{t['confidence']:.4f}" if t['confidence'] is not None else "N/A"
     cls = t.get('outcome_class') or ''
-    pnl_str = f"{t['pnl_pips']:.4f}" if t.get('pnl_pips') is not None else "N/A"
+    pnl_str = f"{t['pnl_total']:+.2f}" if t.get('pnl_total') is not None else "N/A"
     dur_str = f"{t['duration_min']:.0f}" if t.get('duration_min') is not None else "N/A"
-    print(f"{t['bracket_ts']:20s} {t['seccode']:8s} {t['position']:6s} {conf_str:6s} {t['entryPrice']:10.3f} {t['exitTP']:10.3f} {t['exitSL']:10.3f} {t['outcome']:28s} {cls:8s} {pnl_str:>10s} {dur_str:>6s} {t['tp_id']:8d} {t['sl_id']:8d}")
+    qty_str = f"{t['quantity']}" if t['quantity'] > 0 else "?"
+    print(f"{t['bracket_ts']:20s} {t['seccode']:8s} {t['position']:6s} {conf_str:6s} {t['entryPrice']:10.3f} {t['exitTP']:10.3f} {t['exitSL']:10.3f} {t['outcome']:28s} {cls:8s} {qty_str:>5s} {pnl_str:>8s} {dur_str:>6s} {t['tp_id']:8d} {t['sl_id']:8d}")
 
 # Count by outcome type
 outcome_counts = defaultdict(int)
@@ -120,6 +132,10 @@ print(f"")
 print(f"TOTAL RESOLVED:           {len(all_resolved)} (WIN={len(wins)}, LOSS={len(losses)})")
 if all_resolved:
     print(f"OVERALL WIN RATE:         {len(wins)/len(all_resolved)*100:.1f}%")
+    total_pnl = sum(t['pnl_total'] for t in all_resolved if t.get('pnl_total') is not None)
+    win_pnl_sum = sum(t['pnl_total'] for t in wins if t.get('pnl_total') is not None)
+    loss_pnl_sum = sum(t['pnl_total'] for t in losses if t.get('pnl_total') is not None)
+    print(f"TOTAL PnL$:               {total_pnl:+.2f}  (wins: {win_pnl_sum:+.2f}, losses: {loss_pnl_sum:+.2f})")
 
 # ============================================================
 # WIN RATE BY CONFIDENCE BUCKET
@@ -181,9 +197,9 @@ print("=" * 80)
 print(f"\n{'Confidence':12s} {'Trades':8s} {'Avg Win':12s} {'Avg Loss':12s} {'Expectancy':12s} {'WinMin':7s} {'LossMin':8s}")
 print("-" * 75)
 for conf in sorted(buckets.keys()):
-    relevant = [t for t in all_resolved if t['confidence'] is not None and round(t['confidence'], 2) == conf and t.get('pnl_pips') is not None]
-    win_pnl = [t['pnl_pips'] for t in relevant if t['outcome_class'] == 'WIN']
-    loss_pnl = [abs(t['pnl_pips']) for t in relevant if t['outcome_class'] == 'LOSS']
+    relevant = [t for t in all_resolved if t['confidence'] is not None and round(t['confidence'], 2) == conf and t.get('pnl_total') is not None]
+    win_pnl = [t['pnl_total'] for t in relevant if t['outcome_class'] == 'WIN']
+    loss_pnl = [abs(t['pnl_total']) for t in relevant if t['outcome_class'] == 'LOSS']
     avg_win = sum(win_pnl)/len(win_pnl) if win_pnl else 0
     avg_loss = sum(loss_pnl)/len(loss_pnl) if loss_pnl else 0
     b = buckets[conf]

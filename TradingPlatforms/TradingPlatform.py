@@ -706,7 +706,8 @@ class TradingPlatform(ABC):
                 pnl = (float(mp.exitPrice) - float(mp.entryPrice)) if mp.takePosition == 'long' else (float(mp.entryPrice) - float(mp.exitPrice))
             elif outcome == 'SL_HIT':
                 outcome_class = 'LOSS'
-                pnl = (float(mp.entryPrice) - float(mp.stoploss)) if mp.takePosition == 'long' else (float(mp.stoploss) - float(mp.entryPrice))
+                # SL is a loss: long SL is below entry (negative), short SL is above entry (negative)
+                pnl = (float(mp.stoploss) - float(mp.entryPrice)) if mp.takePosition == 'long' else (float(mp.entryPrice) - float(mp.stoploss))
             elif close_price is not None:
                 pnl = (close_price - float(mp.entryPrice)) if mp.takePosition == 'long' else (float(mp.entryPrice) - close_price)
                 outcome_class = 'WIN' if pnl > 0 else ('LOSS' if pnl < 0 else 'NEUTRAL')
