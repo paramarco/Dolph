@@ -694,6 +694,16 @@ class MinerviniClaude:
         # === CONFIDENCE ===
         confidence = min(1.0, 0.5 + 0.15 * n_opt)
 
+        # Volume context contradiction penalty: if volume patterns directly
+        # contradict the signal direction, reduce confidence significantly.
+        # This catches cases where ADX+RSI give n_opt=2 but volume says otherwise.
+        if signal_dir == 'long' and any(c in active_contexts for c in
+                ['healthy_short', 'selling_pressure', 'divergence', 'persistent_sell', 'trend_expansion_short']):
+            confidence *= 0.5
+        if signal_dir == 'short' and any(c in active_contexts for c in
+                ['healthy_long', 'buying_pressure', 'stopping_volume']):
+            confidence *= 0.5
+
         # Counter-trend price momentum penalty (safety)
         MOMENTUM_LOOKBACK = int(p.get('MOMENTUM_LOOKBACK', 5))
         COUNTER_TREND_THRESHOLD = p.get('COUNTER_TREND_THRESHOLD', 0.003)
@@ -1003,6 +1013,13 @@ class MinerviniClaude:
         # Compute confidence per bar: min(1.0, 0.5 + 0.15 * n_opt)
         n_opt_arr = np.where(signals == 1, long_opt.values, np.where(signals == -1, short_opt.values, 0))
         confidence = np.minimum(1.0, 0.5 + 0.15 * n_opt_arr)
+
+        # Volume context contradiction penalty: halve confidence when volume
+        # patterns directly contradict the signal direction
+        long_contra = (signals == 1) & (healthy_short | selling_pressure | divergence | persistent_sell | trend_expansion_short)
+        short_contra = (signals == -1) & (healthy_long | buying_pressure | stopping_vol)
+        confidence[long_contra] *= 0.5
+        confidence[short_contra] *= 0.5
 
         # Counter-trend price momentum penalty
         MOMENTUM_LOOKBACK = int(params.get('MOMENTUM_LOOKBACK', 5))
