@@ -38,12 +38,14 @@ where_sql = (" WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
 conn = psycopg2.connect(**DB)
 cur = conn.cursor()
 cur.execute(f"""
-    SELECT open_ts, seccode, direction, confidence, entry_price, tp_target, sl_target,
-           outcome, outcome_class, pnl_pips, tp_order_id, sl_order_id, source,
-           close_ts, quantity
-    FROM trade_history
-    {where_sql}
-    ORDER BY open_ts
+    SELECT th.open_ts, th.seccode, th.direction, th.confidence, th.entry_price,
+           th.tp_target, th.sl_target, th.outcome, th.outcome_class, th.pnl_pips,
+           th.tp_order_id, th.sl_order_id, th.source, th.close_ts, th.quantity,
+           s.currency
+    FROM trade_history th
+    JOIN security s ON s.code = th.seccode
+    {where_sql.replace('open_ts', 'th.open_ts').replace('source', 'th.source') if where_sql else ''}
+    ORDER BY th.open_ts
 """, params)
 rows = cur.fetchall()
 cur.close()
@@ -71,14 +73,20 @@ for r in rows:
         'source': r[12],
         'duration_min': (r[13] - r[0]).total_seconds() / 60.0 if r[13] and r[0] else None,
         'quantity': int(r[14]) if r[14] is not None else 0,
+        'currency': r[15] or 'USD',
     })
 
 # Compute total PnL (quantity * pnl_per_share - round_trip_commission)
+# Commission models by currency:
+#   USD: max($1.00, qty * $0.005) per side, 2 sides (US tiered)
+#   EUR: €3.00 per side, 2 sides = €6.00 round trip (IBIS/EUDARK/TGATE)
 for t in trades:
     if t.get('pnl_pips') is not None and t['quantity'] > 0:
         qty = t['quantity']
-        # IB commission: max($1.00, qty * $0.005) per side, 2 sides
-        commission = max(1.0, qty * 0.005) * 2
+        if t['currency'] == 'EUR':
+            commission = 3.0 * 2  # €3.00 per side
+        else:
+            commission = max(1.0, qty * 0.005) * 2
         t['pnl_total'] = qty * t['pnl_pips'] - commission
     else:
         t['pnl_total'] = None
@@ -87,9 +95,9 @@ for t in trades:
 # OUTPUT (identical format to correlate_trades.py)
 # ============================================================
 
-print("=" * 178)
-print(f"{'Date':20s} {'Seccode':8s} {'Dir':6s} {'Conf':6s} {'Entry':10s} {'TP':10s} {'SL':10s} {'Outcome':28s} {'Class':8s} {'Qty':>5s} {'PnL$':>8s} {'Mins':6s} {'TP_ID':8s} {'SL_ID':8s}")
-print("=" * 178)
+print("=" * 182)
+print(f"{'Date':20s} {'Seccode':8s} {'Dir':6s} {'Conf':6s} {'Entry':10s} {'TP':10s} {'SL':10s} {'Outcome':28s} {'Class':8s} {'Ccy':4s} {'Qty':>5s} {'PnL$':>8s} {'Mins':6s} {'TP_ID':8s} {'SL_ID':8s}")
+print("=" * 182)
 
 for t in trades:
     conf_str = f"{t['confidence']:.4f}" if t['confidence'] is not None else "N/A"
@@ -97,7 +105,8 @@ for t in trades:
     pnl_str = f"{t['pnl_total']:+.2f}" if t.get('pnl_total') is not None else "N/A"
     dur_str = f"{t['duration_min']:.0f}" if t.get('duration_min') is not None else "N/A"
     qty_str = f"{t['quantity']}" if t['quantity'] > 0 else "?"
-    print(f"{t['bracket_ts']:20s} {t['seccode']:8s} {t['position']:6s} {conf_str:6s} {t['entryPrice']:10.3f} {t['exitTP']:10.3f} {t['exitSL']:10.3f} {t['outcome']:28s} {cls:8s} {qty_str:>5s} {pnl_str:>8s} {dur_str:>6s} {t['tp_id']:8d} {t['sl_id']:8d}")
+    ccy = t['currency']
+    print(f"{t['bracket_ts']:20s} {t['seccode']:8s} {t['position']:6s} {conf_str:6s} {t['entryPrice']:10.3f} {t['exitTP']:10.3f} {t['exitSL']:10.3f} {t['outcome']:28s} {cls:8s} {ccy:4s} {qty_str:>5s} {pnl_str:>8s} {dur_str:>6s} {t['tp_id']:8d} {t['sl_id']:8d}")
 
 # Count by outcome type
 outcome_counts = defaultdict(int)
