@@ -1048,7 +1048,7 @@ class MinerviniClaude:
         if len(df5) > bos_lb:
             liq_exempt = (liq_long | liq_short).values
 
-        return signals, liq_exempt
+        return signals, liq_exempt, confidence
 
     # =====================================================
     # MARGIN ADAPTATION
@@ -1598,7 +1598,7 @@ class MinerviniClaude:
             # Bulk insert new trades
             from psycopg2.extras import execute_values
             values = [(
-                t['open_ts'], self.seccode, t['direction'], None,
+                t['open_ts'], self.seccode, t['direction'], t.get('confidence'),
                 t['entry_price'], t['tp_target'], t['sl_target'],
                 None, None, t['quantity'],
                 t['close_ts'], t['close_price'],
@@ -1663,7 +1663,7 @@ class MinerviniClaude:
             expansion_mask, trend_mask, bullish, bearish = self._detect_phase_vectorized(df, params)
 
             # Step 3: Vectorized signal scoring
-            signals, liq_exempt = self._generate_signals_vectorized(df, params, expansion_mask, trend_mask, bullish, bearish)
+            signals, liq_exempt, confidence_arr = self._generate_signals_vectorized(df, params, expansion_mask, trend_mask, bullish, bearish)
 
             # Step 3b: Signal stability filter — require N consecutive identical
             # signals before acting (mirrors real-time _signal_history check).
@@ -2069,10 +2069,12 @@ class MinerviniClaude:
                     _outcome_class = 'WIN' if _pnl_pips > 0 else ('LOSS' if _pnl_pips < 0 else 'NEUTRAL')
                     _open_idx = i
                     _close_idx = min(close_bar, n - 1)
+                    _conf = round(float(confidence_arr[i]), 4) if confidence_arr is not None else None
                     collected_trades.append({
                         'open_ts': df.index[_open_idx],
                         'close_ts': df.index[_close_idx],
                         'direction': 'long' if sig == 1 else 'short',
+                        'confidence': _conf,
                         'entry_price': round(float(entry_price), 4),
                         'tp_target': round(float(tp_price), 4),
                         'sl_target': round(float(sl_price), 4),
