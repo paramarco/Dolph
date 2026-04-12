@@ -16,6 +16,7 @@ periods = ['1Min'] #periods = ['1Min','30Min']
 numDaysHistCandles = 3
 calibrationPauseSeconds = 3600  # 1 hour
 simulation_net_balance = 5000
+MAX_NET_BALANCE_4_PAPER_TRADING = 5000  # Cap net balance for paper trading position sizing
 _tz = pytz.timezone('America/New_York')
 since = _tz.localize(dt.datetime.now() - dt.timedelta(days=numDaysHistCandles))
 until = _tz.localize(dt.datetime.now())

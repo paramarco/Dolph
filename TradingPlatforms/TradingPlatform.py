@@ -2564,9 +2564,13 @@ class IBTradingPlatform(TradingPlatform):
 
             # Extract the net liquidation value
             net_balance = next(
-                (float(item.value) for item in account_summary if item.tag == 'NetLiquidation'), 
+                (float(item.value) for item in account_summary if item.tag == 'NetLiquidation'),
                 0.0
             )
+            # Optional cap for paper trading: limit position sizing to a fixed amount
+            max_bal = getattr(cm, 'MAX_NET_BALANCE_4_PAPER_TRADING', None)
+            if max_bal is not None and net_balance > max_bal:
+                net_balance = max_bal
             log.debug(f"Net balance (NetLiquidation): ${net_balance}")
             return net_balance
 
