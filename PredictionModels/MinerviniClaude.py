@@ -1095,10 +1095,7 @@ class MinerviniClaude:
         # Dynamic cost floor: ensure margin covers transaction costs
         # Estimate quantity to compute per-share cost from flat-fee exchanges
         _pe = sec.get('primaryExchange', '')
-        if cm.MODE == 'TEST_OFFLINE':
-            _est_balance = getattr(cm, 'simulation_net_balance', 5000)
-        else:
-            _est_balance = 5000
+        _est_balance = getattr(cm, 'simulation_net_balance', 5000)
         _est_qty = max(1, int(_est_balance * cm.factorPosition_Balance / close))
         _cost_per_share_rt = ib_commission_per_side(_est_qty, _pe) * 2 / _est_qty
         _margin_mult = getattr(cm, 'MIN_ABS_MARGIN_MULTIPLIER', 1.5)
@@ -1149,10 +1146,7 @@ class MinerviniClaude:
 
         # Dynamic cost floor: ensure margin covers transaction costs
         _pe = self.security.get('primaryExchange', '')
-        if cm.MODE == 'TEST_OFFLINE':
-            _est_balance = getattr(cm, 'simulation_net_balance', 5000)
-        else:
-            _est_balance = 20000.0
+        _est_balance = getattr(cm, 'simulation_net_balance', 5000)
         _est_qty = np.maximum(1, (_est_balance * cm.factorPosition_Balance / closes).astype(int))
         _comm_per_side = np.array([ib_commission_per_side(int(q), _pe) for q in _est_qty])
         _cost_per_share_rt = _comm_per_side * 2 / _est_qty
@@ -2002,8 +1996,9 @@ class MinerviniClaude:
                     standard_tp_profit = quantity * m_abs
 
                     # Trailing TP (Idea #6): after TP hit, scan forward for excess via trailing stop.
-                    # Enabled in both OPERATIONAL and TEST_OFFLINE for simulation fidelity.
-                    TRAILING_TP_ENABLED = getattr(cm, 'TRAILING_TP_ENABLED', True)
+                    # DISABLED: OPERATIONAL uses static IB bracket orders — TP fills immediately,
+                    # no trailing possible. Enable only when IB trailing logic is implemented.
+                    TRAILING_TP_ENABLED = False
                     TRAILING_TP_RETRACE = getattr(cm, 'TRAILING_TP_RETRACE', 0.50)
 
                     if TRAILING_TP_ENABLED and (start + tp_first + 1) < min(start + deadline_bar, n):
