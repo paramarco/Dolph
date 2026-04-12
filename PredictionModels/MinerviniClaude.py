@@ -10,6 +10,9 @@ from Configuration import Conf as cm
 
 log = logging.getLogger("PredictionModel")
 
+from TradingPlatforms.InteractiveBrokers.ib_fees import ib_commission_per_side
+
+
 class MinerviniClaude:
 
     _calibration_cache = {}
@@ -1085,8 +1088,16 @@ class MinerviniClaude:
                 cap_applied = True
 
         # Dynamic cost floor: ensure margin covers transaction costs
+        # Estimate quantity to compute per-share cost from flat-fee exchanges
+        _pe = sec.get('primaryExchange', '')
+        if cm.MODE == 'TEST_OFFLINE':
+            _est_balance = getattr(cm, 'simulation_net_balance', 5000)
+        else:
+            _est_balance = 5000
+        _est_qty = max(1, int(_est_balance * cm.factorPosition_Balance / close))
+        _cost_per_share_rt = ib_commission_per_side(_est_qty, _pe) * 2 / _est_qty
         _margin_mult = getattr(cm, 'MIN_ABS_MARGIN_MULTIPLIER', 1.5)
-        cost_floor = _margin_mult * max(0.02, close * 0.0001) / close
+        cost_floor = _margin_mult * _cost_per_share_rt / close
         floor_applied = m < cost_floor
         m = max(m, cost_floor)
 
@@ -1132,8 +1143,16 @@ class MinerviniClaude:
             margin_factor = np.minimum(margin_factor, cap)
 
         # Dynamic cost floor: ensure margin covers transaction costs
+        _pe = self.security.get('primaryExchange', '')
+        if cm.MODE == 'TEST_OFFLINE':
+            _est_balance = getattr(cm, 'simulation_net_balance', 5000)
+        else:
+            _est_balance = 20000.0
+        _est_qty = np.maximum(1, (_est_balance * cm.factorPosition_Balance / closes).astype(int))
+        _comm_per_side = np.array([ib_commission_per_side(int(q), _pe) for q in _est_qty])
+        _cost_per_share_rt = _comm_per_side * 2 / _est_qty
         _margin_mult = getattr(cm, 'MIN_ABS_MARGIN_MULTIPLIER', 1.5)
-        cost_floor = _margin_mult * np.maximum(0.02, closes * 0.0001) / closes
+        cost_floor = _margin_mult * _cost_per_share_rt / closes
         margin_factor = np.maximum(margin_factor, cost_floor)
 
         return margin_factor
@@ -1865,16 +1884,17 @@ class MinerviniClaude:
                     continue
 
                 # Mirror DolphRobot.evaluatePosition() min_margin check
-                # IB: ~$0.02/share round-trip, proportional floor 0.01% for expensive stocks
+                # Uses real IB commission per share for this exchange
+                _primary_ex = self.security.get('primaryExchange', '')
+                _cost_per_share = ib_commission_per_side(quantity, _primary_ex) / max(quantity, 1)
                 _margin_mult = getattr(cm, 'MIN_ABS_MARGIN_MULTIPLIER', 1.5)
-                min_abs_margin = _margin_mult * max(0.02, entry_price * 0.0001)
+                min_abs_margin = _margin_mult * _cost_per_share * 2  # per-share round trip
                 if m_abs < min_abs_margin:
                     stats_skip_margin += 1
                     continue
 
-                # Realistic IB transaction cost: max($1.00, qty × $0.005) per side
-                # Convert from USD to local currency so it matches profit units
-                round_trip_cost = max(1.0, quantity * 0.005) * 2 * fx_rate
+                # Realistic IB transaction cost per side, based on primary exchange
+                round_trip_cost = ib_commission_per_side(quantity, _primary_ex) * 2
 
                 # Expire resolved positions and update exposure
                 if track_constraints:

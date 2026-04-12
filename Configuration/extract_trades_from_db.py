@@ -12,6 +12,7 @@ Usage:
     python3 extract_trades_from_db.py --since 2026-04-13 --until 2026-04-14 --accountId DUD122645 --onlySecurity INTC
 """
 import sys
+import os
 import psycopg2
 from collections import defaultdict
 
@@ -63,7 +64,7 @@ cur.execute(f"""
     SELECT th.open_ts, th.seccode, th.direction, th.confidence, th.entry_price,
            th.tp_target, th.sl_target, th.outcome, th.outcome_class, th.pnl_pips,
            th.tp_order_id, th.sl_order_id, th.source, th.close_ts, th.quantity,
-           s.currency
+           s.currency, s.primary_exchange
     FROM trade_history th
     LEFT JOIN security s ON s.code = th.seccode
     {where_sql}
@@ -96,20 +97,18 @@ for r in rows:
         'duration_min': (r[13] - r[0]).total_seconds() / 60.0 if r[13] and r[0] else None,
         'quantity': int(r[14]) if r[14] is not None else 0,
         'currency': r[15] or 'USD',
+        'primary_exchange': r[16] or '',
     })
 
+# Import IB commission model (single source of truth)
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from TradingPlatforms.InteractiveBrokers.ib_fees import ib_commission_per_side
+
 # Compute total PnL (quantity * pnl_per_share - round_trip_commission)
-# Commission models by currency:
-#   USD: max($1.00, qty * $0.005) per side, 2 sides (US tiered)
-#   EUR: €3.00 per side, 2 sides = €6.00 round trip (IBIS/EUDARK/TGATE)
 for t in trades:
     if t.get('pnl_pips') is not None and t['quantity'] > 0:
-        qty = t['quantity']
-        if t['currency'] == 'EUR':
-            commission = 3.0 * 2  # €3.00 per side
-        else:
-            commission = max(1.0, qty * 0.005) * 2
-        t['pnl_total'] = qty * t['pnl_pips'] - commission
+        commission = ib_commission_per_side(t['quantity'], t['primary_exchange']) * 2
+        t['pnl_total'] = t['quantity'] * t['pnl_pips'] - commission
     else:
         t['pnl_total'] = None
 

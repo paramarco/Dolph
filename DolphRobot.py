@@ -13,6 +13,7 @@ import DataManagement.DataServer as ds
 import Configuration.Conf as cm
 import TradingPlatforms.TradingPlatform as tp 
 import PredictionModels.PredictionModel as pm
+from TradingPlatforms.InteractiveBrokers.ib_fees import ib_commission_per_side
 
 class Dolph:
 
@@ -481,11 +482,12 @@ class Dolph:
             takePosition = 'no-go'
             entryPrice = stoploss = exitPrice = 0
 
-        # Minimum margin protection: margin must cover at least 3x round-trip cost.
-        # IB US equities: ~$0.005/share commission + ~$0.005/share slippage per side
-        # Round-trip: ~$0.02/share. For non-USD (EU/JP/HK) use proportional floor.
+        # Minimum margin protection: margin must cover at least N× round-trip cost per share.
+        # Uses ib_commission_per_side() to get the real commission for this exchange.
         if takePosition in ['long', 'short']:
-            round_trip_cost = max(0.02, entryPrice * 0.0001)
+            _pe = security.get('primaryExchange', '')
+            _cost_per_share = ib_commission_per_side(quantity, _pe) / max(quantity, 1)
+            round_trip_cost = _cost_per_share * 2  # both sides, per share
             _margin_mult = getattr(cm, 'MIN_ABS_MARGIN_MULTIPLIER', 1.5)
             min_margin = round(_margin_mult * round_trip_cost, 4)
             if margin < min_margin:

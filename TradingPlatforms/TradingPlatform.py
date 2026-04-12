@@ -125,7 +125,10 @@ def initTradingPlatform():
         raise ValueError("Unsupported trading platform")
 
 class TradingPlatform(ABC):
-    
+
+    from TradingPlatforms.InteractiveBrokers.ib_fees import ib_commission_per_side
+    ib_commission_per_side = staticmethod(ib_commission_per_side)
+
     def __init__(self):
 
         self._init_configuration()
