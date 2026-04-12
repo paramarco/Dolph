@@ -341,8 +341,11 @@ class MinerviniClaude:
         std = df['close'].rolling(p['BB_WINDOW']).std()                 # cm.BB_WINDOW = 20
         # Normalized width (volatility relative to price level)
         df['BB_width_raw'] = (p['BB_STD'] * std) / ma.replace(0, np.nan)   # cm.BB_STD = 2
-        # Smooth BB_width: median over BB_WINDOW bars to reject spikes
-        df['BB_width'] = df['BB_width_raw'].rolling(p['BB_WINDOW'], min_periods=1).median()
+        # Smooth BB_width: median over BB_WINDOW bars to reject spikes.
+        # min_periods=BB_WINDOW//2 ensures enough samples for a meaningful median;
+        # with min_periods=1 the median at session start equals the raw value (no smoothing).
+        _bb_min_periods = max(1, p['BB_WINDOW'] // 2)
+        df['BB_width'] = df['BB_width_raw'].rolling(p['BB_WINDOW'], min_periods=_bb_min_periods).median()
         # Cap BB_width: never exceed 3x ATR/close to prevent extreme margins
         atr_norm_cap = df['ATR'] / df['close'].replace(0, np.nan)
         df['BB_width'] = df[['BB_width']].clip(upper=(3.0 * atr_norm_cap).values, axis=0)
@@ -1077,11 +1080,13 @@ class MinerviniClaude:
         m = margin_raw
 
         # Cap margin at 33% of avg daily range
+        # Use min_periods=1 so the cap works even with < 390 bars (e.g. early in session).
+        # Without this, OPERATIONAL gets NaN → no cap → inflated margins vs backtesting.
         MARGIN_CAP_RATIO = getattr(cm, 'MARGIN_DAILY_RANGE_CAP', 0.33)
         avg_dr = 0.0
         cap_applied = False
         if len(df) > 60:
-            daily_range = (df['high'].rolling(390).max() - df['low'].rolling(390).min()) / df['close'].rolling(390).mean()
+            daily_range = (df['high'].rolling(390, min_periods=60).max() - df['low'].rolling(390, min_periods=60).min()) / df['close'].rolling(390, min_periods=60).mean()
             avg_dr = daily_range.iloc[-1] if not np.isnan(daily_range.iloc[-1]) else 0
             if avg_dr > 0 and m > avg_dr * MARGIN_CAP_RATIO:
                 m = avg_dr * MARGIN_CAP_RATIO
@@ -1136,7 +1141,7 @@ class MinerviniClaude:
         # Cap margin at 33% of avg daily range
         MARGIN_CAP_RATIO = getattr(cm, 'MARGIN_DAILY_RANGE_CAP', 0.33)
         if len(df) > 60:
-            daily_range = (df['high'].rolling(390).max() - df['low'].rolling(390).min()) / df['close'].rolling(390).mean()
+            daily_range = (df['high'].rolling(390, min_periods=60).max() - df['low'].rolling(390, min_periods=60).min()) / df['close'].rolling(390, min_periods=60).mean()
             daily_range_arr = np.nan_to_num(daily_range.values, nan=0.0)
             cap = daily_range_arr * MARGIN_CAP_RATIO
             cap[cap <= 0] = np.inf  # don't cap if no valid daily range
@@ -1578,7 +1583,8 @@ class MinerviniClaude:
         std = df['close'].rolling(bb_win).std()
         df['BB_width_raw'] = (params['BB_STD'] * std) / ma.replace(0, np.nan)
         # Smooth BB_width: median over BB_WINDOW bars to reject spikes
-        df['BB_width'] = df['BB_width_raw'].rolling(bb_win, min_periods=1).median()
+        _bb_min_periods = max(1, bb_win // 2)
+        df['BB_width'] = df['BB_width_raw'].rolling(bb_win, min_periods=_bb_min_periods).median()
         # Cap BB_width: never exceed 3x ATR/close to prevent extreme margins
         atr_norm_cap = df['ATR'] / df['close'].replace(0, np.nan)
         df['BB_width'] = df[['BB_width']].clip(upper=(3.0 * atr_norm_cap).values, axis=0)
