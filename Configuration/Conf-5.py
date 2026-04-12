@@ -49,6 +49,7 @@ statusExitOrderFilled = ['filled','Filled']
 
 ########### default-fallback values ##########################################
 factorPosition_Balance = 0.33    # DolphRobot.py:436, MinerviniClaude.py:956 (direct cm.X usage)
+LEVERAGE_FACTOR = 1.0            # 1.0 = no leverage. Set to 2.0 for 2x per side
 
 openaikey = platform['secrets']['openaikey']
 

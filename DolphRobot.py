@@ -359,9 +359,11 @@ class Dolph:
         new_exposure = position.quantity * position.entryPrice
         total_side_exposure = same_side_exposure + new_exposure
 
-        if total_side_exposure > net_balance :
+        leverage = getattr(cm, 'LEVERAGE_FACTOR', 1.0)
+        side_limit = net_balance * leverage
+        if total_side_exposure > side_limit:
             exceeds = True
-            self.logger.error(f"{side} exposure {total_side_exposure} (existing={same_side_exposure} + new={new_exposure}) > net_balance {net_balance}")
+            self.logger.error(f"{side} exposure {total_side_exposure} (existing={same_side_exposure} + new={new_exposure}) > side_limit {side_limit} (net_balance={net_balance} x leverage={leverage})")
 
         return exceeds
     
@@ -375,7 +377,8 @@ class Dolph:
 
         Returns (cash_4_position, fx_rate, board_lot, quantity).
         """
-        cash_4_position = net_balance * cm.factorPosition_Balance
+        leverage = getattr(cm, 'LEVERAGE_FACTOR', 1.0)
+        cash_4_position = net_balance * leverage * cm.factorPosition_Balance
         sec_currency = security.get('fx_currency', security.get('currency', 'USD'))
         fx_rates = getattr(cm, 'FX_RATES_FROM_USD', {'USD': 1.0})
         fx_rate = fx_rates.get(sec_currency, 1.0)
@@ -414,10 +417,12 @@ class Dolph:
         new_position_value = quantity * priceClose
         long_exposure = sum(p.quantity * p.entryPrice for p in self.tp.monitoredPositions if p.takePosition == 'long')
         short_exposure = sum(p.quantity * p.entryPrice for p in self.tp.monitoredPositions if p.takePosition == 'short')
-        long_would_exceed = (long_exposure + new_position_value) > net_balance
-        short_would_exceed = (short_exposure + new_position_value) > net_balance
+        leverage = getattr(cm, 'LEVERAGE_FACTOR', 1.0)
+        side_limit = net_balance * leverage
+        long_would_exceed = (long_exposure + new_position_value) > side_limit
+        short_would_exceed = (short_exposure + new_position_value) > side_limit
         if long_would_exceed and short_would_exceed:
-            self.logger.warning(f"seccode={seccode} both sides full: long_exposure={long_exposure} short_exposure={short_exposure} new={new_position_value} net_balance={net_balance} {m}")
+            self.logger.warning(f"seccode={seccode} both sides full: long_exposure={long_exposure} short_exposure={short_exposure} new={new_position_value} side_limit={side_limit} (leverage={leverage}) {m}")
             return 0 , 0
 
         self.logger.info(f"seccode:{seccode} {m}")

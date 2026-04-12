@@ -1718,7 +1718,8 @@ class MinerviniClaude:
             # Position sizing via shared DolphRobot method (single source of truth)
             cash_4_position, fx_rate, board_lot, _ = self.dolph.compute_position_size(
                 net_balance, 1.0, self.security)
-            exposure_limit = net_balance * fx_rate  # exposure limit in local currency
+            leverage = getattr(cm, 'LEVERAGE_FACTOR', 1.0)
+            exposure_limit = net_balance * leverage * fx_rate  # per-side exposure limit in local currency
 
             closes  = df['close'].values
             highs   = df['high'].values

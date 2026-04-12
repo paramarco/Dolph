@@ -250,6 +250,8 @@ statusExitOrderFilled = ['filled','Filled']
 
 ########### default-fallback values ##########################################
 factorPosition_Balance = 0.33    # DolphRobot.py:436, MinerviniClaude.py:956 (direct cm.X usage)
+LEVERAGE_FACTOR = 1.0            # Multiplier on net_balance for position sizing and per-side exposure limits
+                                 # 1.0 = no leverage (cash only), 2.0 = 2x leverage per side
 
 openaikey = platform['secrets']['openaikey']
 
