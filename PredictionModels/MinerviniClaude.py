@@ -1793,7 +1793,9 @@ class MinerviniClaude:
             optimal_tp_min = cash_4_position * getattr(cm, 'OPTIMAL_TP_RATIO_MIN', 0.0035)
             optimal_tp_max = cash_4_position * getattr(cm, 'OPTIMAL_TP_RATIO_MAX', 0.0046)
 
-            for i in range(n - lookahead - 2):
+            # effective_window extends beyond lookahead when exitTimeSeconds > lookahead bars
+            _effective_window = max(lookahead, exit_timeout_bars)
+            for i in range(n - _effective_window - 2):
                 sig = signals[i]
                 if sig == 0:
                     continue
@@ -1843,18 +1845,18 @@ class MinerviniClaude:
                     net_balance, limit_price, self.security)
 
                 if liq_exempt[i]:
-                    # === TYPE B: Pullback/Retest — conservative LMT fill ===
-                    # Price must retrace to limit from the opposite direction.
+                    # === TYPE B: Pullback/Retest — LMT fill ===
+                    # IB fills limit orders when price touches the limit level,
+                    # no retrace requirement. Match OPERATIONAL behavior.
                     entry_idx = -1
                     for fb in range(limit_bar, fill_end):
-                        prev_close = closes[fb - 1] if fb > 0 else closes[fb]
-                        if sig == 1 and prev_close > limit_price and lows[fb] <= limit_price:
+                        if sig == 1 and lows[fb] <= limit_price:
                             bar_vol = volumes[fb]
                             if bar_vol > 0 and est_quantity > bar_vol * MAX_PARTICIPATION:
                                 continue
                             entry_idx = fb
                             break
-                        elif sig == -1 and prev_close < limit_price and highs[fb] >= limit_price:
+                        elif sig == -1 and highs[fb] >= limit_price:
                             bar_vol = volumes[fb]
                             if bar_vol > 0 and est_quantity > bar_vol * MAX_PARTICIPATION:
                                 continue
@@ -1874,11 +1876,13 @@ class MinerviniClaude:
                     entry_idx = limit_bar
                     pending_until_bar = limit_bar + 1  # capital freed immediately
 
-                # Slippage: breakout (market) gets higher slippage than pullback (LMT)
+                # Slippage: match OPERATIONAL's getEntryPrice() which uses 0.1% (0.001)
+                # for all order types. Pullback (LMT) gets lower slippage since it
+                # waits for price to come to it.
                 if liq_exempt[i]:
-                    FILL_SLIPPAGE = getattr(cm, 'CALIBRATION_FILL_SLIPPAGE', 0.0001)
+                    FILL_SLIPPAGE = getattr(cm, 'CALIBRATION_FILL_SLIPPAGE', 0.0005)
                 else:
-                    FILL_SLIPPAGE = getattr(cm, 'CALIBRATION_BREAKOUT_SLIPPAGE', 0.0005)
+                    FILL_SLIPPAGE = getattr(cm, 'CALIBRATION_BREAKOUT_SLIPPAGE', 0.001)
                 if sig == 1:
                     entry_price = limit_price * (1.0 + FILL_SLIPPAGE)
                 else:
@@ -1938,9 +1942,12 @@ class MinerviniClaude:
                     tp_price = entry_price - m_abs
                     sl_price = entry_price + sl_coeff * m_abs
 
-                # Check TP/SL from bar i+3 onwards
+                # Check TP/SL from bar i+3 onwards.
+                # Window extends to max(lookahead, exitTimeSeconds) so positions held
+                # beyond lookahead can still detect TP/SL hits.
                 start = entry_idx + 1
-                end   = min(start + lookahead, n)
+                effective_window = _effective_window
+                end   = min(start + effective_window, n)
                 window_highs = highs[start:end]
                 window_lows  = lows[start:end]
 
@@ -1951,16 +1958,27 @@ class MinerviniClaude:
                     tp_hits = np.where(window_lows  <= tp_price)[0]
                     sl_hits = np.where(window_highs >= sl_price)[0]
 
-                tp_first = tp_hits[0] if len(tp_hits) > 0 else lookahead + 1
-                sl_first = sl_hits[0] if len(sl_hits) > 0 else lookahead + 1
+                tp_first = tp_hits[0] if len(tp_hits) > 0 else effective_window + 1
+                sl_first = sl_hits[0] if len(sl_hits) > 0 else effective_window + 1
 
-                # Conservative same-bar conflict resolution: with 1-min OHLC we cannot
-                # know if TP or SL was hit first within a candle. Assume worst case (SL).
-                if tp_first == sl_first and tp_first <= lookahead:
-                    tp_first = lookahead + 1  # suppress TP → SL branch will handle it
+                # Same-bar conflict resolution: with 1-min OHLC we cannot know if TP
+                # or SL was hit first within a candle. Use proximity heuristic:
+                # whichever level is closer to the open of that bar likely hit first.
+                if tp_first == sl_first and tp_first <= effective_window:
+                    conflict_idx = start + tp_first
+                    if conflict_idx < n:
+                        bar_open = df['open'].values[conflict_idx]
+                        tp_dist = abs(bar_open - tp_price)
+                        sl_dist = abs(bar_open - sl_price)
+                        if tp_dist <= sl_dist:
+                            sl_first = effective_window + 1  # TP closer → suppress SL
+                        else:
+                            tp_first = effective_window + 1  # SL closer → suppress TP
+                    else:
+                        tp_first = effective_window + 1  # fallback: assume SL
 
                 # Calculate forced close bar: first bar where time >= time2close
-                forced_close_bar = lookahead + 1  # default: no forced close
+                forced_close_bar = effective_window + 1  # default: no forced close
                 if use_trading_hours:
                     for j_offset in range(end - start):
                         bar_idx = start + j_offset
@@ -1970,21 +1988,22 @@ class MinerviniClaude:
                             forced_close_bar = j_offset
                             break
 
-                # exitTimeSeconds timeout bar (position open too long)
-                exit_timeout_bar = min(exit_timeout_bars, lookahead + 1)
-                # effective deadline = earliest of exit_timeout and forced_close (time2close)
-                deadline_bar = min(exit_timeout_bar, forced_close_bar)
+                # exitTimeSeconds: DISABLED as close condition (matches OPERATIONAL where
+                # Condition 3 is commented out). Only time2close forces position close.
+                # exitTimeSeconds is only used for stats (half_exit_timeout for TP_fast).
+                exit_timeout_bar = effective_window + 1  # effectively disabled
+                # deadline = forced_close (time2close) only
+                deadline_bar = forced_close_bar
                 half_exit_timeout = exit_timeout_bars // 2
 
                 # Determine outcome and close bar
-                if tp_first <= sl_first and tp_first <= lookahead and tp_first < deadline_bar:
+                if tp_first <= sl_first and tp_first <= effective_window and tp_first < deadline_bar:
                     # TP hit before any deadline
                     standard_tp_profit = quantity * m_abs
 
-                    # Trailing TP (Idea #6): after TP hit, scan forward for excess via trailing stop
-                    # Disabled during calibration (TEST_OFFLINE) — optimize base strategy on
-                    # deterministic TP profit; trailing adds variance that destabilises the objective.
-                    TRAILING_TP_ENABLED = getattr(cm, 'TRAILING_TP_ENABLED', True) and cm.MODE == 'OPERATIONAL'
+                    # Trailing TP (Idea #6): after TP hit, scan forward for excess via trailing stop.
+                    # Enabled in both OPERATIONAL and TEST_OFFLINE for simulation fidelity.
+                    TRAILING_TP_ENABLED = getattr(cm, 'TRAILING_TP_ENABLED', True)
                     TRAILING_TP_RETRACE = getattr(cm, 'TRAILING_TP_RETRACE', 0.50)
 
                     if TRAILING_TP_ENABLED and (start + tp_first + 1) < min(start + deadline_bar, n):
@@ -2041,7 +2060,7 @@ class MinerviniClaude:
                     _outcome = 'TP_HIT'
                     _pnl_pips = m_abs if sig == 1 else m_abs
                     _close_price = tp_price
-                elif sl_first < tp_first and sl_first <= lookahead and sl_first < deadline_bar:
+                elif sl_first < tp_first and sl_first <= effective_window and sl_first < deadline_bar:
                     # SL hit before any deadline
                     sl_loss = quantity * sl_coeff * m_abs + round_trip_cost
                     total_profit -= sl_loss
@@ -2051,7 +2070,7 @@ class MinerviniClaude:
                     _outcome = 'SL_HIT'
                     _pnl_pips = -(sl_coeff * m_abs)
                     _close_price = sl_price
-                elif exit_timeout_bar <= forced_close_bar and exit_timeout_bar <= lookahead:
+                elif exit_timeout_bar <= forced_close_bar and exit_timeout_bar <= effective_window:
                     # exitTimeSeconds timeout: position open too long, penalty
                     close_idx = min(start + exit_timeout_bar, n - 1)
                     close_price = closes[close_idx]
@@ -2066,7 +2085,7 @@ class MinerviniClaude:
                     stats_exit_timeout += 1
                     _outcome = 'FORCED_EXIT_TIMEOUT'
                     _close_price = close_price
-                elif forced_close_bar <= lookahead:
+                elif forced_close_bar <= effective_window:
                     # Forced close at time2close
                     close_idx = start + forced_close_bar
                     close_price = closes[close_idx]
