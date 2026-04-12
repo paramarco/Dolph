@@ -5,7 +5,11 @@ but reading entirely from the trade_history DB table (no log parsing needed).
 Usage:
     python3 extract_trades_from_db.py               # all trades
     python3 extract_trades_from_db.py --since 2026-03-25   # trades from date
+    python3 extract_trades_from_db.py --until 2026-03-30   # trades until date
     python3 extract_trades_from_db.py --source live         # only live trades
+    python3 extract_trades_from_db.py --accountId U16906456 # filter by IB account
+    python3 extract_trades_from_db.py --onlySecurity INTC   # filter by security
+    python3 extract_trades_from_db.py --since 2026-04-13 --until 2026-04-14 --accountId DUD122645 --onlySecurity INTC
 """
 import sys
 import psycopg2
@@ -16,22 +20,40 @@ DB = dict(host='127.0.0.1', port=4713, user='dolph_user',
 
 # ---------- CLI args ----------
 since = None
+until = None
 source_filter = None
+account_id = None
+only_security = None
 for i, arg in enumerate(sys.argv[1:], 1):
     if arg == '--since' and i < len(sys.argv) - 1:
         since = sys.argv[i + 1]
+    if arg == '--until' and i < len(sys.argv) - 1:
+        until = sys.argv[i + 1]
     if arg == '--source' and i < len(sys.argv) - 1:
         source_filter = sys.argv[i + 1]
+    if arg == '--accountId' and i < len(sys.argv) - 1:
+        account_id = sys.argv[i + 1]
+    if arg == '--onlySecurity' and i < len(sys.argv) - 1:
+        only_security = sys.argv[i + 1]
 
 # ---------- Query ----------
 where_clauses = []
 params = []
 if since:
-    where_clauses.append("open_ts >= %s")
+    where_clauses.append("th.open_ts >= %s")
     params.append(since)
+if until:
+    where_clauses.append("th.open_ts < %s")
+    params.append(until)
 if source_filter:
-    where_clauses.append("source = %s")
+    where_clauses.append("th.source = %s")
     params.append(source_filter)
+if account_id:
+    where_clauses.append("th.account_id = %s")
+    params.append(account_id)
+if only_security:
+    where_clauses.append("th.seccode = %s")
+    params.append(only_security)
 
 where_sql = (" WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
 
@@ -43,8 +65,8 @@ cur.execute(f"""
            th.tp_order_id, th.sl_order_id, th.source, th.close_ts, th.quantity,
            s.currency
     FROM trade_history th
-    JOIN security s ON s.code = th.seccode
-    {where_sql.replace('open_ts', 'th.open_ts').replace('source', 'th.source') if where_sql else ''}
+    LEFT JOIN security s ON s.code = th.seccode
+    {where_sql}
     ORDER BY th.open_ts
 """, params)
 rows = cur.fetchall()
@@ -94,6 +116,17 @@ for t in trades:
 # ============================================================
 # OUTPUT (identical format to correlate_trades.py)
 # ============================================================
+
+# Print active filters
+filters = []
+if since: filters.append(f"since={since}")
+if until: filters.append(f"until={until}")
+if account_id: filters.append(f"accountId={account_id}")
+if only_security: filters.append(f"security={only_security}")
+if source_filter: filters.append(f"source={source_filter}")
+if filters:
+    print(f"Filters: {', '.join(filters)}")
+    print()
 
 print("=" * 182)
 print(f"{'Date':20s} {'Seccode':8s} {'Dir':6s} {'Conf':6s} {'Entry':10s} {'TP':10s} {'SL':10s} {'Outcome':28s} {'Class':8s} {'Ccy':4s} {'Qty':>5s} {'PnL$':>8s} {'Mins':6s} {'TP_ID':8s} {'SL_ID':8s}")

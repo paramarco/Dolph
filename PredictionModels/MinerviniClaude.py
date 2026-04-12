@@ -5,6 +5,7 @@ import collections
 import logging
 import datetime as dt
 import pytz
+import psycopg2
 from Configuration import Conf as cm
 
 log = logging.getLogger("PredictionModel")
@@ -1434,10 +1435,13 @@ class MinerviniClaude:
             self.security['params']['_calibration_fingerprint'] = data_fingerprint
             self.security['params']['_calibration_perturb_count'] = perturb_count if not any_improved_overall else 0
 
-            final = self._simulate_profit(hist, best_params)
+            final, cal_trades = self._simulate_profit(hist, best_params, collect_trades=True)
 
             # Persist calibration score so OPERATIONAL can filter low-score securities
             self.security['params']['calibration_score'] = round(float(final), 2)
+
+            # Store calibration trades in trade_history for post-analysis
+            self._store_calibration_trades(cal_trades)
 
             # Anti-degeneration: reset to _BASE_PARAMS when calibration yields
             # score=0, so the next cycle starts from sane values instead of
@@ -1576,8 +1580,56 @@ class MinerviniClaude:
         df.dropna(inplace=True)
         return df
 
+    def _store_calibration_trades(self, trades):
+        """Store calibration backtesting trades in trade_history for post-analysis.
 
-    def _simulate_profit(self, hist_ohlcv, params, indicator_df=None):
+        Deletes previous calibration trades for this security, then bulk-inserts
+        the new ones with account_id='TEST_OFFLINE' and source='calibration'.
+        """
+        if not trades:
+            return
+        try:
+            conn = psycopg2.connect(**cm.db_connection_params)
+            cur = conn.cursor()
+            # Remove previous calibration trades for this security
+            cur.execute(
+                "DELETE FROM trade_history WHERE seccode = %s AND account_id = 'TEST_OFFLINE'",
+                (self.seccode,))
+            # Bulk insert new trades
+            from psycopg2.extras import execute_values
+            values = [(
+                t['open_ts'], self.seccode, t['direction'], None,
+                t['entry_price'], t['tp_target'], t['sl_target'],
+                None, None, t['quantity'],
+                t['close_ts'], t['close_price'],
+                t['outcome'], t['outcome_class'], t['pnl_pips'],
+                'calibration', 'TEST_OFFLINE'
+            ) for t in trades]
+            execute_values(cur, """
+                INSERT INTO trade_history
+                    (open_ts, seccode, direction, confidence, entry_price, tp_target, sl_target,
+                     tp_order_id, sl_order_id, quantity,
+                     close_ts, close_price, outcome, outcome_class, pnl_pips,
+                     source, account_id)
+                VALUES %s
+            """, values)
+            conn.commit()
+            cur.close()
+            conn.close()
+            # Log summary
+            wins = sum(1 for t in trades if t['outcome_class'] == 'WIN')
+            losses = sum(1 for t in trades if t['outcome_class'] == 'LOSS')
+            wr = wins / len(trades) * 100 if trades else 0
+            first_ts = trades[0]['open_ts']
+            last_ts = trades[-1]['close_ts']
+            log.info(
+                f"seccode={self.seccode} calibration trades stored: "
+                f"{len(trades)} trades ({wins}W/{losses}L, WR={wr:.1f}%) "
+                f"period {first_ts} to {last_ts}")
+        except Exception as e:
+            log.error(f"{self.seccode}: _store_calibration_trades failed: {e}")
+
+    def _simulate_profit(self, hist_ohlcv, params, indicator_df=None, collect_trades=False):
         """Simulate the full pipeline and return cumulative takeProfit benefit.
 
         Timing model (1-min candles):
@@ -1709,6 +1761,7 @@ class MinerviniClaude:
             peak_profit = 0.0   # high-water mark for max drawdown tracking
             max_drawdown = 0.0  # worst peak-to-trough decline
             pending_until_bar = -1  # bar until which capital is reserved for a pending LMT order
+            collected_trades = [] if collect_trades else None
 
             # Mejora 1: Optimal TP range as % of cash_4_position (currency-independent)
             # Replaces the old absolute USD range that ignored EUR/GBP/JPY differences
@@ -1959,6 +2012,9 @@ class MinerviniClaude:
                     total_profit += tp_profit
                     close_bar = entry_idx + 1 + tp_first
                     stats_tp += 1
+                    _outcome = 'TP_HIT'
+                    _pnl_pips = m_abs if sig == 1 else m_abs
+                    _close_price = tp_price
                 elif sl_first < tp_first and sl_first <= lookahead and sl_first < deadline_bar:
                     # SL hit before any deadline
                     sl_loss = quantity * sl_coeff * m_abs + round_trip_cost
@@ -1966,33 +2022,66 @@ class MinerviniClaude:
                     stats_sl_loss += sl_loss
                     close_bar = entry_idx + 1 + sl_first
                     stats_sl += 1
+                    _outcome = 'SL_HIT'
+                    _pnl_pips = -(sl_coeff * m_abs)
+                    _close_price = sl_price
                 elif exit_timeout_bar <= forced_close_bar and exit_timeout_bar <= lookahead:
                     # exitTimeSeconds timeout: position open too long, penalty
                     close_idx = min(start + exit_timeout_bar, n - 1)
                     close_price = closes[close_idx]
                     if sig == 1:
                         pnl = (close_price - entry_price) * quantity - round_trip_cost
+                        _pnl_pips = close_price - entry_price
                     else:
                         pnl = (entry_price - close_price) * quantity - round_trip_cost
+                        _pnl_pips = entry_price - close_price
                     total_profit += pnl
                     close_bar = close_idx
                     stats_exit_timeout += 1
+                    _outcome = 'FORCED_EXIT_TIMEOUT'
+                    _close_price = close_price
                 elif forced_close_bar <= lookahead:
                     # Forced close at time2close
                     close_idx = start + forced_close_bar
                     close_price = closes[close_idx]
                     if sig == 1:
                         pnl = (close_price - entry_price) * quantity - round_trip_cost
+                        _pnl_pips = close_price - entry_price
                     else:
                         pnl = (entry_price - close_price) * quantity - round_trip_cost
+                        _pnl_pips = entry_price - close_price
                     total_profit += pnl
                     close_bar = close_idx
                     stats_forced_close += 1
+                    _outcome = 'FORCED_TIME2CLOSE'
+                    _close_price = close_price
                 else:
                     # Expired (no TP, no SL, no timeout, no forced close in window)
                     # No artificial penalty — score = net_profit only
                     close_bar = end
                     stats_expired += 1
+                    _outcome = 'EXPIRED'
+                    _pnl_pips = 0.0
+                    _close_price = closes[min(end, n - 1)]
+
+                # Collect trade details for post-calibration reporting
+                if collected_trades is not None and _outcome != 'EXPIRED':
+                    _outcome_class = 'WIN' if _pnl_pips > 0 else ('LOSS' if _pnl_pips < 0 else 'NEUTRAL')
+                    _open_idx = i
+                    _close_idx = min(close_bar, n - 1)
+                    collected_trades.append({
+                        'open_ts': df.index[_open_idx],
+                        'close_ts': df.index[_close_idx],
+                        'direction': 'long' if sig == 1 else 'short',
+                        'entry_price': round(float(entry_price), 4),
+                        'tp_target': round(float(tp_price), 4),
+                        'sl_target': round(float(sl_price), 4),
+                        'quantity': int(quantity),
+                        'outcome': _outcome,
+                        'outcome_class': _outcome_class,
+                        'pnl_pips': round(float(_pnl_pips), 4),
+                        'close_price': round(float(_close_price), 4),
+                    })
 
                 # Update max drawdown after each trade outcome
                 if total_profit > peak_profit:
@@ -2085,6 +2174,8 @@ class MinerviniClaude:
                         f"{self.seccode}: 0 trades, board_lot={bl} too large for "
                         f"net_balance={net_balance} at price={sample_price:.2f} "
                         f"(need {bl * sample_price / fx_rate:.0f} USD min)")
+                if collect_trades:
+                    return -np.inf, []
                 return -np.inf
             if num_trading_days > 0 and trades_per_day < MIN_TRADES_PER_DAY:
                 total_profit *= trades_per_day / MIN_TRADES_PER_DAY
@@ -2095,11 +2186,15 @@ class MinerviniClaude:
             if fx_rate > 0 and fx_rate != 1.0:
                 total_profit /= fx_rate
 
+            if collect_trades:
+                return total_profit, collected_trades
             return total_profit
 
         except Exception as e:
             import traceback
             log.error(f"{self.seccode}: simulation error: {e}\n{traceback.format_exc()}")
+            if collect_trades:
+                return -np.inf, []
             return -np.inf
 
 

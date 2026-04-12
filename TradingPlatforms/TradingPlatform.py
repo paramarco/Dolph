@@ -671,8 +671,9 @@ class TradingPlatform(ABC):
             cur.execute("""
                 INSERT INTO trade_history
                     (open_ts, seccode, direction, confidence, entry_price, tp_target, sl_target,
-                     tp_order_id, sl_order_id, quantity, outcome, source, prediction_data)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'PENDING', 'live', %s)
+                     tp_order_id, sl_order_id, quantity, outcome, source, prediction_data,
+                     account_id)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'PENDING', 'live', %s, %s)
             """, (
                 datetime.datetime.now(timezone.utc),
                 mp.seccode,
@@ -685,6 +686,7 @@ class TradingPlatform(ABC):
                 mp.exit_sl_id,
                 mp.quantity,
                 pred_json,
+                self.account_number,
             ))
             conn.commit()
             cur.close()
