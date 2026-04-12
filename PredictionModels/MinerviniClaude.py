@@ -1253,6 +1253,19 @@ class MinerviniClaude:
                 )
                 return
 
+            # Enforce floor/ceiling on params loaded from DB before calibration starts.
+            # Without this, values outside the allowed range (e.g. SL_RR=2.0 from
+            # _BASE_PARAMS reset) persist until the optimizer happens to touch them.
+            for k, floor_val in self._PARAM_FLOORS.items():
+                if k in p and p[k] < floor_val:
+                    log.debug(f"{self.seccode}: clamping {k}={p[k]} to floor={floor_val}")
+                    p[k] = floor_val
+            for k, ceil_val in self._PARAM_CEILINGS.items():
+                if k in p and p[k] > ceil_val:
+                    log.debug(f"{self.seccode}: clamping {k}={p[k]} to ceiling={ceil_val}")
+                    p[k] = ceil_val
+            MinerviniClaude._derive_params(p)
+
             # Compute per-security GAUSS_MU from wave frequency analysis
             gauss_mu = self._compute_wave_frequency(hist)
             if gauss_mu is not None and gauss_mu >= 5:

@@ -18,7 +18,7 @@ _BASE_PARAMS = {
     'VOL_WINDOW': 20,       # derives ATR_PERIOD, BB_WINDOW, BB_PERCENTILE_WINDOW, ATR_SLOPE_WINDOW, FVP_WINDOW
     'TREND_WINDOW': 14,     # derives ADX_PERIOD
     'TP_MULT': 1.5,         # margin = TP_MULT * max(ATR/close, BB_width)
-    'SL_RR': 2.0,           # derives stopLossCoefficient
+    'SL_RR': 1.0,           # derives stopLossCoefficient (floor=0.9, ceiling=1.1)
     # ===== 5 DIRECTLY OPTIMIZABLE PARAMS =====
     'VCP_ATR_SLOPE_EXPANSION': 0.03,
     'VCP_BB_WIDTH_PERCENTILE_EXPANSION': 0.245,
