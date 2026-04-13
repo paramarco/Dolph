@@ -725,6 +725,24 @@ class MinerviniClaude:
                 counter_trend_penalty = min(0.7, abs(price_change) * COUNTER_TREND_FACTOR)
                 confidence *= (1.0 - counter_trend_penalty)
 
+        # Pro-trend exhaustion penalty: if price already moved too far too fast
+        # in the signal direction, the move is likely exhausted (spike top/bottom).
+        # E.g. TSLA +$4 in 8 min = 5x ATR → entering at the spike peak.
+        # Penalty scales with how many ATRs the price moved over MOMENTUM_LOOKBACK bars.
+        EXHAUSTION_ATR_THRESHOLD = p.get('EXHAUSTION_ATR_THRESHOLD', 2.0)
+        EXHAUSTION_PENALTY_FACTOR = p.get('EXHAUSTION_PENALTY_FACTOR', 0.30)
+        exhaustion_penalty = 0.0
+        if len(df) > MOMENTUM_LOOKBACK + 1:
+            atr_val = latest.get('ATR', 0)
+            if atr_val > 0:
+                price_move = latest['close'] - df['close'].iloc[-(MOMENTUM_LOOKBACK + 1)]
+                atr_multiple = abs(price_move) / atr_val
+                is_exhausted = ((signal_dir == 'long' and price_move > 0 and atr_multiple > EXHAUSTION_ATR_THRESHOLD)
+                             or (signal_dir == 'short' and price_move < 0 and atr_multiple > EXHAUSTION_ATR_THRESHOLD))
+                if is_exhausted:
+                    exhaustion_penalty = min(0.7, (atr_multiple - EXHAUSTION_ATR_THRESHOLD) * EXHAUSTION_PENALTY_FACTOR)
+                    confidence *= (1.0 - exhaustion_penalty)
+
         return {
             'signal': signal_dir,
             'confidence': confidence,
@@ -738,6 +756,7 @@ class MinerviniClaude:
             'long_vol_score': long_vol_score,
             'short_vol_score': short_vol_score,
             'counter_trend_penalty': counter_trend_penalty,
+            'exhaustion_penalty': exhaustion_penalty,
         }
 
     def _generate_signals_vectorized(self, df, params, expansion_mask, trend_mask, bullish, bearish):
@@ -1043,6 +1062,21 @@ class MinerviniClaude:
             is_counter = counter_long | counter_short
             penalty = np.minimum(0.7, np.abs(price_change) * COUNTER_TREND_FACTOR)
             confidence[is_counter] *= (1.0 - penalty[is_counter])
+
+        # Pro-trend exhaustion penalty: price moved too far too fast in signal direction
+        EXHAUSTION_ATR_THRESHOLD = params.get('EXHAUSTION_ATR_THRESHOLD', 2.0)
+        EXHAUSTION_PENALTY_FACTOR = params.get('EXHAUSTION_PENALTY_FACTOR', 0.30)
+        atr_arr = df['ATR'].values
+        if n > MOMENTUM_LOOKBACK + 1:
+            price_move = closes_arr - np.roll(closes_arr, MOMENTUM_LOOKBACK)
+            price_move[:MOMENTUM_LOOKBACK] = 0.0
+            with np.errstate(divide='ignore', invalid='ignore'):
+                atr_multiple = np.where(atr_arr > 0, np.abs(price_move) / atr_arr, 0.0)
+            exhausted_long = (signals == 1) & (price_move > 0) & (atr_multiple > EXHAUSTION_ATR_THRESHOLD)
+            exhausted_short = (signals == -1) & (price_move < 0) & (atr_multiple > EXHAUSTION_ATR_THRESHOLD)
+            is_exhausted = exhausted_long | exhausted_short
+            ex_penalty = np.minimum(0.7, (atr_multiple - EXHAUSTION_ATR_THRESHOLD) * EXHAUSTION_PENALTY_FACTOR)
+            confidence[is_exhausted] *= (1.0 - ex_penalty[is_exhausted])
 
         # Apply MIN_CONFIDENCE_FILTER: suppress signals below threshold
         MIN_CONF = getattr(cm, 'MIN_CONFIDENCE_FILTER', 0.70)
