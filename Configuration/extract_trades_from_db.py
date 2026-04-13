@@ -11,6 +11,9 @@ Usage:
     python3 extract_trades_from_db.py --onlySecurity INTC   # filter by security
     python3 extract_trades_from_db.py --since 2026-04-13 --until 2026-04-14 --accountId DUD122645 --onlySecurity INTC
     python3 extract_trades_from_db.py --accountId TEST_OFFLINE --MIN_CALIBRATION_SCORE
+    python3 extract_trades_from_db.py --accountId TEST_OFFLINE --MIN_CALIBRATION_WIN_RATE
+    python3 extract_trades_from_db.py --accountId TEST_OFFLINE --minWinRate 0.55
+    python3 extract_trades_from_db.py --accountId TEST_OFFLINE --minWinRate 0.80
 """
 import sys
 import os
@@ -27,6 +30,7 @@ source_filter = None
 account_id = None
 only_security = None
 min_calibration_score = None
+min_calibration_wr = None
 for i, arg in enumerate(sys.argv[1:], 1):
     if arg == '--since' and i < len(sys.argv) - 1:
         since = sys.argv[i + 1]
@@ -40,6 +44,10 @@ for i, arg in enumerate(sys.argv[1:], 1):
         only_security = sys.argv[i + 1]
     if arg == '--MIN_CALIBRATION_SCORE':
         min_calibration_score = 100.0  # default from cm.MIN_CALIBRATION_SCORE
+    if arg == '--MIN_CALIBRATION_WIN_RATE':
+        min_calibration_wr = 0.69  # default from cm.MIN_CALIBRATION_WIN_RATE
+    if arg == '--minWinRate' and i < len(sys.argv) - 1:
+        min_calibration_wr = float(sys.argv[i + 1])
 
 # ---------- Query ----------
 where_clauses = []
@@ -62,6 +70,9 @@ if only_security:
 if min_calibration_score is not None:
     where_clauses.append("(s.alg_parameters->>'calibration_score')::float >= %s")
     params.append(min_calibration_score)
+if min_calibration_wr is not None:
+    where_clauses.append("(s.alg_parameters->>'calibration_win_rate')::float >= %s")
+    params.append(min_calibration_wr)
 
 where_sql = (" WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
 
@@ -132,6 +143,8 @@ if only_security: filters.append(f"security={only_security}")
 if source_filter: filters.append(f"source={source_filter}")
 if min_calibration_score is not None:
     filters.append(f"MIN_CALIBRATION_SCORE>={min_calibration_score:.0f}")
+if min_calibration_wr is not None:
+    filters.append(f"MIN_CALIBRATION_WIN_RATE>={min_calibration_wr:.0%}")
 if filters:
     print(f"Filters: {', '.join(filters)}")
     print()

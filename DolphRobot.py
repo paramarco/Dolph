@@ -65,26 +65,23 @@ class Dolph:
         return score / fx_rate if fx_rate > 0 else score
 
     def _init_securities(self):
-        # In OPERATIONAL mode, exclude securities with low calibration score (USD)
+        # In OPERATIONAL mode, exclude securities with low calibration win rate
         if self.MODE == 'OPERATIONAL':
-            MIN_CALIBRATION_SCORE = getattr(cm, 'MIN_CALIBRATION_SCORE', 100.0)
+            MIN_WIN_RATE = getattr(cm, 'MIN_CALIBRATION_WIN_RATE', 0.69)
             before = len(self.securities)
             kept = []
             excluded = []
             for s in self.securities:
-                score_usd = self._cal_score_usd(s)
-                if score_usd >= MIN_CALIBRATION_SCORE:
+                wr = s['params'].get('calibration_win_rate', 0.0)
+                if wr >= MIN_WIN_RATE:
                     kept.append(s)
                 else:
-                    score_local = s['params'].get('calibration_score', 0)
-                    ccy = s.get('currency', 'USD')
-                    excluded.append(
-                        f"{s['seccode']}({score_local:.1f}{ccy}=${score_usd:.1f})")
+                    excluded.append(f"{s['seccode']}(WR={wr:.1%})")
             self.securities = kept
             if excluded:
                 self.logger.warning(
                     f"OPERATIONAL filter: excluded {len(excluded)}/{before} securities "
-                    f"with calibration_score(USD) < {MIN_CALIBRATION_SCORE}: {excluded}"
+                    f"with calibration_win_rate < {MIN_WIN_RATE:.0%}: {excluded}"
                 )
 
         for sec in self.securities:

@@ -698,6 +698,16 @@ class MinerviniClaude:
         if n_opt < 1:
             return {'signal': 'no-go', 'confidence': 0.0, 'volume_contexts': active_contexts}
 
+        # Minimum absolute volume filter: reject signals when recent bars have
+        # negligible volume (illiquid conditions, extended hours). Signals in
+        # near-zero volume are noise, not tradeable price action.
+        MIN_ABS_VOLUME = int(p.get('MIN_ABS_VOLUME', 500))
+        VOL_CHECK_BARS = 5
+        if len(df) >= VOL_CHECK_BARS:
+            recent_avg_vol = df['volume'].iloc[-VOL_CHECK_BARS:].mean()
+            if recent_avg_vol < MIN_ABS_VOLUME:
+                return {'signal': 'no-go', 'confidence': 0.0, 'volume_contexts': active_contexts}
+
         # === CONFIDENCE ===
         confidence = min(1.0, 0.5 + 0.15 * n_opt)
 
@@ -1024,8 +1034,13 @@ class MinerviniClaude:
         MIN_REL_VOL = params.get('MIN_RELATIVE_VOLUME', 0.8)
         vol_ok = relative_volume_gate >= MIN_REL_VOL
 
-        valid_long = long_mandatory & vol_ok & ~contraction_mask & (long_opt >= 1)
-        valid_short = short_mandatory & vol_ok & ~contraction_mask & (short_opt >= 1)
+        # Minimum absolute volume filter: suppress signals in illiquid bars
+        MIN_ABS_VOL = int(params.get('MIN_ABS_VOLUME', 500))
+        vol_avg_5 = df['volume'].rolling(5, min_periods=1).mean()
+        abs_vol_ok = vol_avg_5 >= MIN_ABS_VOL
+
+        valid_long = long_mandatory & vol_ok & abs_vol_ok & ~contraction_mask & (long_opt >= 1)
+        valid_short = short_mandatory & vol_ok & abs_vol_ok & ~contraction_mask & (short_opt >= 1)
 
         signals = np.zeros(n, dtype=np.int8)
         signals[valid_long.values] = 1
@@ -1504,6 +1519,16 @@ class MinerviniClaude:
 
             # Persist calibration score so OPERATIONAL can filter low-score securities
             self.security['params']['calibration_score'] = round(float(final), 2)
+
+            # Persist calibration win rate for OPERATIONAL filtering
+            if cal_trades:
+                _wins = sum(1 for t in cal_trades if t['outcome_class'] == 'WIN')
+                _total = len(cal_trades)
+                self.security['params']['calibration_win_rate'] = round(_wins / _total, 4) if _total > 0 else 0.0
+                self.security['params']['calibration_total_trades'] = _total
+            else:
+                self.security['params']['calibration_win_rate'] = 0.0
+                self.security['params']['calibration_total_trades'] = 0
 
             # Store calibration trades in trade_history for post-analysis
             self._store_calibration_trades(cal_trades)
