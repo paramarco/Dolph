@@ -1125,7 +1125,12 @@ class MinerviniClaude:
         bb_w_raw = latest.get('BB_width_raw', bb_w)
         if isinstance(bb_w_raw, float) and np.isnan(bb_w_raw):
             bb_w_raw = 0
-        margin_raw = p['TP_MULT'] * max(atr_norm, bb_w)
+        # Cap BB_width contribution: if BB_width > 2x ATR, it's likely inflated by
+        # overnight/weekend gaps (OPERATIONAL data includes gaps, backtesting doesn't).
+        # Use ATR as the volatility measure when BB_width is contaminated.
+        BB_ATR_CAP = 2.0
+        effective_bb = min(bb_w, atr_norm * BB_ATR_CAP) if atr_norm > 0 else bb_w
+        margin_raw = p['TP_MULT'] * max(atr_norm, effective_bb)
         m = margin_raw
 
         # Cap margin at 33% of avg daily range
@@ -1182,7 +1187,10 @@ class MinerviniClaude:
         atr_norm = np.nan_to_num(
             (df['ATR'] / df['close'].replace(0, np.nan)).values, nan=0.0)
         bb_w = np.nan_to_num(df['BB_width'].values, nan=0.0)
-        margin_factor = params['TP_MULT'] * np.maximum(atr_norm, bb_w)
+        # Cap BB_width contribution at 2x ATR to prevent overnight gap inflation
+        BB_ATR_CAP = 2.0
+        effective_bb = np.where(atr_norm > 0, np.minimum(bb_w, atr_norm * BB_ATR_CAP), bb_w)
+        margin_factor = params['TP_MULT'] * np.maximum(atr_norm, effective_bb)
 
         # Cap margin at 33% of avg daily range
         MARGIN_CAP_RATIO = getattr(cm, 'MARGIN_DAILY_RANGE_CAP', 0.33)
