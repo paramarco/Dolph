@@ -43,7 +43,7 @@ for i, arg in enumerate(sys.argv[1:], 1):
     if arg == '--onlySecurity' and i < len(sys.argv) - 1:
         only_security = sys.argv[i + 1]
     if arg == '--MIN_CALIBRATION_SCORE':
-        min_calibration_score = 100.0  # default from cm.MIN_CALIBRATION_SCORE
+        min_calibration_score = 0.0  # default from cm.MIN_CALIBRATION_SCORE
     if arg == '--MIN_CALIBRATION_WIN_RATE':
         min_calibration_wr = 0.69  # default from cm.MIN_CALIBRATION_WIN_RATE
     if arg == '--minWinRate' and i < len(sys.argv) - 1:

@@ -632,19 +632,21 @@ class DataServer:
             data.update(self.searchData(self.since, self.until) )
 
         elif self.MODE in ['TEST_ONLINE', 'OPERATIONAL']:
-            since = dt.datetime.now() - dt.timedelta(days=5)
+            lookback_days = getattr(cm, 'OPERATIONAL_LOOKBACK_DAYS', 10)
+            limit_bars = getattr(cm, 'OPERATIONAL_LIMIT_BARS', 2000)
+            since = dt.datetime.now() - dt.timedelta(days=lookback_days)
             max_iterations = 60  # Máximo 60 iteraciones (90 segundos con sleep de 1.5)
             iteration = 0
             dfs = None
-            
+
             log.debug(f"Starting sync loop, max iterations: {max_iterations}")
-            
+
             while iteration < max_iterations:
                 iteration += 1
-                
+
                 try:
                     log.debug(f"Sync iteration {iteration}/{max_iterations}")
-                    dfs = self.searchData(since, limitResult=800)
+                    dfs = self.searchData(since, limitResult=limit_bars)
                     
                     # Verificar que searchData retornó algo válido
                     if not dfs:

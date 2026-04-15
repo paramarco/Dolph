@@ -51,6 +51,8 @@ statusExitOrderFilled = ['filled','Filled']
 ########### default-fallback values ##########################################
 factorPosition_Balance = 0.33    # DolphRobot.py:436, MinerviniClaude.py:956 (direct cm.X usage)
 LEVERAGE_FACTOR = 1.0            # 1.0 = no leverage. Set to 2.0 for 2x per side
+OPERATIONAL_LOOKBACK_DAYS = 10   # Days of quotes to load in OPERATIONAL/TEST_ONLINE
+OPERATIONAL_LIMIT_BARS = 2000  # Max bars per security in OPERATIONAL/TEST_ONLINE
 
 openaikey = platform['secrets']['openaikey']
 
