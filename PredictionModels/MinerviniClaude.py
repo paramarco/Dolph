@@ -38,7 +38,7 @@ class MinerviniClaude:
         'VCP_ATR_SLOPE_EXPANSION': 0.005,
         'VCP_BB_WIDTH_PERCENTILE_EXPANSION': 0.05,
         'VCP_ADX_TREND_THRESHOLD': 8,
-        'EXPANSION_DEVIATION_THRESHOLD': 0.00005,
+        'EXPANSION_DEVIATION_THRESHOLD': 0.0002,
         'MIN_RELATIVE_VOLUME': 0.2,
         'TP_MULT': 0.5,
         'SL_RR': 0.9,
@@ -324,7 +324,12 @@ class MinerviniClaude:
         #   Detect expansion (volatility rising)
         #   Detect contraction (volatility compressing)
         # ---------------------------------------------------------
-        df['ATR']       = self._atr(df, p['ATR_PERIOD'])                # cm.ATR_PERIOD = 14
+        atr_fast        = self._atr(df, p['ATR_PERIOD'])                # cm.ATR_PERIOD = 14
+        # Floor fast ATR at 75% of slow ATR to prevent collapse during calm periods.
+        # Without this, ATR(17) can drop to near-zero in calm intraday bars → tiny margins.
+        ATR_SLOW_MULT = getattr(cm, 'ATR_SLOW_MULT', 5)
+        atr_slow        = self._atr(df, p['ATR_PERIOD'] * ATR_SLOW_MULT)
+        df['ATR']       = atr_fast.clip(lower=atr_slow * 0.75)
         df['ATR_slope'] = df['ATR'].diff(p['ATR_SLOPE_WINDOW'])         # cm.ATR_SLOPE_WINDOW = 5
         # ---------------------------------------------------------
         # ADX + DI (Trend Strength). Measures trend strength and direction, Used to:
@@ -1155,7 +1160,13 @@ class MinerviniClaude:
         _margin_mult = getattr(cm, 'MIN_ABS_MARGIN_MULTIPLIER', 1.5)
         cost_floor = _margin_mult * _cost_per_share_rt / close
         floor_applied = m < cost_floor
-        m = max(m, cost_floor)
+        # If cost_floor dominates margin by more than 2x, the commission is too high
+        # relative to expected profit → reject trade (set margin to 0 → no-go).
+        if cost_floor > m * 2.0:
+            log.info(f"{sec['seccode']}: margin {m:.6f} rejected, cost_floor {cost_floor:.6f} > 2x margin (commission too high)")
+            m = 0.0  # will be filtered by evaluatePosition min_margin check
+        else:
+            m = max(m, cost_floor)
 
         sec['params']['positionMargin'] = float(m)
 
@@ -1645,7 +1656,11 @@ class MinerviniClaude:
         # RSI (Relative Strength Index) — momentum filter, overbought/oversold
         df['RSI']      = self._rsi_series(df['close'], int(params['RSI_PERIOD']))
         # ATR (Average True Range) — volatility level measurement
-        df['ATR']      = self._atr(df, int(params['ATR_PERIOD']))
+        # Floor fast ATR at 75% of slow ATR to prevent collapse during calm periods.
+        ATR_SLOW_MULT = getattr(cm, 'ATR_SLOW_MULT', 5)
+        atr_fast       = self._atr(df, int(params['ATR_PERIOD']))
+        atr_slow       = self._atr(df, int(params['ATR_PERIOD']) * ATR_SLOW_MULT)
+        df['ATR']      = atr_fast.clip(lower=atr_slow * 0.75)
         # ATR slope — volatility expansion/contraction speed
         df['ATR_slope'] = df['ATR'].diff(int(params['ATR_SLOPE_WINDOW']))
         # ADX + DI (Average Directional Index) — trend strength and direction
@@ -1868,8 +1883,10 @@ class MinerviniClaude:
             optimal_tp_min = cash_4_position * getattr(cm, 'OPTIMAL_TP_RATIO_MIN', 0.0035)
             optimal_tp_max = cash_4_position * getattr(cm, 'OPTIMAL_TP_RATIO_MAX', 0.0046)
 
-            # effective_window extends beyond lookahead when exitTimeSeconds > lookahead bars
-            _effective_window = max(lookahead, exit_timeout_bars)
+            # Window for TP/SL detection. Since exitTimeSeconds is disabled as a close
+            # condition (only time2close closes), we use lookahead as the window size.
+            # Positions can stay open beyond lookahead bars until time2close forces exit.
+            _effective_window = lookahead
             for i in range(n - _effective_window - 2):
                 sig = signals[i]
                 if sig == 0:
@@ -2018,11 +2035,11 @@ class MinerviniClaude:
                     sl_price = entry_price + sl_coeff * m_abs
 
                 # Check TP/SL from bar i+3 onwards.
-                # Window extends to max(lookahead, exitTimeSeconds) so positions held
-                # beyond lookahead can still detect TP/SL hits.
+                # Window extends to all remaining bars so positions held until
+                # time2close can still detect TP/SL hits and forced close.
                 start = entry_idx + 1
-                effective_window = _effective_window
-                end   = min(start + effective_window, n)
+                effective_window = n - start  # use all remaining bars
+                end   = n
                 window_highs = highs[start:end]
                 window_lows  = lows[start:end]
 

@@ -487,8 +487,7 @@ class Dolph:
             takePosition = 'no-go'
             entryPrice = stoploss = exitPrice = 0
 
-        # Minimum margin protection: margin must cover at least N× round-trip cost per share.
-        # Uses ib_commission_per_side() to get the real commission for this exchange.
+        # Minimum margin protection: margin must cover transaction costs.
         if takePosition in ['long', 'short']:
             _pe = security.get('primaryExchange', '')
             _cost_per_share = ib_commission_per_side(quantity, _pe) / max(quantity, 1)

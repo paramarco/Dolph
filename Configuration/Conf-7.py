@@ -7,6 +7,9 @@ from Configuration import TradingPlatfomSettings as tps
 
 platform = tps.platform
 
+SECURITY_TZ_FILTER = 'America/'
+SECURITY_CODES_FILTER = ['SNAP','SOFI','TSLA']
+
 _BASE_PARAMS = {
     'algorithm': 'MinerviniClaude',
     'entryByMarket': False,
@@ -287,7 +290,6 @@ MIN_CONFIDENCE_FILTER = 0.75
 MIN_RELATIVE_VOLUME = 0.8
 # Idea #4: Margin dynamic cost floor
 MIN_ABS_MARGIN_MULTIPLIER = 1.5
-ATR_SLOW_MULT = 5                 # Slow ATR window = ATR_PERIOD * this multiplier (floor for fast ATR)
 MARGIN_DAILY_RANGE_CAP = 0.28     # margin cap as fraction of avg daily range
 # (EXPANSION_SCORE_MULT, TREND_SCORE_MULT removed — mandatory/optional replaces score thresholds)
 # Idea #6: Trailing TP in simulation

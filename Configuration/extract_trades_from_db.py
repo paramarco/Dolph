@@ -14,6 +14,7 @@ Usage:
     python3 extract_trades_from_db.py --accountId TEST_OFFLINE --MIN_CALIBRATION_WIN_RATE
     python3 extract_trades_from_db.py --accountId TEST_OFFLINE --minWinRate 0.55
     python3 extract_trades_from_db.py --accountId TEST_OFFLINE --minWinRate 0.80
+    python3 extract_trades_from_db.py --accountId TEST_OFFLINE --minPnL 50
 """
 import sys
 import os
@@ -31,6 +32,7 @@ account_id = None
 only_security = None
 min_calibration_score = None
 min_calibration_wr = None
+min_pnl = None
 for i, arg in enumerate(sys.argv[1:], 1):
     if arg == '--since' and i < len(sys.argv) - 1:
         since = sys.argv[i + 1]
@@ -48,6 +50,8 @@ for i, arg in enumerate(sys.argv[1:], 1):
         min_calibration_wr = 0.69  # default from cm.MIN_CALIBRATION_WIN_RATE
     if arg == '--minWinRate' and i < len(sys.argv) - 1:
         min_calibration_wr = float(sys.argv[i + 1])
+    if arg == '--minPnL' and i < len(sys.argv) - 1:
+        min_pnl = float(sys.argv[i + 1])
 
 # ---------- Query ----------
 where_clauses = []
@@ -130,6 +134,16 @@ for t in trades:
     else:
         t['pnl_total'] = None
 
+# Filter by minimum total PnL per security (--minPnL)
+if min_pnl is not None:
+    from collections import defaultdict as _dd
+    _pnl_by_sec = _dd(float)
+    for t in trades:
+        if t.get('pnl_total') is not None:
+            _pnl_by_sec[t['seccode']] += t['pnl_total']
+    _passing = {sec for sec, pnl in _pnl_by_sec.items() if pnl >= min_pnl}
+    trades = [t for t in trades if t['seccode'] in _passing]
+
 # ============================================================
 # OUTPUT (identical format to correlate_trades.py)
 # ============================================================
@@ -145,6 +159,8 @@ if min_calibration_score is not None:
     filters.append(f"MIN_CALIBRATION_SCORE>={min_calibration_score:.0f}")
 if min_calibration_wr is not None:
     filters.append(f"MIN_CALIBRATION_WIN_RATE>={min_calibration_wr:.0%}")
+if min_pnl is not None:
+    filters.append(f"minPnL>={min_pnl:.0f}")
 if filters:
     print(f"Filters: {', '.join(filters)}")
     print()

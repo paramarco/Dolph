@@ -152,8 +152,11 @@ if not filtered:
 
 # ---------- Load quotes for the date range ----------
 # Need extra lookback for indicators (BB_WINDOW, EMA_SLOW, etc.)
+# and extra lookahead for TP/SL evaluation after signals near --until
 INDICATOR_LOOKBACK_DAYS = 15  # extra days for indicator warmup (EMA, BB, ATR)
+LOOKAHEAD_DAYS = 3            # extra days after --until for TP/SL resolution
 load_since = since_dt - pd.Timedelta(days=INDICATOR_LOOKBACK_DAYS)
+load_until = until_dt + pd.Timedelta(days=LOOKAHEAD_DAYS)
 
 conn = psycopg2.connect(**DB)
 cur = conn.cursor()
@@ -163,7 +166,7 @@ cur.execute("""
     JOIN security s ON q.security_id = s.id
     WHERE q.date_time >= %s AND q.date_time < %s
     ORDER BY s.code, q.date_time
-""", (load_since, until_dt))
+""", (load_since, load_until))
 quote_rows = cur.fetchall()
 cur.close()
 conn.close()
