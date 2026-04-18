@@ -1536,16 +1536,27 @@ class MinerviniClaude:
 
             final, cal_trades = self._simulate_profit(hist, best_params, collect_trades=True)
 
-            # Persist calibration score so OPERATIONAL can filter low-score securities
+            # Persist calibration score (optimizer objective, includes penalties)
             self.security['params']['calibration_score'] = round(float(final), 2)
 
-            # Persist calibration win rate for OPERATIONAL filtering
+            # Compute and persist REAL PnL from backtesting trades (no penalties)
+            # This is the actual profit/loss including commissions, in local currency.
             if cal_trades:
-                _wins = sum(1 for t in cal_trades if t['outcome_class'] == 'WIN')
+                _pe = self.security.get('primaryExchange', '')
+                _real_pnl = 0.0
+                _wins = 0
                 _total = len(cal_trades)
+                for t in cal_trades:
+                    qty = t['quantity']
+                    comm = ib_commission_per_side(qty, _pe) * 2
+                    _real_pnl += qty * t['pnl_pips'] - comm
+                    if t['outcome_class'] == 'WIN':
+                        _wins += 1
+                self.security['params']['calibration_pnl'] = round(_real_pnl, 2)
                 self.security['params']['calibration_win_rate'] = round(_wins / _total, 4) if _total > 0 else 0.0
                 self.security['params']['calibration_total_trades'] = _total
             else:
+                self.security['params']['calibration_pnl'] = 0.0
                 self.security['params']['calibration_win_rate'] = 0.0
                 self.security['params']['calibration_total_trades'] = 0
 
@@ -2134,15 +2145,8 @@ class MinerviniClaude:
                     else:
                         tp_profit = standard_tp_profit - round_trip_cost
 
-                    # Gaussian time reward: favour TP hits around GAUSS_MU min after entry.
-                    # Unit peak (1.0) at mu, σ = sigma → ~0 outside [mu-2σ, mu+2σ].
-                    # Drives TP_MULT toward margins achievable within ~1 hour.
-                    _gauss_mu = params.get('CALIBRATION_GAUSS_MU', getattr(cm, 'CALIBRATION_GAUSS_MU', 25))
-                    _gauss_sigma = params.get('CALIBRATION_GAUSS_SIGMA', getattr(cm, 'CALIBRATION_GAUSS_SIGMA', 8))
-                    gauss_reward = np.exp(-0.5 * ((tp_first - _gauss_mu) / _gauss_sigma) ** 2)
-                    tp_profit *= gauss_reward
-
-                    # Stats only (no reward shaping — score = net_profit)
+                    # Stats only — no Gaussian time reward (removed: it penalized 68%
+                    # of TP profits and biased the optimizer toward tiny margins/SL).
                     stats_tp_time_sum += tp_first
                     if tp_first < half_exit_timeout:
                         stats_tp_fast += 1
@@ -2289,36 +2293,14 @@ class MinerviniClaude:
                     f"profit={total_profit:.2f}"
                 )
 
-            # SL aversion: penalize proportional to real SL losses so optimizer prefers
-            # fewer, higher-quality entries. Scales automatically with position size/capital.
-            # alpha=0.15 means each $100 of SL loss costs an extra $15 in the objective.
-            SL_AVERSION_ALPHA = getattr(cm, 'CALIBRATION_SL_AVERSION', 0.15)
-            total_profit -= SL_AVERSION_ALPHA * stats_sl_loss
-
-            # Max drawdown penalty: penalize SL clustering / deep equity curves.
-            # 5 SL in 10 min is worse than 5 SL spread over 3 months even if total loss is equal.
-            # beta=0.10 means $500 max drawdown costs extra $50 in the objective.
-            DD_AVERSION_BETA = getattr(cm, 'CALIBRATION_DD_AVERSION', 0.10)
-            total_profit -= DD_AVERSION_BETA * max_drawdown
-
-            # Min activity: prevent ultra-selective strategies (2 trades in 90 days = luck, not edge).
-            # Zero trades returns -inf so "do nothing" is NEVER preferred over "trade and lose".
-            # This prevents the optimizer from killing all signals (e.g. EMA_FAST=EMA_MID).
-            MIN_TRADES_PER_DAY = getattr(cm, 'CALIBRATION_MIN_TRADES_PER_DAY', 0.5)
+            # Penalties removed: SL aversion, drawdown, min activity scaling.
+            # The PnL already includes SL losses and commissions — adding artificial
+            # penalties distorted the optimizer and biased toward tiny margins.
+            # Only guard: zero trades returns -inf (optimizer must find SOME trades).
             if trades_opened == 0:
-                sample_price = closes[len(closes) // 2]
-                _, _, bl, sample_qty = self.dolph.compute_position_size(
-                    net_balance, sample_price, self.security)
-                if bl > 1 and sample_qty == 0:
-                    log.warning(
-                        f"{self.seccode}: 0 trades, board_lot={bl} too large for "
-                        f"net_balance={net_balance} at price={sample_price:.2f} "
-                        f"(need {bl * sample_price / fx_rate:.0f} USD min)")
                 if collect_trades:
                     return -np.inf, []
                 return -np.inf
-            if num_trading_days > 0 and trades_per_day < MIN_TRADES_PER_DAY:
-                total_profit *= trades_per_day / MIN_TRADES_PER_DAY
 
             # Normalize profit to USD for cross-security comparability.
             # Without this, GBX stocks (fx_rate=79) appear ~79× more profitable

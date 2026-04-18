@@ -65,9 +65,8 @@ class Dolph:
         return score / fx_rate if fx_rate > 0 else score
 
     def _init_securities(self):
-        # In OPERATIONAL mode, exclude securities with low calibration win rate.
-        # Also require positive calibration_score to exclude _BASE_PARAMS resets
-        # (anti-degeneration sets score<=0 but old win_rate may still be high).
+        # In OPERATIONAL mode, exclude securities with low calibration win rate
+        # or negative PnL from backtesting.
         if self.MODE == 'OPERATIONAL':
             MIN_WIN_RATE = getattr(cm, 'MIN_CALIBRATION_WIN_RATE', 0.69)
             before = len(self.securities)
@@ -75,16 +74,16 @@ class Dolph:
             excluded = []
             for s in self.securities:
                 wr = s['params'].get('calibration_win_rate', 0.0)
-                score = s['params'].get('calibration_score', 0.0)
-                if wr >= MIN_WIN_RATE and score > 0:
+                pnl = s['params'].get('calibration_pnl', s['params'].get('calibration_score', 0.0))
+                if wr >= MIN_WIN_RATE and pnl > 0:
                     kept.append(s)
                 else:
-                    excluded.append(f"{s['seccode']}(WR={wr:.1%},score={score:.1f})")
+                    excluded.append(f"{s['seccode']}(WR={wr:.1%},PnL={pnl:.1f})")
             self.securities = kept
             if excluded:
                 self.logger.warning(
                     f"OPERATIONAL filter: excluded {len(excluded)}/{before} securities "
-                    f"with calibration_win_rate < {MIN_WIN_RATE:.0%} or score<=0: {excluded}"
+                    f"with calibration_win_rate < {MIN_WIN_RATE:.0%} or PnL<=0: {excluded}"
                 )
 
         for sec in self.securities:
