@@ -1865,6 +1865,15 @@ class MinerviniClaude:
             short_exposure = 0.0
             has_open_position = False  # only 1 position at a time per security (mirrors isPositionOpen)
 
+            # Pre-compute extreme volume detection for emergency close simulation.
+            # A bar with volume > EXTREME_VOLUME_THRESHOLD × rolling avg that moves
+            # against the position triggers an early close (mirrors OPERATIONAL behavior).
+            VOL_AVG_WIN = int(params.get('VOLUME_AVG_WINDOW', 13))
+            EXTREME_VOL_THRESH = float(params.get('EXTREME_VOLUME_THRESHOLD', 2.5))
+            vol_avg = pd.Series(volumes).rolling(VOL_AVG_WIN, min_periods=1).mean().values
+            vol_ratio = np.where(vol_avg > 0, volumes / vol_avg, 0.0)
+            bar_direction = np.sign(closes - df['open'].values)  # +1 up, -1 down, 0 flat
+
             # Simulation counters for DEBUG logging
             stats_signals = 0
             stats_skip_hours = 0
@@ -2063,6 +2072,61 @@ class MinerviniClaude:
 
                 tp_first = tp_hits[0] if len(tp_hits) > 0 else effective_window + 1
                 sl_first = sl_hits[0] if len(sl_hits) > 0 else effective_window + 1
+
+                # Extreme volume emergency close: find first bar after entry with
+                # extreme volume moving against the position. If it comes before
+                # TP/SL, close there instead (mirrors OPERATIONAL _check_extreme_volume_close).
+                extreme_vol_bar = effective_window + 1  # default: no extreme vol close
+                for ev_offset in range(min(end - start, effective_window)):
+                    ev_idx = start + ev_offset
+                    if ev_idx >= n:
+                        break
+                    if vol_ratio[ev_idx] >= EXTREME_VOL_THRESH:
+                        # Extreme volume — check if against position
+                        against = ((sig == 1 and bar_direction[ev_idx] < 0) or
+                                   (sig == -1 and bar_direction[ev_idx] > 0))
+                        if against:
+                            extreme_vol_bar = ev_offset
+                            break
+
+                # If extreme vol close comes before TP AND SL, use it
+                if extreme_vol_bar < tp_first and extreme_vol_bar < sl_first:
+                    close_idx = start + extreme_vol_bar
+                    close_price = closes[close_idx]
+                    if sig == 1:
+                        _pnl_pips = close_price - entry_price
+                    else:
+                        _pnl_pips = entry_price - close_price
+                    pnl = _pnl_pips * quantity - round_trip_cost
+                    total_profit += pnl
+                    close_bar = close_idx
+                    stats_forced_close += 1
+                    _outcome = 'FORCED_EXTREME_VOLUME'
+                    _outcome_class = 'WIN' if _pnl_pips > 0 else ('LOSS' if _pnl_pips < 0 else 'NEUTRAL')
+                    _close_price = close_price
+
+                    # Collect and skip to next trade
+                    if collected_trades is not None:
+                        _open_idx = i
+                        _close_idx = min(close_bar, n - 1)
+                        _conf = round(float(confidence_arr[i]), 4) if confidence_arr is not None else None
+                        collected_trades.append({
+                            'open_ts': df.index[_open_idx], 'close_ts': df.index[_close_idx],
+                            'direction': 'long' if sig == 1 else 'short', 'confidence': _conf,
+                            'entry_price': round(float(entry_price), 4),
+                            'tp_target': round(float(tp_price), 4), 'sl_target': round(float(sl_price), 4),
+                            'quantity': int(quantity), 'outcome': _outcome, 'outcome_class': _outcome_class,
+                            'pnl_pips': round(float(_pnl_pips), 4), 'close_price': round(float(_close_price), 4),
+                        })
+                    if total_profit > peak_profit: peak_profit = total_profit
+                    drawdown = peak_profit - total_profit
+                    if drawdown > max_drawdown: max_drawdown = drawdown
+                    if track_constraints:
+                        new_exp = quantity * entry_price
+                        active_positions.append({'dir': sig, 'exposure': new_exp, 'close_bar': close_bar})
+                        if sig == 1: long_exposure += new_exp
+                        else: short_exposure += new_exp
+                    continue  # skip normal TP/SL/forced resolution
 
                 # Same-bar conflict resolution: with 1-min OHLC we cannot know if TP
                 # or SL was hit first within a candle. Use proximity heuristic:

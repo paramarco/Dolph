@@ -753,6 +753,67 @@ class TradingPlatform(ABC):
             return None
 
 
+    def _check_extreme_volume_close(self, symbol, bars, current_bar):
+        """Emergency close when extreme volume moves against an open position.
+
+        Detects sudden breakouts (news, institutional flow) by checking if the
+        completed bar has volume > EXTREME_VOLUME_THRESHOLD × recent average
+        AND the price moved against the position direction. If so, close
+        immediately at market to limit losses before SL is hit.
+        """
+        try:
+            # Only in OPERATIONAL mode
+            if self.MODE != 'OPERATIONAL':
+                return
+
+            # Check if we have an open position for this symbol
+            mp = next((p for p in self.monitoredPositions
+                       if p.seccode == symbol and not p.exitOrderAlreadyCancelled), None)
+            if mp is None:
+                return
+
+            # Need enough bars to compute average volume
+            VOL_WINDOW = 13
+            if len(bars) < VOL_WINDOW + 1:
+                return
+
+            # Compute average volume over recent bars (excluding current)
+            recent_vols = [b.volume for b in bars[-(VOL_WINDOW + 1):-1]]
+            avg_vol = sum(recent_vols) / len(recent_vols) if recent_vols else 0
+            if avg_vol <= 0:
+                return
+
+            vol_ratio = current_bar.volume / avg_vol
+            EXTREME_THRESHOLD = getattr(cm, 'EXTREME_VOLUME_THRESHOLD', 2.5)
+
+            if vol_ratio < EXTREME_THRESHOLD:
+                return
+
+            # Extreme volume detected — check if price moved against position
+            price_move = current_bar.close - current_bar.open
+            is_against = ((mp.takePosition == 'long' and price_move < 0) or
+                          (mp.takePosition == 'short' and price_move > 0))
+
+            if not is_against:
+                return  # Extreme volume in OUR direction → good, let it run
+
+            log.warning(
+                f"EXTREME VOLUME DEFENSE: {symbol} {mp.takePosition} position, "
+                f"bar vol={current_bar.volume} ({vol_ratio:.1f}x avg={avg_vol:.0f}), "
+                f"price moved against position "
+                f"(open={current_bar.open} close={current_bar.close}). "
+                f"Emergency close at market."
+            )
+
+            # Close the position: update trade_history + cancel bracket + market close
+            close_price = current_bar.close
+            self._update_trade_history(mp, 'FORCED_EXTREME_VOLUME', close_price)
+            meo = next((o for o in self.monitoredExitOrders if o.id == mp.exit_tp_id), None)
+            self.closeExit(mp, meo)
+
+        except Exception as e:
+            log.error(f"_check_extreme_volume_close error for {symbol}: {e}")
+
     def cancelTimedoutExits(self):
         """common"""
         positions_to_close = []
@@ -2062,6 +2123,11 @@ class IBTradingPlatform(TradingPlatform):
 
         # Filter via should_store_bar (reusable across all insertion points)
         sec = next((s for s in self.securities if s['seccode'] == symbol), None)
+
+        # Extreme volume defense: if a completed bar has extreme volume moving
+        # against an open position, close immediately before SL is hit.
+        # This is a reactive defense against sudden breakouts (e.g. news).
+        self._check_extreme_volume_close(symbol, bars, bar)
 
         # Defer DB write to avoid blocking the IB event loop
         from threading import Thread
