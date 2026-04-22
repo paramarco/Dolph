@@ -65,6 +65,10 @@ until_dt = pd.Timestamp(until, tz='UTC')
 if 'T' not in until and ':' not in until:
     until_dt += pd.Timedelta(days=1)
 
+if since_dt >= until_dt:
+    print(f"ERROR: --since ({since}) must be before --until ({until})")
+    sys.exit(1)
+
 # ---------- Load securities from DB ----------
 conn = psycopg2.connect(**DB)
 cur = conn.cursor()
@@ -176,6 +180,19 @@ df_all.set_index('date_time', inplace=True)
 if df_all.index.tz is None:
     df_all.index = df_all.index.tz_localize('UTC')
 
+# Verify data availability up to --until
+if df_all.empty:
+    print(f"ERROR: No quotes found in range {load_since} to {load_until}")
+    sys.exit(1)
+
+last_quote_ts = df_all.index.max()
+if last_quote_ts < until_dt:
+    print(f"WARNING: Quotes only available until {last_quote_ts}.")
+    print(f"         Requested --until {until_dt}.")
+    print(f"         Trades near the end may not have future data for TP/SL resolution.")
+    print(f"         Results will be incomplete.")
+    print()
+
 # ---------- Import MinerviniClaude components ----------
 # Mock TradingPlatfomSettings before importing Conf (avoids IB dependency)
 import types
@@ -226,8 +243,26 @@ for sec in filtered:
     params = dict(sec['params'])
     MinerviniClaude._derive_params(params)
 
-    # Get quotes for this security
-    df_sec = df_all[df_all['seccode'] == seccode][['open', 'high', 'low', 'close', 'volume']].copy()
+    # Get quotes for this security, matching OPERATIONAL data pipeline:
+    # 1. Apply between_time filter (remove overnight bars, same as DataServer.searchData)
+    # 2. Limit to OPERATIONAL_LIMIT_BARS via .tail() up to until_dt
+    # 3. Append future bars for TP/SL resolution
+    LIMIT_BARS = getattr(cm, 'OPERATIONAL_LIMIT_BARS', 4000)
+    df_sec_all = df_all[df_all['seccode'] == seccode][['open', 'high', 'low', 'close', 'volume']].copy()
+
+    # between_time filter: keep only bars within trading session hours
+    # OPERATIONAL uses cm.between_time (07:00-23:40 NY) per security's timezone
+    sec_tz = sec.get('timezone', 'America/New_York')
+    bt_start = getattr(cm, 'between_time', (dt.time(7, 0), dt.time(23, 40)))[0]
+    bt_end = getattr(cm, 'between_time', (dt.time(7, 0), dt.time(23, 40)))[1]
+    df_sec_local = df_sec_all.copy()
+    df_sec_local.index = df_sec_local.index.tz_convert(sec_tz)
+    df_sec_local = df_sec_local.between_time(bt_start, bt_end)
+    df_sec_local.index = df_sec_local.index.tz_convert('UTC')
+
+    df_sec_before = df_sec_local[df_sec_local.index <= until_dt].tail(LIMIT_BARS)
+    df_sec_after = df_sec_local[df_sec_local.index > until_dt]
+    df_sec = pd.concat([df_sec_before, df_sec_after])
 
     if len(df_sec) < params.get('CALIBRATION_MIN_ROWS', 100):
         print(f"  {seccode}: skipped ({len(df_sec)} bars, need {params.get('CALIBRATION_MIN_ROWS', 100)})")

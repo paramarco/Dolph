@@ -354,10 +354,17 @@ class MinerviniClaude:
         # Cap BB_width: never exceed 3x ATR/close to prevent extreme margins
         atr_norm_cap = df['ATR'] / df['close'].replace(0, np.nan)
         df['BB_width'] = df[['BB_width']].clip(upper=(3.0 * atr_norm_cap).values, axis=0)
-        # Percentile of BB width over rolling window                    # cm.BB_PERCENTILE_WINDOW = 100
-        df['BB_width_pctile'] = df['BB_width'].rolling(p['BB_PERCENTILE_WINDOW']).apply(
-            lambda x: pd.Series(x).rank(pct=True).iloc[-1]
-        )
+        # Percentile of BB width over rolling window (fast numpy version,
+        # identical to _compute_indicators_for_calibration for consistency).
+        bb_vals = df['BB_width'].values
+        pctile_win = int(p['BB_PERCENTILE_WINDOW'])
+        pctile = np.full(len(bb_vals), np.nan)
+        for _pi in range(pctile_win - 1, len(bb_vals)):
+            w = bb_vals[_pi - pctile_win + 1:_pi + 1]
+            valid = w[~np.isnan(w)]
+            if len(valid) > 0:
+                pctile[_pi] = np.sum(valid <= valid[-1]) / len(valid)
+        df['BB_width_pctile'] = pctile
         # ---------------------------------------------------------
         # FAIR VALUE PRICE (FVP). Rolling mean of close. Used for:
         # Statistical center of recent price movement
@@ -1871,7 +1878,9 @@ class MinerviniClaude:
             VOL_AVG_WIN = int(params.get('VOLUME_AVG_WINDOW', 13))
             EXTREME_VOL_THRESH = float(params.get('EXTREME_VOLUME_THRESHOLD', 2.5))
             vol_avg = pd.Series(volumes).rolling(VOL_AVG_WIN, min_periods=1).mean().values
-            vol_ratio = np.where(vol_avg > 0, volumes / vol_avg, 0.0)
+            with np.errstate(divide='ignore', invalid='ignore'):
+                vol_ratio = np.where(vol_avg > 0, volumes / vol_avg, 0.0)
+            vol_ratio = np.nan_to_num(vol_ratio, nan=0.0)
             bar_direction = np.sign(closes - df['open'].values)  # +1 up, -1 down, 0 flat
 
             # Simulation counters for DEBUG logging
